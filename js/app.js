@@ -1,5 +1,5 @@
 /* =================================================================== */
-/* ARQUIVO DE LÓGICA UNIFICADO (V3.3.1 - ÍNTEGRA TOTAL 100% E FIX DE SYNTAX ERROR)
+/* ARQUIVO DE LÓGICA UNIFICADO (V3.3.2 - FIX CRÍTICO DE SYNTAX ERROR)
 /* CORREÇÃO CRÍTICA: Restaura o Login, Adiciona o Strava/IA de forma estável.
 /* =================================================================== */
 
@@ -25,7 +25,7 @@ const AppPrincipal = {
 
     // Inicialização principal: Decisão se está em app.html ou index.html (V2.2 Roteamento)
     init: () => {
-        console.log("Iniciando AppPrincipal V3.3.1...");
+        console.log("Iniciando AppPrincipal V3.3.2...");
         
         if (typeof window.firebaseConfig === 'undefined') {
             document.body.innerHTML = "<h1>Erro Crítico: O arquivo js/config.js não foi configurado.</h1>";
@@ -1023,9 +1023,10 @@ const AppPrincipal = {
         }
     },
     
+    // CORREÇÃO CRÍTICA (V3.3.2)
     // Injeta a correção do Guardião de Strava no initPlatform
-    AppPrincipal.initPlatformOriginal = AppPrincipal.initPlatform;
-    AppPrincipal.initPlatform = () => {
+    initPlatformOriginal: AppPrincipal.initPlatform, // Corrigido: Colocado o ponto e vírgula
+    initPlatform: () => {
         AppPrincipal.initPlatformOriginal();
 
         const urlParams = new URLSearchParams(window.location.search);
@@ -1050,11 +1051,11 @@ const AppPrincipal = {
             alert(`Conexão Strava Falhou: ${stravaError}.`);
             window.location.href = 'app.html';
         }
-    };
+    },
     
     // Adiciona o botão de conexão Strava no Modal de Perfil
-    AppPrincipal.openProfileModalOriginal = AppPrincipal.openProfileModal;
-    AppPrincipal.openProfileModal = () => {
+    openProfileModalOriginal: AppPrincipal.openProfileModal,
+    openProfileModal: () => {
         AppPrincipal.openProfileModalOriginal();
         
         const modalBody = AppPrincipal.elements.profileModal.querySelector('.modal-body');
@@ -1090,7 +1091,7 @@ const AppPrincipal = {
             modalBody.querySelector('#btn-edit-profile').addEventListener('click', AppPrincipal.openEditProfileModal);
             modalBody.querySelector('#btn-connect-strava').addEventListener('click', AppPrincipal.handleStravaConnect);
         }
-    };
+    }
 };
 
 
@@ -1119,7 +1120,10 @@ const AuthLogic = {
             toggleToLogin: document.getElementById('toggleToLogin'),
             
             btnSubmitLogin: document.getElementById('btn-submit-login'),
-            btnSubmitRegister: document.getElementById('btn-submit-register')
+            btnSubmitRegister: document.getElementById('btn-submit-register'),
+            
+            // NOVO (V3.3.2): Elemento que faltava
+            pendingEmailDisplay: document.getElementById('pending-email-display')
         };
         
         AuthLogic.elements.toggleToRegister.addEventListener('click', AuthLogic.handleToggle);
@@ -1246,7 +1250,10 @@ const AuthLogic = {
                     }
                     AuthLogic.db.ref('pendingApprovals/' + uid).once('value', pendingSnapshot => {
                         if (pendingSnapshot.exists()) {
-                            AuthLogic.elements.pendingEmailDisplay.textContent = user.email;
+                            // CORREÇÃO CRÍTICA (V3.3.2): O elemento DOM precisa estar no cache
+                            if (AuthLogic.elements.pendingEmailDisplay) {
+                                AuthLogic.elements.pendingEmailDisplay.textContent = user.email;
+                            }
                             AuthLogic.showView('pending');
                         } else {
                             AuthLogic.elements.loginErrorMsg.textContent = "Sua conta foi rejeitada ou excluída.";

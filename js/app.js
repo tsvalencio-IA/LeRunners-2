@@ -883,7 +883,7 @@ const AppPrincipal = {
         };
 
         const response = await fetch(API_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(requestBody) });
-        
+
         if (!response.ok) {
             const err = await response.json();
             throw new Error(`Erro API Gemini (Texto): ${err.error.message}`);

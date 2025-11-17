@@ -22,9 +22,21 @@ const CLOUDINARY_CONFIG = {
   uploadPreset: "LeRunners"
 };
 
+// --- Configuração do STRAVA (Pública e URLs de Backend) ---
+const STRAVA_PUBLIC_CONFIG = {
+    // Client ID Público do Strava
+    clientID: '185534', 
+    // URL DE RETORNO (DEVE SER O SEU GITHUB PAGES)
+    // Assumindo: https://tsvalencio-ia.github.io/LeRunners/app.html
+    redirectURI: 'https://tsvalencio-ia.github.io/LeRunners/app.html', 
+    // URL da API Vercel (Backend)
+    vercelAPI: 'https://le-runners-2qp3qour8-thiaguinho-s-projects.vercel.app/api/strava-exchange'
+};
+
 // ===================================================================
 // NOVO (V2.5): Disponibiliza as chaves globalmente para app.js
 // ===================================================================
 window.firebaseConfig = firebaseConfig;
 window.GEMINI_API_KEY = GEMINI_API_KEY;
 window.CLOUDINARY_CONFIG = CLOUDINARY_CONFIG;
+window.STRAVA_PUBLIC_CONFIG = STRAVA_PUBLIC_CONFIG;

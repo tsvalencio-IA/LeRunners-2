@@ -28,7 +28,8 @@ const STRAVA_PUBLIC_CONFIG = {
     redirectURI: 'https://tsvalencio-ia.github.io/LeRunners-2/app.html', 
     
     // URL FINAL DO VERCEL (O SEU BACKEND)
-    vercelAPI: 'https://le-runners2-m38q8i91-thiaguinho-s-projects.vercel.app/api/strava-exchange'
+    // CORREÇÃO CRÍTICA: Usar o domínio principal do Vercel
+    vercelAPI: 'https://le-runners2.vercel.app/api/strava-exchange' 
 };
 
 // ===================================================================

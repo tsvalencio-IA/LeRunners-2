@@ -12,11 +12,9 @@ const firebaseConfig = {
 };
 
 // --- Configuração da GOOGLE GEMINI API (MÓDULO 4 - IA) ---
-// ATENÇÃO: Chave exposta. Use restrições de API no Google Cloud.
 const GEMINI_API_KEY = "AIzaSyDuAA1HAwu4UlLUcqI5pla8nJn-Ue3esJg";
 
 // --- Configuração do CLOUDINARY (MÓDULO 4 - Fotos) ---
-// Crie uma conta no Cloudinary e um "Upload Preset"
 const CLOUDINARY_CONFIG = {
   cloudName: "djtiaygrs",
   uploadPreset: "LeRunners"
@@ -24,15 +22,15 @@ const CLOUDINARY_CONFIG = {
 
 // --- Configuração do STRAVA (Pública e URLs de Backend) ---
 const STRAVA_PUBLIC_CONFIG = {
-    // Client ID Público do Strava (Mantido)
     clientID: '185534', 
     
-    // ATUALIZADO: Novo endereço do GitHub Pages
+    // NOVO ENDEREÇO DO GITHUB PAGES (Para onde o Strava redireciona)
     redirectURI: 'https://tsvalencio-ia.github.io/LeRunners-2/app.html', 
     
-    // NOVO DEPLOY: Você precisará de uma nova URL do Vercel aqui
-    vercelAPI: 'SUA_NOVA_URL_VERCEL_AQUI/api/strava-exchange'
+    // URL FINAL DO VERCEL (O SEU BACKEND)
+    vercelAPI: 'https://le-runners2-m38q8i91-thiaguinho-s-projects.vercel.app/api/strava-exchange'
 };
+
 // ===================================================================
 // NOVO (V2.5): Disponibiliza as chaves globalmente para app.js
 // ===================================================================

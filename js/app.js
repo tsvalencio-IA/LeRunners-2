@@ -1,6 +1,6 @@
 /* =================================================================== */
-/* ARQUIVO DE LÓGICA UNIFICADO (V3.3.2 - FIX CRÍTICO DE SYNTAX ERROR)
-/* CORREÇÃO CRÍTICA: Restaura o Login, Adiciona o Strava/IA de forma estável.
+/* ARQUIVO DE LÓGICA UNIFICADO (V3.3.2 - FIX CRÍTICO DE SYNTAX ERROR/REFERENCE)
+/* CORREÇÃO CRÍTICA: Sintaxe do Strava + Correção de Referência Duplicada.
 /* =================================================================== */
 
 // ===================================================================
@@ -1025,7 +1025,7 @@ const AppPrincipal = {
     
     // CORREÇÃO CRÍTICA (V3.3.2)
     // Injeta a correção do Guardião de Strava no initPlatform
-    initPlatformOriginal: AppPrincipal.initPlatform, // Corrigido: Colocado o ponto e vírgula
+    initPlatformOriginal: AppPrincipal.initPlatform, 
     initPlatform: () => {
         AppPrincipal.initPlatformOriginal();
 

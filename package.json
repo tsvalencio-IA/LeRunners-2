@@ -1,0 +1,14 @@
+{
+  "name": "lerunners-strava-api",
+  "version": "1.0.0",
+  "description": "Dependencies for Vercel Serverless Functions.",
+  "main": "api/strava-exchange.js",
+  "scripts": {
+    "start": "vercel dev"
+  },
+  "dependencies": {
+    "firebase-admin": "^12.0.0",
+    "axios": "^1.7.2"
+  },
+  "type": "module"
+}

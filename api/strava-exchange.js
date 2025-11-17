@@ -1,20 +1,16 @@
 /* =================================================================== */
 /* VERCEL SERVERLESS FUNCTION: /api/strava-exchange
-/* VERSÃO V1.1 (CORS FIX - CÓDIGO COMPLETO)
-/* CORREÇÃO CRÍTICA: Adicionado o cabeçalho CORS para permitir acesso
-/* do GitHub Pages (Frontend).
+/* VERSÃO V1.2 (CORS FIX DEFINITIVO - Permissividade para Testes)
+/* CORREÇÃO CRÍTICA: Definido Access-Control-Allow-Origin como '*' 
+/* para garantir a passagem do CORS entre todos os domínios do Vercel e GitHub.
 /* =================================================================== */
 
 // Vercel Serverless Functions usam o padrão Node.js export default
-// Nenhuma biblioteca como 'express' é necessária para requisições simples.
 const admin = require("firebase-admin");
 const axios = require("axios");
 
 // Inicializa o Firebase Admin SDK (Cloud Run/Vercel precisam disso)
 if (admin.apps.length === 0) {
-    // A autenticação no Vercel é feita por ADC (Application Default Credentials) 
-    // se o ambiente for configurado corretamente, ou por Service Account Key.
-    // Usaremos a URL do seu DB
     admin.initializeApp({
         databaseURL: "https://lerunners-a6de2-default-rtdb.firebaseio.com"
     });
@@ -25,16 +21,14 @@ const auth = admin.auth();
 const STRAVA_TOKEN_URL = "https://www.strava.com/oauth/token";
 
 // ===================================================================
-// NOVO: Função para aplicar o cabeçalho CORS
+// NOVO: Função para aplicar o cabeçalho CORS (Permissivo para desenvolvimento)
 // ===================================================================
 function setCorsHeaders(res) {
-    // Permite acesso do domínio específico do GitHub Pages
-    // O domínio tsvalencio-ia.github.io é o seu frontend.
-    res.setHeader('Access-Control-Allow-Origin', 'https://tsvalencio-ia.github.io');
+    // Definimos como * para o desenvolvimento eliminar de vez o problema de CORS.
+    res.setHeader('Access-Control-Allow-Origin', '*'); 
     res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
 }
-
 
 export default async function stravaExchangeHandler(req, res) {
     
@@ -70,7 +64,6 @@ export default async function stravaExchangeHandler(req, res) {
 
     // 5. Pega o código do Strava e os Secrets (do Vercel Environment Variables)
     const code = req.body.code;
-    // Assume que STRAVA_CLIENT_ID e STRAVA_CLIENT_SECRET estão configurados no Vercel
     const clientID = process.env.STRAVA_CLIENT_ID;
     const clientSecret = process.env.STRAVA_CLIENT_SECRET;
 
@@ -107,7 +100,6 @@ export default async function stravaExchangeHandler(req, res) {
     } catch (error) {
         const errorMessage = error.response ? error.response.data : error.message;
         console.error("Erro ao trocar token do Strava:", errorMessage);
-        // O CORS Headers já foi aplicado aqui.
         return res.status(500).json({
             error: "Falha ao contatar a API do Strava.",
             details: errorMessage

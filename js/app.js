@@ -1,6 +1,6 @@
 /* =================================================================== */
-/* ARQUIVO DE LÓGICA UNIFICADO (V3.3.2 - FIX CRÍTICO DE SYNTAX ERROR/REFERENCE)
-/* CORREÇÃO CRÍTICA: Sintaxe do Strava + Correção de Referência Duplicada.
+/* ARQUIVO DE LÓGICA UNIFICADO (V3.3.3 - FIX FINAL DO REFERENCE ERROR)
+/* CÓDIGO COMPLETO 100% NA ÍNTEGRA.
 /* =================================================================== */
 
 // ===================================================================
@@ -25,7 +25,7 @@ const AppPrincipal = {
 
     // Inicialização principal: Decisão se está em app.html ou index.html (V2.2 Roteamento)
     init: () => {
-        console.log("Iniciando AppPrincipal V3.3.2...");
+        console.log("Iniciando AppPrincipal V3.3.3...");
         
         if (typeof window.firebaseConfig === 'undefined') {
             document.body.innerHTML = "<h1>Erro Crítico: O arquivo js/config.js não foi configurado.</h1>";
@@ -50,8 +50,84 @@ const AppPrincipal = {
             AuthLogic.init(AppPrincipal.state.auth, AppPrincipal.state.db); // Chama o AuthLogic com os objetos
         } else if (document.getElementById('app-container')) { // app.html
             console.log("Modo: Plataforma (app.html)");
+            
+            // CORREÇÃO CRÍTICA V3.3.3: Injeta a lógica do Strava APÓS a definição do AppPrincipal
+            AppPrincipal.injectStravaLogic();
+            
             AppPrincipal.initPlatform();
         }
+    },
+    
+    // NOVO MÉTODO (V3.3.3): Contém a lógica de injeção do Strava que causava o erro TDZ
+    injectStravaLogic: () => {
+        // Injeta a correção do Guardião de Strava no initPlatform
+        AppPrincipal.initPlatformOriginal = AppPrincipal.initPlatform;
+        AppPrincipal.initPlatform = () => {
+            AppPrincipal.initPlatformOriginal();
+
+            const urlParams = new URLSearchParams(window.location.search);
+            const stravaCode = urlParams.get('code');
+            const stravaError = urlParams.get('error');
+
+            if (stravaCode && !stravaError) {
+                
+                AppPrincipal.elements.loader.classList.remove('hidden');
+                AppPrincipal.elements.appContainer.classList.add('hidden');
+                
+                const unsubscribe = AppPrincipal.state.auth.onAuthStateChanged(user => {
+                    if (user) { 
+                        if (AppPrincipal.state.currentUser && user.uid === AppPrincipal.state.currentUser.uid) {
+                            unsubscribe();
+                            AppPrincipal.exchangeStravaCode(stravaCode);
+                        }
+                    }
+                });
+                
+            } else if (stravaError) {
+                alert(`Conexão Strava Falhou: ${stravaError}.`);
+                window.location.href = 'app.html';
+            }
+        };
+        
+        // Adiciona o botão de conexão Strava no Modal de Perfil
+        AppPrincipal.openProfileModalOriginal = AppPrincipal.openProfileModal;
+        AppPrincipal.openProfileModal = () => {
+            AppPrincipal.openProfileModalOriginal();
+            
+            const modalBody = AppPrincipal.elements.profileModal.querySelector('.modal-body');
+            
+            if (!modalBody.querySelector('#strava-connect-section')) {
+                const stravaSection = document.createElement('div');
+                stravaSection.id = 'strava-connect-section';
+                
+                const editButton = `
+                     <button id="btn-edit-profile" class="btn btn-secondary" style="margin-top: 1rem; margin-bottom: 1rem; width: 100%;">
+                        <i class='bx bx-edit-alt'></i> Editar Perfil
+                    </button>
+                `;
+                
+                stravaSection.innerHTML = `
+                    ${editButton}
+                    <fieldset style="margin-top: 1rem;">
+                        <legend><i class='bx bxl-strava'></i> Integração Strava</legend>
+                        <p style="margin-bottom: 1rem; font-size: 0.9rem;">Conecte sua conta para permitir a leitura de dados pela IA.</p>
+                        <button id="btn-connect-strava" class="btn btn-secondary" style="background-color: var(--strava-orange); color: white;">
+                            <i class='bx bxl-strava'></i> Conectar Strava
+                        </button>
+                    </fieldset>
+                `;
+                
+                const logoutButton = modalBody.querySelector('#logout-btn');
+                if (logoutButton) {
+                    modalBody.insertBefore(stravaSection, logoutButton);
+                } else {
+                    modalBody.appendChild(stravaSection);
+                }
+
+                modalBody.querySelector('#btn-edit-profile').addEventListener('click', AppPrincipal.openEditProfileModal);
+                modalBody.querySelector('#btn-connect-strava').addEventListener('click', AppPrincipal.handleStravaConnect);
+            }
+        };
     },
     
     // Inicia a lógica da plataforma (app.html)
@@ -1021,76 +1097,6 @@ const AppPrincipal = {
             alert("Erro de rede ao contatar o backend.");
             window.location.href = 'app.html';
         }
-    },
-    
-    // CORREÇÃO CRÍTICA (V3.3.2)
-    // Injeta a correção do Guardião de Strava no initPlatform
-    initPlatformOriginal: AppPrincipal.initPlatform, 
-    initPlatform: () => {
-        AppPrincipal.initPlatformOriginal();
-
-        const urlParams = new URLSearchParams(window.location.search);
-        const stravaCode = urlParams.get('code');
-        const stravaError = urlParams.get('error');
-
-        if (stravaCode && !stravaError) {
-            
-            AppPrincipal.elements.loader.classList.remove('hidden');
-            AppPrincipal.elements.appContainer.classList.add('hidden');
-            
-            const unsubscribe = AppPrincipal.state.auth.onAuthStateChanged(user => {
-                if (user) { 
-                    if (AppPrincipal.state.currentUser && user.uid === AppPrincipal.state.currentUser.uid) {
-                        unsubscribe();
-                        AppPrincipal.exchangeStravaCode(stravaCode);
-                    }
-                }
-            });
-            
-        } else if (stravaError) {
-            alert(`Conexão Strava Falhou: ${stravaError}.`);
-            window.location.href = 'app.html';
-        }
-    },
-    
-    // Adiciona o botão de conexão Strava no Modal de Perfil
-    openProfileModalOriginal: AppPrincipal.openProfileModal,
-    openProfileModal: () => {
-        AppPrincipal.openProfileModalOriginal();
-        
-        const modalBody = AppPrincipal.elements.profileModal.querySelector('.modal-body');
-        
-        if (!modalBody.querySelector('#strava-connect-section')) {
-            const stravaSection = document.createElement('div');
-            stravaSection.id = 'strava-connect-section';
-            
-            const editButton = `
-                 <button id="btn-edit-profile" class="btn btn-secondary" style="margin-top: 1rem; margin-bottom: 1rem; width: 100%;">
-                    <i class='bx bx-edit-alt'></i> Editar Perfil
-                </button>
-            `;
-            
-            stravaSection.innerHTML = `
-                ${editButton}
-                <fieldset style="margin-top: 1rem;">
-                    <legend><i class='bx bxl-strava'></i> Integração Strava</legend>
-                    <p style="margin-bottom: 1rem; font-size: 0.9rem;">Conecte sua conta para permitir a leitura de dados pela IA.</p>
-                    <button id="btn-connect-strava" class="btn btn-secondary" style="background-color: var(--strava-orange); color: white;">
-                        <i class='bx bxl-strava'></i> Conectar Strava
-                    </button>
-                </fieldset>
-            `;
-            
-            const logoutButton = modalBody.querySelector('#logout-btn');
-            if (logoutButton) {
-                modalBody.insertBefore(stravaSection, logoutButton);
-            } else {
-                modalBody.appendChild(stravaSection);
-            }
-
-            modalBody.querySelector('#btn-edit-profile').addEventListener('click', AppPrincipal.openEditProfileModal);
-            modalBody.querySelector('#btn-connect-strava').addEventListener('click', AppPrincipal.handleStravaConnect);
-        }
     }
 };
 
@@ -1270,6 +1276,9 @@ const AuthLogic = {
 };
 
 
+// ===================================================================
 // =l= INICIALIZAÇÃO FINAL =l=
 // O DOMContentLoaded irá chamar a função AppPrincipal.init(), que fará o roteamento.
+// Este bloco deve ser o último no arquivo.
+// ===================================================================
 document.addEventListener('DOMContentLoaded', AppPrincipal.init);

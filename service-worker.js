@@ -1,9 +1,9 @@
 /* =================================================================== */
-/* NOVO (V3.6): Service Worker Básico para PWA
-/* CORREÇÃO: Caminhos relativos (./) para o GitHub Pages
+/* NOVO (V3.7): Service Worker Básico para PWA - CORREÇÃO CRÍTICA DE FETCH
+/* GARANTIA: NUNCA CACHEIA APIS EXTERNAS OU ENDPOINTS DO VERCEL
 /* =================================================================== */
 
-const CACHE_NAME = 'lerunners-cache-v3.6'; // Versão do cache atualizada
+const CACHE_NAME = 'lerunners-cache-v3.7'; // Versão do cache atualizada
 
 // Arquivos que compõem o "App Shell"
 const FILES_TO_CACHE = [
@@ -69,15 +69,18 @@ self.addEventListener('activate', (event) => {
 
 // 3. Fetch (Serve do cache primeiro)
 self.addEventListener('fetch', (event) => {
-    // Não cacheia requisições do Firebase DB ou Gemini/Cloudinary (APIs)
+    // CORREÇÃO CRÍTICA V3.7: Exclui QUALQUER URL EXTERNA de APIs e Vercel do cache.
     if (event.request.url.includes('firebaseio.com') || 
         event.request.url.includes('googleapis.com') || 
-        event.request.url.includes('cloudinary.com')) {
+        event.request.url.includes('cloudinary.com') ||
+        event.request.url.includes('vercel.app')) { // <--- NOVO: Não cachear Vercel
+        
+        console.log('[Service Worker] Ignorando API/Vercel:', event.request.url);
         event.respondWith(fetch(event.request));
         return;
     }
 
-    // Tenta servir do cache
+    // Tenta servir do cache para App Shell
     event.respondWith(
         caches.match(event.request)
             .then((response) => {

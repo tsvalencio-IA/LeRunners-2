@@ -1,6 +1,8 @@
 /* =================================================================== */
 /* VERCEL SERVERLESS FUNCTION: /api/strava-exchange
-/* VERSÃO FINAL E ESTÁVEL
+/* VERSÃO V1.1 (CORS FIX - CÓDIGO COMPLETO)
+/* CORREÇÃO CRÍTICA: Adicionado o cabeçalho CORS para permitir acesso
+/* do GitHub Pages (Frontend).
 /* =================================================================== */
 
 // Vercel Serverless Functions usam o padrão Node.js export default
@@ -22,15 +24,34 @@ const db = admin.database();
 const auth = admin.auth();
 const STRAVA_TOKEN_URL = "https://www.strava.com/oauth/token";
 
-// O Vercel exporta uma função 'handler' padrão
+// ===================================================================
+// NOVO: Função para aplicar o cabeçalho CORS
+// ===================================================================
+function setCorsHeaders(res) {
+    // Permite acesso do domínio específico do GitHub Pages
+    // O domínio tsvalencio-ia.github.io é o seu frontend.
+    res.setHeader('Access-Control-Allow-Origin', 'https://tsvalencio-ia.github.io');
+    res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+}
+
+
 export default async function stravaExchangeHandler(req, res) {
     
-    // 1. O Vercel usa o objeto 'req' e 'res' (similar ao Express)
+    // 1. Aplica CORS (para todas as respostas)
+    setCorsHeaders(res);
+    
+    // 2. Lida com a requisição OPTIONS (Preflight Request do CORS)
+    if (req.method === 'OPTIONS') {
+        return res.status(200).end();
+    }
+
+    // 3. Validação do Método
     if (req.method !== 'POST') {
         return res.status(405).json({ error: "Método não permitido. Use POST." });
     }
 
-    // 2. Validação e autenticação do usuário (via Firebase ID Token)
+    // 4. Validação e autenticação do usuário (via Firebase ID Token)
     const idToken = req.headers.authorization ? req.headers.authorization.split("Bearer ")[1] : null;
 
     if (!idToken) {
@@ -47,8 +68,9 @@ export default async function stravaExchangeHandler(req, res) {
         return res.status(401).json({ error: "Token do Firebase inválido ou expirado." });
     }
 
-    // 3. Pega o código do Strava e os Secrets (do Vercel Environment Variables)
+    // 5. Pega o código do Strava e os Secrets (do Vercel Environment Variables)
     const code = req.body.code;
+    // Assume que STRAVA_CLIENT_ID e STRAVA_CLIENT_SECRET estão configurados no Vercel
     const clientID = process.env.STRAVA_CLIENT_ID;
     const clientSecret = process.env.STRAVA_CLIENT_SECRET;
 
@@ -64,7 +86,7 @@ export default async function stravaExchangeHandler(req, res) {
             grant_type: "authorization_code",
         };
 
-        // 4. Chamada à API do Strava
+        // 6. Chamada à API do Strava
         const response = await axios.post(STRAVA_TOKEN_URL, params);
         const stravaData = response.data;
 
@@ -76,7 +98,7 @@ export default async function stravaExchangeHandler(req, res) {
             stravaAthleteData: stravaData.athlete
         };
 
-        // 5. Salva os dados no Realtime Database
+        // 7. Salva os dados no Realtime Database
         const dbPath = `/users/${userId}/stravaAuth`;
         await db.ref(dbPath).set(stravaAuthData);
 
@@ -85,6 +107,7 @@ export default async function stravaExchangeHandler(req, res) {
     } catch (error) {
         const errorMessage = error.response ? error.response.data : error.message;
         console.error("Erro ao trocar token do Strava:", errorMessage);
+        // O CORS Headers já foi aplicado aqui.
         return res.status(500).json({
             error: "Falha ao contatar a API do Strava.",
             details: errorMessage

@@ -1,37 +1,44 @@
 /* =================================================================== */
 /* VERCEL SERVERLESS FUNCTION: /api/strava-exchange
-/* CORREÇÃO: Usa a Chave de Serviço para conectar Vercel -> Firebase
+/* CORREÇÃO: Leitura robusta da Chave de Serviço Firebase
 /* =================================================================== */
 
 const admin = require("firebase-admin");
 const axios = require("axios");
 
-// Função para limpar a chave privada (bugs comuns da Vercel)
+// Função auxiliar para formatar a chave privada corretamente
 const formatPrivateKey = (key) => {
     return key.replace(/\\n/g, '\n');
 };
 
-// 1. Inicializa o Firebase com a Chave Mestra
+// --- INICIALIZAÇÃO DO FIREBASE ---
 if (admin.apps.length === 0) {
-    if (!process.env.FIREBASE_SERVICE_ACCOUNT) {
-        console.error("ERRO: Variável FIREBASE_SERVICE_ACCOUNT não encontrada.");
-    } else {
+    console.log("Inicializando Firebase...");
+    
+    if (process.env.FIREBASE_SERVICE_ACCOUNT) {
         try {
+            // Tenta ler a variável de ambiente configurada na Vercel
             const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
             
-            // Corrige formatação da chave
+            // Corrige a formatação da chave privada se necessário
             if (serviceAccount.private_key) {
                 serviceAccount.private_key = formatPrivateKey(serviceAccount.private_key);
             }
 
             admin.initializeApp({
                 credential: admin.credential.cert(serviceAccount),
-                databaseURL: "https://lerunners-a6de2-default-rtdb.firebaseio.com" // Teu URL do config.js
+                databaseURL: "https://lerunners-a6de2-default-rtdb.firebaseio.com"
             });
-            console.log("Firebase conectado com sucesso!");
+            console.log("Sucesso: Firebase conectado via Service Account.");
         } catch (error) {
-            console.error("ERRO ao ler a chave do Firebase:", error.message);
+            console.error("ERRO CRÍTICO: Falha ao ler FIREBASE_SERVICE_ACCOUNT.", error.message);
         }
+    } else {
+        // Fallback para caso a variável não exista (vai dar erro, mas loga o motivo)
+        console.error("ERRO: Variável de ambiente FIREBASE_SERVICE_ACCOUNT não encontrada.");
+        admin.initializeApp({
+            databaseURL: "https://lerunners-a6de2-default-rtdb.firebaseio.com"
+        });
     }
 }
 
@@ -39,30 +46,42 @@ const db = admin.database();
 const auth = admin.auth();
 
 export default async function stravaExchangeHandler(req, res) {
-    // 2. Cabeçalhos para permitir conexão (CORS)
+    // --- 1. CONFIGURAÇÃO DE CORS (Essencial para não dar erro de rede) ---
     res.setHeader('Access-Control-Allow-Origin', '*'); 
     res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
 
-    if (req.method === 'OPTIONS') return res.status(200).end();
-    if (req.method !== 'POST') return res.status(405).json({ error: "Use POST" });
+    // Responde imediatamente a preflight requests
+    if (req.method === 'OPTIONS') {
+        return res.status(200).end();
+    }
+
+    if (req.method !== 'POST') {
+        return res.status(405).json({ error: "Método não permitido. Use POST." });
+    }
 
     try {
-        // 3. Verifica quem está a chamar (Token do Usuário)
-        const idToken = req.headers.authorization ? req.headers.authorization.split("Bearer ")[1] : null;
-        if (!idToken) return res.status(401).json({ error: "Sem token de autorização." });
-
+        // --- 2. VALIDAÇÃO DO USUÁRIO ---
+        const authHeader = req.headers.authorization;
+        if (!authHeader) {
+            throw new Error("Token de autorização ausente.");
+        }
+        const idToken = authHeader.split("Bearer ")[1];
         const decodedToken = await auth.verifyIdToken(idToken);
         const userId = decodedToken.uid;
 
-        // 4. Recebe o código do Strava
+        // --- 3. TROCA DE TOKEN COM O STRAVA ---
         const { code } = req.body;
+        if (!code) throw new Error("Código Strava não recebido.");
+
         const clientID = process.env.STRAVA_CLIENT_ID;
         const clientSecret = process.env.STRAVA_CLIENT_SECRET;
 
-        if (!code) return res.status(400).json({ error: "Código Strava não recebido." });
+        if (!clientID || !clientSecret) {
+            throw new Error("Configuração do servidor incompleta (Client ID/Secret ausentes).");
+        }
 
-        // 5. Troca o código pelo Token Final no Strava
+        // Chamada oficial ao Strava
         const response = await axios.post("https://www.strava.com/oauth/token", {
             client_id: clientID,
             client_secret: clientSecret,
@@ -70,20 +89,26 @@ export default async function stravaExchangeHandler(req, res) {
             grant_type: "authorization_code",
         });
 
-        // 6. Salva no Firebase
+        const stravaData = response.data;
+
+        // --- 4. SALVAR NO BANCO DE DADOS ---
         await db.ref(`/users/${userId}/stravaAuth`).set({
-            accessToken: response.data.access_token,
-            refreshToken: response.data.refresh_token,
-            expiresAt: response.data.expires_at,
-            athleteId: response.data.athlete.id,
+            accessToken: stravaData.access_token,
+            refreshToken: stravaData.refresh_token,
+            expiresAt: stravaData.expires_at,
+            athleteId: stravaData.athlete.id,
             connectedAt: new Date().toISOString()
         });
 
-        return res.status(200).json({ success: true });
+        return res.status(200).json({ success: true, message: "Conectado com sucesso!" });
 
     } catch (error) {
-        console.error("Erro Final:", error.message);
-        const detalhes = error.response ? error.response.data : error.message;
-        return res.status(500).json({ error: "Erro interno", details: detalhes });
+        console.error("Erro na API:", error.message);
+        // Retorna o erro detalhado para o frontend (ajuda no debug)
+        const status = error.message.includes("Token") ? 401 : 500;
+        return res.status(status).json({ 
+            error: error.message,
+            details: error.response ? error.response.data : null
+        });
     }
 }

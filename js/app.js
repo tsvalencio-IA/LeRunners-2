@@ -1,7 +1,5 @@
 /* =================================================================== */
-/* ARQUIVO DE LÓGICA UNIFICADO (V5.7 - CORREÇÃO STRAVA E PERMISSÕES)
-/* - Botão Strava restaurado
-/* - Professor pode editar Feedback do aluno
+/* ARQUIVO DE LÓGICA (V6.0 - MAX STRAVA SYNC 200)
 /* =================================================================== */
 
 const AppPrincipal = {
@@ -65,7 +63,6 @@ const AppPrincipal = {
             viewProfileModal: document.getElementById('view-profile-modal'), closeViewProfileModal: document.getElementById('close-view-profile-modal'), viewProfilePic: document.getElementById('view-profile-pic'), viewProfileName: document.getElementById('view-profile-name'), viewProfileBio: document.getElementById('view-profile-bio'),
         };
         
-        // Listeners Globais
         AppPrincipal.elements.logoutButton.addEventListener('click', AppPrincipal.handleLogout);
         AppPrincipal.elements.navPlanilhaBtn.addEventListener('click', () => AppPrincipal.navigateTo('planilha'));
         AppPrincipal.elements.navFeedBtn.addEventListener('click', () => AppPrincipal.navigateTo('feed'));
@@ -149,7 +146,6 @@ const AppPrincipal = {
         });
     },
 
-    // --- CORREÇÃO DO BOTÃO STRAVA NO PERFIL ---
     openProfileModal: () => {
         const { profileModal, profileName, profileBio, profilePicPreview } = AppPrincipal.elements;
         const { userData, stravaTokenData } = AppPrincipal.state;
@@ -161,13 +157,12 @@ const AppPrincipal = {
         stravaSection = document.createElement('div'); stravaSection.id = 'strava-connect-section';
         stravaSection.style.marginTop = "20px"; stravaSection.style.borderTop = "1px solid #eee"; stravaSection.style.paddingTop = "10px";
 
-        // Verifica se tem token e renderiza o botão correto
         if (stravaTokenData && stravaTokenData.accessToken) {
             stravaSection.innerHTML = `
                 <fieldset style="border-color:green">
                     <legend style="color:green"><i class='bx bxl-strava'></i> Strava Conectado</legend>
                     <p style="color:green; font-size:0.9rem; margin-bottom:10px;">Conta vinculada com sucesso.</p>
-                    <button id="btn-sync-strava" class="btn btn-primary" style="background:#fc4c02;color:white"><i class='bx bx-refresh'></i> Sincronizar Tudo (50)</button>
+                    <button id="btn-sync-strava" class="btn btn-primary" style="background:#fc4c02;color:white"><i class='bx bx-refresh'></i> Sincronizar Tudo (200)</button>
                     <p id="strava-sync-status" style="font-size:0.8rem; margin-top:5px; color:#666;"></p>
                 </fieldset>`;
         } else {
@@ -180,7 +175,6 @@ const AppPrincipal = {
         }
         profileModal.querySelector('.modal-body').appendChild(stravaSection);
         
-        // Atribui listeners após criar os elementos
         const btnConn = document.getElementById('btn-connect-strava');
         if(btnConn) btnConn.onclick = AppPrincipal.handleStravaConnect;
         
@@ -209,7 +203,6 @@ const AppPrincipal = {
         AppPrincipal.elements.profilePicPreview.src = url;
     },
 
-    // STRAVA
     handleStravaConnect: () => {
         const c = window.STRAVA_PUBLIC_CONFIG;
         window.location.href = `https://www.strava.com/oauth/authorize?client_id=${c.clientID}&response_type=code&redirect_uri=${c.redirectURI}&approval_prompt=force&scope=read_all,activity:read_all,profile:read_all`;
@@ -225,10 +218,11 @@ const AppPrincipal = {
         const status = document.getElementById('strava-sync-status');
         const uid = AppPrincipal.state.currentUser.uid;
         
-        btn.disabled = true; status.textContent = "Buscando...";
+        btn.disabled = true; status.textContent = "Buscando histórico (até 200)...";
 
         try {
-            const res = await fetch(`https://www.strava.com/api/v3/athlete/activities?per_page=50`, { 
+            // AQUI ESTÁ A MUDANÇA: per_page=200 para pegar tudo
+            const res = await fetch(`https://www.strava.com/api/v3/athlete/activities?per_page=200`, { 
                 headers: { 'Authorization': `Bearer ${AppPrincipal.state.stravaTokenData.accessToken}` } 
             });
             if (!res.ok) throw new Error("Erro Strava API");
@@ -287,17 +281,16 @@ const AppPrincipal = {
 
             if (Object.keys(updates).length > 0) {
                 await AppPrincipal.state.db.ref().update(updates);
-                alert(`${countImport} treinos importados!`);
+                alert(`${countImport} novos treinos importados!`);
                 AppPrincipal.closeProfileModal();
             } else {
-                alert("Tudo atualizado.");
+                alert("Todos os seus treinos (até 200) já estão aqui.");
             }
 
         } catch (err) { alert("Erro: " + err.message); } 
         finally { btn.disabled = false; status.textContent = ""; }
     },
 
-    // --- CORREÇÃO DE PERMISSÕES NO MODAL ---
     openFeedbackModal: (wid, oid, title) => {
         AppPrincipal.state.modal = { isOpen: true, currentWorkoutId: wid, currentOwnerId: oid };
         const { feedbackModal, feedbackModalTitle, workoutStatusSelect, workoutFeedbackText, commentsList } = AppPrincipal.elements;
@@ -305,7 +298,6 @@ const AppPrincipal = {
         workoutStatusSelect.value = 'planejado'; workoutFeedbackText.value = ''; commentsList.innerHTML = "Carregando...";
         feedbackModal.classList.remove('hidden');
         
-        // Carrega dados
         AppPrincipal.state.db.ref(`data/${oid}/workouts/${wid}`).once('value', s => {
             if(s.exists()) {
                 workoutStatusSelect.value = s.val().status || 'planejado';
@@ -313,7 +305,6 @@ const AppPrincipal = {
                 if(s.val().stravaData) AppPrincipal.displayStravaData(s.val().stravaData);
             }
         });
-        // Listener Comentários
         AppPrincipal.state.db.ref(`workoutComments/${wid}`).on('value', s => {
             commentsList.innerHTML = "";
             s.forEach(c => commentsList.innerHTML += `<div class="comment-item"><b>${AppPrincipal.state.userCache[c.val().uid]?.name || 'User'}:</b> ${c.val().text}</div>`);
@@ -328,13 +319,11 @@ const AppPrincipal = {
         const currentUser = AppPrincipal.state.currentUser;
         const role = AppPrincipal.state.userData.role;
 
-        // --- CORREÇÃO: PERMITIR ADMIN EDITAR ---
         if(currentOwnerId !== currentUser.uid && role !== 'admin') {
             return alert("Apenas o Dono ou o Coach podem editar o feedback.");
         }
 
         const updates = {};
-        // Mantém dados existentes, só atualiza status/feedback
         const data = { 
             status: AppPrincipal.elements.workoutStatusSelect.value, 
             feedback: AppPrincipal.elements.workoutFeedbackText.value, 

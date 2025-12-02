@@ -1,84 +1,116 @@
+/* =================================================================== */
+/* VERCEL 2 SERVERLESS FUNCTION: /api/strava-exchange
+/* ARQUIVO COMPLETO E DEFINITIVO (Versão V2.0 - ESM/Import)
+/* =================================================================== */
+
 import admin from "firebase-admin";
 import axios from "axios";
 
-// Função robusta para corrigir a chave privada (Lida com \\n e \n)
+// Função auxiliar para formatar a chave privada corretamente
+// (Corrige o problema das quebras de linha nas variáveis de ambiente da Vercel)
 const formatPrivateKey = (key) => {
     return key.replace(/\\n/g, '\n');
 };
 
 export default async function handler(req, res) {
-    // 1. CORS (Permissivo para garantir que o navegador não bloqueie)
+    // 1. APLICAÇÃO DE CABEÇALHOS CORS (Obrigatório para funcionar no navegador)
+    // Permite que o teu site (GitHub Pages) fale com este backend
     res.setHeader('Access-Control-Allow-Origin', '*'); 
     res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
 
+    // Se o navegador estiver apenas a testar a conexão (OPTIONS), responde OK imediatamente
     if (req.method === 'OPTIONS') {
         return res.status(200).end();
     }
 
     try {
-        // 2. Inicializa Firebase (Singleton)
+        // 2. INICIALIZAÇÃO DO FIREBASE ADMIN
+        // Verifica se o Firebase já foi iniciado para não iniciar duas vezes
         if (admin.apps.length === 0) {
+            // Verifica se a chave mestra existe nas variáveis da Vercel
             if (!process.env.FIREBASE_SERVICE_ACCOUNT) {
-                console.error("ERRO CRÍTICO: FIREBASE_SERVICE_ACCOUNT não definida.");
-                throw new Error("Configuração de servidor inválida (Firebase).");
+                throw new Error("ERRO CRÍTICO: A variável FIREBASE_SERVICE_ACCOUNT não foi encontrada nas configurações da Vercel.");
             }
             
+            // Lê e converte a chave de texto para objeto JSON
             const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
             
+            // Corrige a formatação da chave privada se necessário
             if (serviceAccount.private_key) {
                 serviceAccount.private_key = formatPrivateKey(serviceAccount.private_key);
             }
 
+            // Inicia a conexão segura com o Banco de Dados
             admin.initializeApp({
                 credential: admin.credential.cert(serviceAccount),
                 databaseURL: "https://lerunners-a6de2-default-rtdb.firebaseio.com"
             });
         }
 
+        // 3. VALIDAÇÕES DE SEGURANÇA
+        // Garante que o método é POST
         if (req.method !== 'POST') {
-            return res.status(405).json({ error: "Método inválido. Use POST." });
+            return res.status(405).json({ error: "Método não permitido. Use POST." });
         }
 
-        // 3. Validação de Token
+        // Garante que enviaram o Token de Autenticação
         const authHeader = req.headers.authorization;
         if (!authHeader) {
-            return res.status(401).json({ error: "Token ausente." });
+            return res.status(401).json({ error: "Token de autorização ausente." });
         }
 
+        // 4. IDENTIFICAÇÃO DO USUÁRIO
+        // Pega o token, verifica no Firebase quem é a pessoa e pega o ID dela (uid)
         const idToken = authHeader.split("Bearer ")[1];
         const decodedToken = await admin.auth().verifyIdToken(idToken);
         const userId = decodedToken.uid;
 
-        // 4. Strava Exchange
+        // 5. RECEBIMENTO DO CÓDIGO STRAVA
         const { code } = req.body;
-        if (!code) return res.status(400).json({ error: "Código Strava não recebido." });
-
-        if (!process.env.STRAVA_CLIENT_ID || !process.env.STRAVA_CLIENT_SECRET) {
-             console.error("ERRO CRÍTICO: Credenciais Strava não definidas no Vercel.");
-             throw new Error("Configuração Strava incompleta.");
+        if (!code) {
+            return res.status(400).json({ error: "Código Strava não recebido." });
         }
 
-        const response = await axios.post("https://www.strava.com/oauth/token", {
-            client_id: process.env.STRAVA_CLIENT_ID,
-            client_secret: process.env.STRAVA_CLIENT_SECRET,
+        // Lê as chaves do Strava das variáveis de ambiente
+        const clientID = process.env.STRAVA_CLIENT_ID;
+        const clientSecret = process.env.STRAVA_CLIENT_SECRET;
+
+        if (!clientID || !clientSecret) {
+            throw new Error("Configuração do Strava (ID/Secret) ausente na Vercel.");
+        }
+
+        // 6. TROCA DE CÓDIGO POR TOKEN (Chamada à API do Strava)
+        const stravaResponse = await axios.post("https://www.strava.com/oauth/token", {
+            client_id: clientID,
+            client_secret: clientSecret,
             code: code,
             grant_type: "authorization_code",
         });
 
-        // 5. Salva no Banco
+        const stravaData = stravaResponse.data;
+
+        // 7. SALVAMENTO DOS DADOS NO FIREBASE
+        // Grava o token de acesso do Strava no perfil do usuário
         await admin.database().ref(`/users/${userId}/stravaAuth`).set({
-            ...response.data,
+            accessToken: stravaData.access_token,
+            refreshToken: stravaData.refresh_token,
+            expiresAt: stravaData.expires_at,
+            athleteId: stravaData.athlete.id,
             connectedAt: new Date().toISOString()
         });
 
-        return res.status(200).json({ success: true });
+        // 8. RESPOSTA DE SUCESSO
+        return res.status(200).json({ success: true, message: "Conectado com sucesso!" });
 
     } catch (error) {
-        console.error("ERRO BACKEND:", error.response?.data || error.message);
+        console.error("ERRO NO BACKEND:", error);
+        
+        // Retorna o erro detalhado para facilitar o diagnóstico
         return res.status(500).json({ 
-            error: "Erro no servidor", 
-            details: error.message 
+            error: "Erro interno no servidor Vercel", 
+            details: error.message,
+            stack: error.stack 
         });
     }
 }

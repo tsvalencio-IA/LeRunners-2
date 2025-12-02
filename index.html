@@ -3,284 +3,89 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>LeRunners - Plataforma</title>
+    <title>LeRunners - Plataforma de Treinos</title>
     <link rel="stylesheet" href="css/styles.css">
-    
     <link rel="manifest" href="manifest.json">
-    <link rel="icon" type="image/png" sizes="192x192" href="img/logo-192.png">
-    <link rel="apple-touch-icon" href="img/logo-192.png">
-
     <link href="https://cdn.jsdelivr.net/npm/boxicons@2.1.4/css/boxicons.min.css" rel="stylesheet">
     <meta name="theme-color" content="#00008B">
+
+    <link rel="icon" type="image/png" sizes="192x192" href="img/logo-192.png">
+    <link rel="apple-touch-icon" href="img/logo-192.png">
 </head>
-<body class="app-page">
+<body class="login-page">
 
-    <div id="loader" class="loader-container">
-        <div class="loader"></div>
-        <p>Carregando...</p>
-    </div>
-
-    <div id="app-container" class="hidden">
+    <div class="login-container">
+        <img src="img/logo-512.png" alt="Logo LeRunners" class="logo">
         
-        <header class="app-header">
-            <h1>LeRunners</h1>
-            <nav>
-                <button id="nav-planilha-btn" class="btn btn-nav active">
-                    <i class='bx bx-calendar'></i> <span>Planilha</span>
-                </button>
-                <button id="nav-feed-btn" class="btn btn-nav">
-                    <i class='bx bx-news'></i> <span>Feed</span>
-                </button>
+        <form id="login-form">
+            <h2>Plataforma LeRunners</h2>
+            <p class="subtitle">Acesse seu painel</p>
+            <div class="form-group">
+                <label for="loginEmail">Email</label>
+                <div class="input-icon">
+                    <i class="bx bx-envelope"></i>
+                    <input type="email" id="loginEmail" required>
+                </div>
+            </div>
+            <div class="form-group">
+                <label for="loginPassword">Senha</label>
+                <div class="input-icon">
+                    <i class="bx bx-lock"></i>
+                    <input type="password" id="loginPassword" required>
+                </div>
+            </div>
+            <button type="submit" id="btn-submit-login" class="btn btn-primary">Entrar</button>
+            <p id="login-error" class="error-message"></p>
+        </form>
 
-                <button id="nav-profile-btn" class="btn btn-nav">
-                    <i class='bx bx-user-circle'></i> <span>Perfil</span>
-                </button>
+        <form id="register-form" class="hidden">
+            <h2>Criar Nova Conta</h2>
+            <p class="subtitle">Solicite acesso à plataforma</p>
+            <div class="form-group">
+                <label for="registerName">Nome Completo (para seu Coach)</label>
+                <div class="input-icon">
+                    <i class="bx bx-user"></i>
+                    <input type="text" id="registerName" required>
+                </div>
+            </div>
+            <div class="form-group">
+                <label for="registerEmail">Email</label>
+                <div class="input-icon">
+                    <i class="bx bx-envelope"></i>
+                    <input type="email" id="registerEmail" required>
+                </div>
+            </div>
+            <div class="form-group">
+                <label for="registerPassword">Senha (mínimo 6 caracteres)</label>
+                <div class="input-icon">
+                    <i class="bx bx-lock-alt"></i>
+                    <input type="password" id="registerPassword" required>
+                </div>
+            </div>
+            <button type="submit" id="btn-submit-register" class="btn">Solicitar Acesso</button>
+            <p id="register-error" class="error-message"></p>
+        </form>
 
-                <span id="userDisplay" class="user-display"></span>
-                <button id="logoutButton" class="btn btn-danger">
-                    <i class="bx bx-log-out"></i>
-                </button>
-            </nav>
-        </header>
+        <div id="pending-view" class="hidden panel">
+            <h3><i class='bx bx-time-five'></i> Solicitação Enviada</h3>
+            <p>Sua solicitação de acesso foi enviada para o Coach. Você será notificado quando for aprovado.</p>
+            <p><strong>Email:</strong> <span id="pending-email-display"></span></p>
+            <button id="btn-logout-pending" class="btn btn-secondary">Sair</button>
+        </div>
 
-        <main id="app-main-content" class="app-main">
-            </main>
+        <p class="toggle-link">Não tem conta? <a href="#" id="toggleToRegister">Solicite seu acesso</a></p>
+        <p class="toggle-link hidden">Já tem conta? <a href="#" id="toggleToLogin">Entre</a></p>
     </div>
 
     <footer class="app-footer">
         Desenvolvido com 🤖 por thIAguinho Soluções
     </footer>
 
-    <template id="admin-panel-template">
-        <div class="admin-dashboard">
-            <div class="panel approval-panel">
-                <h3><i class='bx bx-user-check'></i> Pendências</h3>
-                <div id="pending-list">Carregando...</div>
-            </div>
-
-            <div class="admin-layout">
-                <div class="athlete-list-container panel">
-                    <h3><i class='bx bx-group'></i> Meus Atletas</h3>
-                    <input type="text" id="athlete-search" class="search-input" placeholder="Buscar...">
-                    <div id="athlete-list" class="athlete-list"></div>
-                </div>
-
-                <div class="athlete-details-container panel">
-                    <h3 id="athlete-detail-name">Selecione um Atleta</h3>
-                    
-                    <div id="athlete-detail-content" class="hidden">
-                        
-                        <div class="admin-action-buttons">
-                            <button id="delete-athlete-btn" class="btn btn-danger btn-small">Excluir Aluno</button>
-                        </div>
-                        
-                        <div class="admin-tabs">
-                            <button class="tab-btn active" data-tab="prescrever">Prescrever</button>
-                            <button class="tab-btn" data-tab="kpis">IA & KPIs</button>
-                        </div>
-
-                        <div id="admin-tab-prescrever" class="admin-tab-content active">
-                            <form id="add-workout-form" class="form-minimal">
-                                <div class="form-grid-2col">
-                                    <div class="form-group">
-                                        <label>Data</label>
-                                        <input type="date" id="workout-date" required>
-                                    </div>
-                                    <div class="form-group">
-                                        <label>Modalidade</label>
-                                        <select id="workout-modalidade">
-                                            <option value="Corrida" selected>Corrida</option>
-                                            <option value="Caminhada">Caminhada</option>
-                                            <option value="Ciclismo">Ciclismo</option>
-                                            <option value="Musculação">Musculação</option>
-                                            <option value="Natação">Natação</option>
-                                        </select>
-                                    </div>
-                                </div>
-
-                                <div class="form-group">
-                                    <label>Título / Objetivo</label>
-                                    <input type="text" id="workout-title" placeholder="Ex: Longão 15k" required>
-                                </div>
-
-                                <fieldset class="workout-fieldset">
-                                    <legend>Estrutura do Treino</legend>
-                                    <div class="form-group">
-                                        <label style="color: #28a745; font-weight:bold;">1. Aquecimento</label>
-                                        <textarea id="workout-warmup" rows="2" placeholder="Ex: 10min leve Z1"></textarea>
-                                    </div>
-                                    <div class="form-group">
-                                        <label style="color: #00008B; font-weight:bold;">2. Principal</label>
-                                        <textarea id="workout-main" rows="3" placeholder="Ex: 5x 1000m forte..." required></textarea>
-                                    </div>
-                                    <div class="form-group">
-                                        <label style="color: #ffc107; font-weight:bold;">3. Desaquecimento</label>
-                                        <textarea id="workout-cooldown" rows="2" placeholder="Ex: 5min caminhada"></textarea>
-                                    </div>
-                                </fieldset>
-
-                                <div class="form-grid-2col">
-                                    <div class="form-group">
-                                        <label>Intensidade</label>
-                                        <select id="workout-intensidade">
-                                            <option value="Leve">Leve (Z1/Z2)</option>
-                                            <option value="Moderada">Moderada (Z3)</option>
-                                            <option value="Forte">Forte (Z4)</option>
-                                            <option value="Muito Forte">Muito Forte (Z5)</option>
-                                        </select>
-                                    </div>
-                                    <div class="form-group">
-                                        <label>Volume (km/min)</label>
-                                        <input type="text" id="workout-volume" placeholder="Ex: 10km">
-                                    </div>
-                                </div>
-                                
-                                <button type="submit" class="btn btn-secondary">
-                                    <i class="bx bx-save"></i> Agendar Treino
-                                </button>
-                            </form>
-
-                            <hr>
-                            <h4>Histórico</h4>
-                            <div id="workouts-list"></div>
-                        </div>
-
-                        <div id="admin-tab-kpis" class="admin-tab-content">
-                             <button id="analyze-athlete-btn-ia" class="btn btn-secondary" style="width: 100%; margin-bottom: 1rem;">
-                                <i class='bx bxs-brain'></i> Analisar Performance (Gemini)
-                            </button>
-                            <div id="ia-history-list" class="ia-history-list"></div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </template>
-
-    <template id="atleta-panel-template">
-        <div class="atleta-dashboard">
-            <div class="atleta-header">
-                <h2><i class="bx bx-run"></i> Minha Planilha</h2>
-                <button id="log-manual-activity-btn" class="btn btn-primary">
-                    <i class='bx bx-plus'></i> Lançar Manual
-                </button>
-            </div>
-            <p>Bem-vindo, <span id="atleta-welcome-name"></span>.</p>
-            <div id="atleta-workouts-list"></div>
-        </div>
-    </template>
-
-    <template id="feed-panel-template">
-        <div class="feed-dashboard">
-            <h2><i class='bx bx-world'></i> Feed da Equipe</h2>
-            <div id="feed-list" class="feed-list"></div>
-        </div>
-    </template>
-
-    <div id="feedback-modal" class="modal-overlay hidden">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h3 id="feedback-modal-title">Detalhes</h3>
-                <button class="close-btn" id="close-feedback-modal">&times;</button>
-            </div>
-            <div class="modal-body">
-                <form id="feedback-form">
-                    <fieldset>
-                        <legend>Dados do Treino</legend>
-                        <div class="form-group">
-                            <label>Status</label>
-                            <select id="workout-status">
-                                <option value="planejado">Planejado</option>
-                                <option value="realizado" style="color:green;">Realizado</option>
-                                <option value="nao_realizado" style="color:red;">Não Realizado</option>
-                            </select>
-                        </div>
-                        <div class="form-group">
-                            <label>Feedback do Atleta</label>
-                            <textarea id="workout-feedback-text" rows="3"></textarea>
-                        </div>
-                        <div class="form-group">
-                            <label>Foto</label>
-                            <input type="file" id="photo-upload-input" accept="image/*">
-                            <p id="photo-upload-feedback" class="upload-feedback"></p>
-                        </div>
-                        <div id="strava-data-display" class="strava-data-display hidden"></div>
-                        <button type="submit" id="save-feedback-btn" class="btn btn-primary">Salvar</button>
-                    </fieldset>
-                </form>
-
-                <div id="coach-evaluation-block" class="hidden" style="margin-top:15px; border:2px solid #00008B; padding:10px; border-radius:8px;">
-                    <h4 style="color:#00008B;">Avaliação do Coach</h4>
-                    <textarea id="coach-eval-text" rows="2" style="width:100%; margin-top:5px;"></textarea>
-                    <button id="save-coach-eval-btn" class="btn btn-secondary btn-small" style="margin-top:5px;">Salvar Avaliação</button>
-                </div>
-
-                <hr>
-                <div id="comments-list" class="comments-list"></div>
-                <form id="comment-form" class="comment-form">
-                    <input type="text" id="comment-input" placeholder="Comentar..." required>
-                    <button type="submit" class="btn btn-secondary"><i class='bx bxs-send'></i></button>
-                </form>
-            </div>
-        </div>
-    </div>
-
-    <div id="log-activity-modal" class="modal-overlay hidden">
-        <div class="modal-content">
-            <div class="modal-header"><h3>Lançar Atividade</h3><button class="close-btn" id="close-log-activity-modal">&times;</button></div>
-            <div class="modal-body">
-                <form id="log-activity-form">
-                    <input type="date" id="log-activity-date" required class="form-group">
-                    <input type="text" id="log-activity-title" placeholder="Título" required class="form-group">
-                    <select id="log-activity-type" class="form-group"><option>Corrida</option><option>Outro</option></select>
-                    <textarea id="log-activity-feedback" placeholder="Descrição" required class="form-group"></textarea>
-                    <button type="submit" class="btn btn-primary">Salvar</button>
-                </form>
-            </div>
-        </div>
-    </div>
-
-    <div id="ia-analysis-modal" class="modal-overlay hidden">
-        <div class="modal-content">
-            <div class="modal-header"><h3>Análise IA</h3><button class="close-btn" id="close-ia-analysis-modal">&times;</button></div>
-            <div class="modal-body"><pre id="ia-analysis-output" style="white-space: pre-wrap;"></pre></div>
-            <div class="modal-footer"><button id="save-ia-analysis-btn" class="btn btn-primary hidden">Salvar no Histórico</button></div>
-        </div>
-    </div>
-
-    <div id="profile-modal" class="modal-overlay hidden">
-        <div class="modal-content">
-            <div class="modal-header"><h3>Perfil</h3><button class="close-btn" id="close-profile-modal">&times;</button></div>
-            <div class="modal-body">
-                <form id="profile-form">
-                    <div style="text-align:center;"><img id="profile-pic-preview" style="width:100px;height:100px;border-radius:50%;"></div>
-                    <input type="file" id="profile-pic-upload">
-                    <input type="text" id="profile-name" required class="form-group">
-                    <textarea id="profile-bio" class="form-group"></textarea>
-                    <button type="submit" id="save-profile-btn" class="btn btn-primary">Salvar</button>
-                </form>
-            </div>
-        </div>
-    </div>
-
-    <div id="who-liked-modal" class="modal-overlay hidden">
-        <div class="modal-content"><div class="modal-header"><h3>Curtidas</h3><button class="close-btn" id="close-who-liked-modal">&times;</button></div><div class="modal-body"><ul id="who-liked-list"></ul></div></div>
-    </div>
-    
-    <div id="view-profile-modal" class="modal-overlay hidden">
-        <div class="modal-content"><div class="modal-header"><h3>Atleta</h3><button class="close-btn" id="close-view-profile-modal">&times;</button></div><div class="modal-body"><img id="view-profile-pic" style="width:100px;border-radius:50%;"><h3 id="view-profile-name"></h3><p id="view-profile-bio"></p></div></div>
-    </div>
-
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
-    <script src="https://upload-widget.cloudinary.com/global/all.js" type="text/javascript"></script>
 
     <script src="js/config.js"></script>
     <script src="js/app.js"></script> 
-    <script src="js/panels.js"></script> 
-    <script>
-        if ('serviceWorker' in navigator) navigator.serviceWorker.register('./service-worker.js');
-    </script>
 </body>
 </html>

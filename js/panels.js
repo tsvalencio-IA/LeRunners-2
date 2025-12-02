@@ -1,5 +1,5 @@
 /* =================================================================== */
-/* ARQUIVO DE PAINÉIS (V11.0 - CLONE SISRUN FIEL)
+/* ARQUIVO DE PAINÉIS (V12.0 - ESTABILIDADE TOTAL SISRUN)
 /* =================================================================== */
 
 const AdminPanel = {
@@ -7,245 +7,195 @@ const AdminPanel = {
     elements: {},
 
     init: (user, db) => {
-        console.log("AdminPanel V11.0: SisRun Layout.");
+        console.log("AdminPanel V12: Init");
         AdminPanel.state.db = db;
         AdminPanel.state.currentUser = user;
         
-        const main = document.getElementById('app-main-content');
-        main.innerHTML = `
+        document.getElementById('app-main-content').innerHTML = `
             <div class="admin-dashboard">
                 <div class="dashboard-grid">
-                    <div class="dash-card" onclick="AdminPanel.showSection('feedbacks')">
-                        <div class="icon-box"><i class='bx bx-message-check'></i></div>
-                        <span>Feedbacks</span>
+                    <div class="dash-card" onclick="AdminPanel.show('feedbacks')">
+                        <i class='bx bx-message-square-check'></i><span>Feedbacks</span>
                     </div>
-                    <div class="dash-card" onclick="AdminPanel.showSection('alunos')">
-                        <div class="icon-box"><i class='bx bx-group'></i></div>
-                        <span>Alunos</span>
+                    <div class="dash-card" onclick="AdminPanel.show('alunos')">
+                        <i class='bx bx-group'></i><span>Alunos</span>
                     </div>
-                    <div class="dash-card" onclick="AdminPanel.showSection('financeiro')">
-                        <div class="icon-box"><i class='bx bx-dollar-circle'></i></div>
-                        <span>Financeiro</span>
+                    <div class="dash-card" onclick="AdminPanel.show('aprovacoes')">
+                        <i class='bx bx-user-plus'></i><span>Aprovações</span>
                     </div>
-                    <div class="dash-card" onclick="AdminPanel.showSection('relatorios')">
-                        <div class="icon-box"><i class='bx bx-bar-chart-alt-2'></i></div>
-                        <span>Relatórios</span>
-                    </div>
-                    <div class="dash-card" onclick="AdminPanel.showSection('config')">
-                        <div class="icon-box"><i class='bx bx-cog'></i></div>
-                        <span>Config</span>
+                    <div class="dash-card" onclick="alert('Em breve')">
+                        <i class='bx bx-dollar-circle'></i><span>Financeiro</span>
                     </div>
                 </div>
-
-                <div id="stats-bar-container" class="stats-bar">
-                    </div>
-
-                <div id="admin-content-area" class="panel" style="min-height: 500px;">
-                    </div>
+                <div id="admin-content" class="panel"></div>
             </div>
         `;
         
-        AdminPanel.elements.contentArea = document.getElementById('admin-content-area');
-        AdminPanel.loadData(); // Carrega dados e popula carinhas
-        AdminPanel.showSection('feedbacks');
+        AdminPanel.elements.area = document.getElementById('admin-content');
+        AdminPanel.loadData();
+        AdminPanel.show('feedbacks');
     },
 
     loadData: () => {
         const db = AdminPanel.state.db;
-        
-        // Carrega Alunos
-        db.ref('users').on('value', s => {
-            AdminPanel.state.athletes = s.val() || {};
-            if(AdminPanel.state.currentSection === 'alunos') AdminPanel.renderAthleteList();
-        });
-
-        // Carrega Feedbacks para Tabela e Carinhas
-        db.ref('publicWorkouts').orderByChild('realizadoAt').on('value', s => {
-            if(AdminPanel.state.currentSection === 'feedbacks') AdminPanel.renderFeedbackTable(s);
-            AdminPanel.renderStatsBar(s);
-        });
+        db.ref('users').on('value', s => AdminPanel.state.athletes = s.val() || {});
     },
 
-    // Renderiza as "Carinhas" de Status (Fake data for now, logic ready)
-    renderStatsBar: (snapshot) => {
-        const container = document.getElementById('stats-bar-container');
-        if(!container) return;
+    show: (sec) => {
+        const area = AdminPanel.elements.area;
+        area.innerHTML = "<p>Carregando...</p>";
         
-        const stats = { excelente: 0, bom: 0, normal: 0, ruim: 0, pessimo: 0 };
-        // Aqui você pode ligar a lógica real de "Percepção de Esforço" no futuro
-        // Por enquanto, conta totais para visual
-        const total = snapshot.exists() ? snapshot.numChildren() : 0;
-
-        container.innerHTML = `
-            <div class="stat-box"><i class='bx bxs-happy-heart-eyes face-icon face-excelente'></i><span class="stat-value">${total}</span><span class="stat-label">Total</span></div>
-            <div class="stat-box"><i class='bx bxs-happy face-icon face-bom'></i><span class="stat-value">0</span><span class="stat-label">Vistos</span></div>
-            <div class="stat-box"><i class='bx bxs-meh face-icon face-normal'></i><span class="stat-value">0</span><span class="stat-label">Pendentes</span></div>
-        `;
-    },
-
-    showSection: (section) => {
-        AdminPanel.state.currentSection = section;
-        const area = AdminPanel.elements.contentArea;
-        area.innerHTML = "<p style='text-align:center; padding:20px;'>Carregando...</p>";
-
-        if (section === 'feedbacks') {
-            // Força recarregamento dos dados para a tabela
-            AdminPanel.state.db.ref('publicWorkouts').orderByChild('realizadoAt').once('value', AdminPanel.renderFeedbackTable);
-        } else if (section === 'alunos') {
-            area.innerHTML = `<h3><i class='bx bx-user'></i> Gestão de Alunos</h3><div id="athlete-list-container"></div>`;
+        if(sec === 'feedbacks') {
+            area.innerHTML = `<h3><i class='bx bx-list-check'></i> Central de Feedbacks</h3><div id="feed-list"></div>`;
+            AdminPanel.renderFeedTable();
+        } else if(sec === 'alunos') {
+            area.innerHTML = `<h3><i class='bx bx-user'></i> Meus Alunos</h3><div id="alist"></div>`;
             AdminPanel.renderAthleteList();
-        } else {
-            area.innerHTML = `<div style="text-align:center; padding:50px; color:#999;"><i class='bx bx-cone' style="font-size:40px;"></i><br>Módulo em construção</div>`;
+        } else if(sec === 'aprovacoes') {
+            area.innerHTML = `<h3>Aprovações</h3><div id="plist"></div>`;
+            AdminPanel.renderPending();
         }
     },
 
-    // --- A TABELA PODEROSA (SISRUN STYLE) ---
-    renderFeedbackTable: (snapshot) => {
-        const div = document.getElementById('admin-content-area');
-        if(!div) return;
+    renderFeedTable: () => {
+        // MOSTRA TUDO (SEM LIMITES)
+        AdminPanel.state.db.ref('publicWorkouts').orderByChild('realizadoAt').once('value', snap => {
+            const div = document.getElementById('feed-list');
+            if(!div) return;
+            if(!snap.exists()) { div.innerHTML = "Sem treinos."; return; }
 
-        if(!snapshot.exists()) { div.innerHTML = "<p>Nenhum treino encontrado.</p>"; return; }
+            let h = `<div class="feedback-table-container"><table class="feedback-table"><thead><tr><th>Status</th><th>Aluno</th><th>Treino</th><th>Feedback</th><th></th></tr></thead><tbody>`;
+            const l = []; snap.forEach(c => l.push({k:c.key, ...c.val()})); l.reverse();
 
-        let html = `
-            <div class="section-header" style="margin-bottom:15px; display:flex; justify-content:space-between;">
-                <h3>Acompanhamento de Feedbacks</h3>
-                <input type="text" placeholder="Filtrar..." style="padding:5px; border:1px solid #ccc; border-radius:4px;">
-            </div>
-            <div class="feedback-table-container">
-            <table class="feedback-table">
-                <thead>
-                    <tr>
-                        <th>Aluno</th>
-                        <th>Treino Proposto</th>
-                        <th>Feedback do Aluno</th>
-                        <th style="text-align:center">Visto</th>
-                        <th style="text-align:center">Comentado</th>
-                        <th style="text-align:center">Ações</th>
-                    </tr>
-                </thead>
-                <tbody>
-        `;
-
-        const list = [];
-        snapshot.forEach(c => list.push({ k: c.key, ...c.val() }));
-        list.reverse(); // Mais recente no topo
-
-        list.forEach(w => {
-            const atleta = AdminPanel.state.athletes[w.ownerId] || { name: w.ownerName || "Aluno" };
-            const foto = atleta.photoUrl || 'https://placehold.co/30x30/ccc/fff?text=A';
-            
-            // Formatação dos dados
-            const date = new Date(w.date).toLocaleDateString('pt-BR');
-            const stravaIcon = w.stravaData ? `<i class='bx bxl-strava' style="color:#fc4c02; font-size:16px; vertical-align:middle;"></i>` : '';
-            
-            // Dados Propostos vs Realizados
-            const proposto = `<div class="col-proposto">${date}<br>${w.title}</div>`;
-            
-            let realizado = w.feedback || 'Sem feedback';
-            if(w.stravaData) {
-                realizado += `<br><small style="color:#666;">${stravaIcon} ${w.stravaData.distancia} | ${w.stravaData.tempo}</small>`;
-            }
-            
-            // Checkboxes Visuais
-            const checkVisto = `<div class="check-box checked"><i class='bx bx-check'></i></div>`; // Simulação visual
-            const checkComent = w.comments ? `<div class="check-box checked"><i class='bx bx-check'></i></div>` : `<div class="check-box"></div>`;
-
-            html += `
-                <tr>
-                    <td>
-                        <div class="col-aluno">
-                            <img src="${foto}" class="avatar-small">
-                            <span>${atleta.name}</span>
-                        </div>
-                    </td>
-                    <td>${proposto}</td>
-                    <td><div class="col-feedback">${realizado}</div></td>
-                    <td style="text-align:center">${checkVisto}</td>
-                    <td style="text-align:center">${checkComent}</td>
-                    <td style="text-align:center">
-                        <button class="btn btn-small btn-secondary" onclick="AppPrincipal.openFeedbackModal('${w.k}', '${w.ownerId}', '${w.title}')">
-                            <i class='bx bx-search-alt'></i>
-                        </button>
-                    </td>
-                </tr>
-            `;
-        });
-        div.innerHTML = html + `</tbody></table></div>`;
-    },
-
-    // --- LISTA DE ALUNOS (VOCÊ APARECE AQUI) ---
-    renderAthleteList: () => {
-        const div = document.getElementById('athlete-list-container');
-        if(!div) return;
-        div.innerHTML = "";
-        
-        Object.entries(AdminPanel.state.athletes).forEach(([uid, data]) => {
-            const isMe = uid === AdminPanel.state.currentUser.uid;
-            const bg = isMe ? '#eef' : '#fff'; // Destaque para o Coach
-            
-            div.innerHTML += `
-                <div class="athlete-list-item" style="background:${bg}; padding:10px; border:1px solid #ddd; margin-bottom:5px; border-radius:4px; cursor:pointer; display:flex; justify-content:space-between; align-items:center;"
-                     onclick="AdminPanel.openWorkspace('${uid}', '${data.name}')">
-                    <div style="display:flex; align-items:center; gap:10px;">
-                        <img src="${data.photoUrl||'https://placehold.co/30x30/ccc/fff'}" style="width:30px; height:30px; border-radius:50%;">
-                        <strong>${data.name} ${isMe ? '(Eu)' : ''}</strong>
-                    </div>
-                    <i class='bx bx-chevron-right'></i>
-                </div>
-            `;
-        });
-    },
-
-    openWorkspace: (uid, name) => {
-        // Abre o painel individual (Mantido simples para não quebrar)
-        const area = AdminPanel.elements.contentArea;
-        area.innerHTML = `
-            <div style="margin-bottom:15px; display:flex; justify-content:space-between;">
-                <h3><i class='bx bx-user'></i> ${name}</h3>
-                <button class="btn btn-secondary" onclick="AdminPanel.showSection('alunos')">Voltar</button>
-            </div>
-            <div id="student-plan">Carregando planilha...</div>
-        `;
-        // Carrega lista simples do aluno
-        AdminPanel.state.db.ref(`data/${uid}/workouts`).orderByChild('date').on('value', s => {
-            const d = document.getElementById('student-plan');
-            if(!d) return;
-            d.innerHTML = "";
-            const l = []; s.forEach(c=>l.push(c.val())); l.sort((a,b)=>new Date(b.date)-new Date(a.date));
             l.forEach(w => {
-                const st = w.status === 'realizado' ? '✅' : '📅';
-                d.innerHTML += `<div style="background:#fff; padding:10px; border:1px solid #eee; margin-bottom:5px;">
-                    <b>${st} ${new Date(w.date).toLocaleDateString()}</b> - ${w.title}
+                const a = AdminPanel.state.athletes[w.ownerId] || { name: w.ownerName || 'Aluno' };
+                const st = w.stravaData ? `<i class='bx bxl-strava' style="color:#fc4c02"></i>` : '';
+                h += `<tr>
+                    <td><span class="status-dot dot-green"></span></td>
+                    <td><b>${a.name}</b></td>
+                    <td>${w.title} ${st}<br><small>${w.date}</small></td>
+                    <td><i>${w.feedback || '--'}</i></td>
+                    <td><button class="btn btn-small btn-secondary" onclick="AppPrincipal.openFeedbackModal('${w.k}','${w.ownerId}','${w.title}')">Ver</button></td>
+                </tr>`;
+            });
+            div.innerHTML = h + `</tbody></table></div>`;
+        });
+    },
+
+    renderAthleteList: () => {
+        const div = document.getElementById('alist');
+        Object.entries(AdminPanel.state.athletes).forEach(([uid, u]) => {
+            const isMe = uid === AdminPanel.state.currentUser.uid;
+            const hl = isMe ? "background:#eef; border-color:#4169E1;" : "";
+            div.innerHTML += `
+                <div class="athlete-list-item" style="padding:10px; border:1px solid #ddd; margin-bottom:5px; cursor:pointer; ${hl}" 
+                     onclick="AdminPanel.openStudent('${uid}','${u.name}')">
+                    <b>${u.name}</b> ${isMe ? '(Eu)' : ''} <i class='bx bx-chevron-right' style="float:right"></i>
+                </div>`;
+        });
+    },
+
+    openStudent: (uid, name) => {
+        const area = AdminPanel.elements.area;
+        area.innerHTML = `
+            <div style="display:flex; justify-content:space-between; margin-bottom:15px;"><h3>${name}</h3> <button class="btn btn-small" onclick="AdminPanel.show('alunos')">Voltar</button></div>
+            <div id="student-workouts">Carregando histórico...</div>
+            <hr>
+            <h4>Adicionar Treino</h4>
+            <form id="add-w-form" class="form-minimal">
+                <div class="form-grid-2col"><input type="date" id="wd" required><input type="text" id="wt" placeholder="Título" required></div>
+                <textarea id="wo" placeholder="Detalhes" rows="3"></textarea>
+                <button type="submit" class="btn btn-primary" style="width:100%; margin-top:10px">Salvar</button>
+            </form>
+        `;
+        
+        // CARREGA TUDO DO ALUNO (Correção do bug de sumiço)
+        AdminPanel.state.db.ref(`data/${uid}/workouts`).orderByChild('date').on('value', s => {
+            const d = document.getElementById('student-workouts');
+            if(!d) return;
+            if(!s.exists()) { d.innerHTML = "Sem treinos."; return; }
+            d.innerHTML = "";
+            const l = []; s.forEach(c=>l.push({k:c.key, ...c.val()})); l.sort((a,b)=>new Date(b.date)-new Date(a.date));
+            l.forEach(w => {
+                d.innerHTML += `<div class="workout-card" style="padding:10px; margin-bottom:10px; border:1px solid #eee;">
+                    <div style="display:flex; justify-content:space-between;"><b>${w.title}</b> <span>${new Date(w.date).toLocaleDateString()}</span></div>
+                    <p>${w.description}</p>
+                    ${w.stravaData ? `<div style="color:#fc4c02; font-size:0.9rem"><i class='bx bxl-strava'></i> ${w.stravaData.distancia} | ${w.stravaData.tempo}</div>` : ''}
+                    <div style="text-align:right; margin-top:5px;">
+                        <button class="btn btn-small" onclick="AppPrincipal.openFeedbackModal('${w.k}','${uid}','${w.title}')">Feedback</button>
+                        <button class="btn btn-small btn-danger" onclick="AdminPanel.del('${uid}','${w.k}')">X</button>
+                    </div>
                 </div>`;
             });
         });
-    }
+
+        document.getElementById('add-w-form').onsubmit = (e) => {
+            e.preventDefault();
+            AdminPanel.state.db.ref(`data/${uid}/workouts`).push({
+                date: document.getElementById('wd').value, title: document.getElementById('wt').value, 
+                description: document.getElementById('wo').value, status: 'planejado', createdBy: AdminPanel.state.currentUser.uid
+            });
+            e.target.reset();
+        };
+    },
+    
+    renderPending: () => {
+        const d = document.getElementById('plist');
+        AdminPanel.state.db.ref('pendingApprovals').once('value', s => {
+            if(!s.exists()) { d.innerHTML = "Nada."; return; }
+            s.forEach(c => {
+                d.innerHTML += `<div style="padding:10px; border-bottom:1px solid #eee; display:flex; justify-content:space-between;">
+                    <span>${c.val().name}</span> 
+                    <button class="btn btn-small btn-success" onclick="AdminPanel.approve('${c.key}','${c.val().name}','${c.val().email}')">OK</button>
+                </div>`;
+            });
+        });
+    },
+    approve: (uid, name, email) => {
+        const u = {}; u[`/users/${uid}`] = {name, email, role:'atleta'}; u[`/data/${uid}`]={workouts:{}}; u[`/pendingApprovals/${uid}`]=null;
+        AdminPanel.state.db.ref().update(u).then(()=>AdminPanel.show('aprovacoes'));
+    },
+    del: (uid, wid) => { if(confirm('Apagar?')) AdminPanel.state.db.ref(`data/${uid}/workouts/${wid}`).remove(); }
 };
 
-// MÓDULOS DE ATLETA E FEED (Mantidos intactos para segurança)
+// --- PAINEL DO ALUNO (CORRIGIDO PARA MOSTRAR TUDO) ---
 const AtletaPanel = {
     init: (u, db) => {
         const l = document.getElementById('atleta-workouts-list');
         if(document.getElementById('log-manual-activity-btn')) document.getElementById('log-manual-activity-btn').onclick = AppPrincipal.openLogActivityModal;
+        
         l.innerHTML = "Carregando...";
         db.ref(`data/${u.uid}/workouts`).orderByChild('date').on('value', s => {
-            l.innerHTML = ""; const a = []; s.forEach(c=>a.push({k:c.key, ...c.val()})); a.sort((x,y)=>new Date(y.date)-new Date(x.date));
-            a.forEach(w => {
-                l.innerHTML += `<div class="workout-card" onclick="AppPrincipal.openFeedbackModal('${w.k}','${u.uid}','${w.title}')">
+            l.innerHTML = "";
+            if(!s.exists()) { l.innerHTML = "<p>Nenhum treino.</p>"; return; }
+            const arr = []; s.forEach(c => arr.push({k:c.key, ...c.val()})); 
+            arr.sort((a,b) => new Date(b.date) - new Date(a.date)); // Decrescente
+            
+            arr.forEach(w => {
+                const st = w.stravaData ? `<br><small style="color:#fc4c02">Strava Sync</small>` : '';
+                const card = document.createElement('div'); card.className = 'workout-card';
+                card.innerHTML = `
                     <div class="workout-card-header"><b>${w.title}</b> <span>${new Date(w.date).toLocaleDateString()}</span></div>
-                    <div class="workout-card-body">${w.description}</div>
-                </div>`;
+                    <div class="workout-card-body">${w.description} ${st}</div>
+                    <div class="workout-card-footer"><button class="btn btn-small btn-primary">Feedback</button></div>
+                `;
+                card.onclick = (e) => { if(!e.target.closest('button')) AppPrincipal.openFeedbackModal(w.k, u.uid, w.title); };
+                l.appendChild(card);
             });
         });
     }
 };
+
 const FeedPanel = {
     init: (u, db) => {
         const l = document.getElementById('feed-list');
         db.ref('publicWorkouts').limitToLast(50).on('value', s => {
             l.innerHTML = ""; const a = []; s.forEach(c=>a.push(c.val())); a.reverse();
             a.forEach(w => {
-                l.innerHTML += `<div class="workout-card"><div class="workout-card-header"><b>${w.ownerName}</b></div><div class="workout-card-body">${w.feedback || 'Treino feito!'}</div></div>`;
+                l.innerHTML += `<div class="workout-card" style="padding:15px; margin-bottom:10px;">
+                    <b>${w.ownerName}</b> - ${w.title}<br>
+                    <i>"${w.feedback || 'Treino realizado'}"</i>
+                </div>`;
             });
         });
     }

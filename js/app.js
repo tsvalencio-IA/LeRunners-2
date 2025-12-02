@@ -1,5 +1,5 @@
 /* =================================================================== */
-/* APP.JS V15.0 - BASE V2 FUNCIONAL + SYNC DETALHADO
+/* APP.JS V16 - BASE V2 + SYNC INTELIGENTE (MATCH DE DATAS)
 /* =================================================================== */
 
 const AppPrincipal = {
@@ -12,13 +12,12 @@ const AppPrincipal = {
     elements: {},
 
     init: () => {
-        if (typeof window.firebaseConfig === 'undefined') return;
-        try { if (firebase.apps.length === 0) firebase.initializeApp(window.firebaseConfig); } catch (e) {}
-
+        if(typeof window.firebaseConfig === 'undefined') return;
+        try { if(firebase.apps.length === 0) firebase.initializeApp(window.firebaseConfig); } catch(e){}
         AppPrincipal.state.auth = firebase.auth();
         AppPrincipal.state.db = firebase.database();
 
-        // Roteamento V2 (Seguro)
+        // Roteamento Seguro V2
         if (document.getElementById('login-form')) {
             AuthLogic.init(AppPrincipal.state.auth, AppPrincipal.state.db);
         } else if (document.getElementById('app-container')) {
@@ -32,7 +31,6 @@ const AppPrincipal = {
         el.appContainer = document.getElementById('app-container');
         el.mainContent = document.getElementById('app-main-content');
 
-        // Navegação
         document.getElementById('logoutButton').onclick = AppPrincipal.handleLogout;
         document.getElementById('nav-planilha-btn').onclick = () => AppPrincipal.navigateTo('planilha');
         document.getElementById('nav-feed-btn').onclick = () => AppPrincipal.navigateTo('feed');
@@ -40,21 +38,18 @@ const AppPrincipal = {
         
         document.querySelectorAll('.close-btn').forEach(b => b.onclick = (e) => e.target.closest('.modal-overlay').classList.add('hidden'));
         
-        // Forms (V2)
         if(document.getElementById('feedback-form')) document.getElementById('feedback-form').onsubmit = AppPrincipal.handleFeedbackSubmit;
         if(document.getElementById('comment-form')) document.getElementById('comment-form').onsubmit = AppPrincipal.handleCommentSubmit;
         if(document.getElementById('profile-form')) document.getElementById('profile-form').onsubmit = AppPrincipal.handleProfileSubmit;
+        if(document.getElementById('photo-upload-input')) document.getElementById('photo-upload-input').onchange = AppPrincipal.handlePhotoUpload;
         
-        // Botão Log Manual (V2)
+        // Botão Log Manual V2
         if(document.getElementById('log-activity-form')) document.getElementById('log-activity-form').onsubmit = AppPrincipal.handleLogActivitySubmit;
 
         const urlParams = new URLSearchParams(window.location.search);
         
         AppPrincipal.state.auth.onAuthStateChanged((user) => {
-            if (!user) {
-                window.location.href = 'index.html';
-                return;
-            }
+            if(!user) { window.location.href = 'index.html'; return; }
             AppPrincipal.state.currentUser = user;
             if (urlParams.get('code')) { AppPrincipal.exchangeStravaCode(urlParams.get('code')); return; }
             AppPrincipal.loadUserData(user.uid);
@@ -125,7 +120,7 @@ const AppPrincipal = {
 
     handleLogout: () => AppPrincipal.state.auth.signOut().then(() => window.location.href = 'index.html'),
 
-    // --- STRAVA DEEP SYNC (CORREÇÃO VITAL) ---
+    // --- STRAVA INTELIGENTE (MATCH DE DATAS) ---
     handleStravaConnect: () => { window.location.href = `https://www.strava.com/oauth/authorize?client_id=${window.STRAVA_PUBLIC_CONFIG.clientID}&response_type=code&redirect_uri=${window.STRAVA_PUBLIC_CONFIG.redirectURI}&approval_prompt=force&scope=read_all,activity:read_all,profile:read_all`; },
     
     exchangeStravaCode: async (code) => {
@@ -138,66 +133,104 @@ const AppPrincipal = {
         const { stravaTokenData, currentUser } = AppPrincipal.state;
         if (!stravaTokenData) return alert("Conecte o Strava primeiro.");
         const btn = document.getElementById('btn-strava-action');
-        if(btn) { btn.disabled=true; btn.textContent="Buscando detalhes (Km a Km)..."; }
+        if(btn) { btn.disabled=true; btn.textContent="Sincronizando..."; }
 
         try {
-            // BUSCA LISTA (100 itens para garantir histórico)
-            const activities = await fetch(`https://www.strava.com/api/v3/athlete/activities?per_page=100`, { headers: { 'Authorization': `Bearer ${stravaTokenData.accessToken}` } }).then(r => r.json());
+            // 1. Busca Treinos EXISTENTES no Firebase (para fazer o Match)
+            const existingSnap = await AppPrincipal.state.db.ref(`data/${currentUser.uid}/workouts`).once('value');
+            const existingWorkouts = existingSnap.val() || {};
+
+            // 2. Busca Atividades no Strava
+            const activities = await fetch(`https://www.strava.com/api/v3/athlete/activities?per_page=50`, { headers: { 'Authorization': `Bearer ${stravaTokenData.accessToken}` } }).then(r => r.json());
             const updates = {};
             let count = 0;
 
             for(const act of activities) {
-                // BUSCA DETALHADA PARA CADA ATIVIDADE (SPLITS)
+                // Detalhes (Splits)
                 const detail = await fetch(`https://www.strava.com/api/v3/activities/${act.id}`, { headers: { 'Authorization': `Bearer ${stravaTokenData.accessToken}` } }).then(r => r.json());
                 
-                // Processa Splits
+                // Formatação de Dados
                 let splits = [];
                 if(detail.splits_metric) {
                     splits = detail.splits_metric.map((s, i) => {
-                        const paceVal = (s.moving_time/60)/(s.distance/1000);
-                        const pMin = Math.floor(paceVal); const pSec = Math.round((paceVal-pMin)*60);
-                        return { 
-                            km: i+1, 
-                            pace: `${pMin}'${pSec.toString().padStart(2,'0')}"`, 
-                            time: new Date(s.moving_time*1000).toISOString().substr(14,5),
-                            elev: (s.elevation_difference||0).toFixed(0)
-                        };
+                        const pMin = Math.floor((s.moving_time/60)/(s.distance/1000)); 
+                        const pSec = Math.round(((s.moving_time/60)/(s.distance/1000)-pMin)*60);
+                        return { km: i+1, pace: `${pMin}'${pSec.toString().padStart(2,'0')}"`, time: new Date(s.moving_time*1000).toISOString().substr(14,5), elev: (s.elevation_difference||0).toFixed(0) };
                     });
                 }
-
-                const newKey = AppPrincipal.state.db.ref().push().key;
                 const distKm = (act.distance/1000).toFixed(2)+" km";
                 const paceMin = Math.floor((act.moving_time/60)/(act.distance/1000));
                 const paceSec = Math.round(((act.moving_time/60)/(act.distance/1000)-paceMin)*60);
-                
-                const workoutData = {
-                    title: act.name,
-                    date: act.start_date.split('T')[0],
-                    description: `[Importado Strava] ${act.type}`,
-                    status: 'realizado',
-                    realizadoAt: new Date().toISOString(),
-                    feedback: "Importado automaticamente.",
-                    stravaActivityId: act.id,
-                    stravaData: { 
-                        distancia: distKm, tempo: new Date(act.moving_time*1000).toISOString().substr(11,8), 
-                        ritmo: `${paceMin}:${paceSec.toString().padStart(2,'0')}`, id: act.id,
-                        splits: splits, elevacao: (act.total_elevation_gain||0)+"m"
-                    },
-                    createdBy: currentUser.uid
+                const stravaPayload = { 
+                    distancia: distKm, tempo: new Date(act.moving_time*1000).toISOString().substr(11,8), 
+                    ritmo: `${paceMin}:${paceSec.toString().padStart(2,'0')}`, id: act.id,
+                    splits: splits, elevacao: (act.total_elevation_gain||0)+"m"
                 };
 
-                // Salva nos 2 lugares (V2 Logic)
-                updates[`/data/${currentUser.uid}/workouts/${newKey}`] = workoutData;
-                updates[`/publicWorkouts/${newKey}`] = { ownerId: currentUser.uid, ownerName: AppPrincipal.state.userData.name, ...workoutData };
+                // --- LÓGICA DE MATCH (IMPORTANTE) ---
+                const actDate = act.start_date.split('T')[0]; // Data do Strava (YYYY-MM-DD)
+                let matchKey = null;
+
+                // Procura um treino PLANEJADO na mesma data
+                for (const [key, val] of Object.entries(existingWorkouts)) {
+                    if (val.date === actDate && val.status !== 'realizado') {
+                        matchKey = key;
+                        break; 
+                    }
+                }
+
+                if (matchKey) {
+                    // CENÁRIO 1: Encontrou treino proposto -> Preenche ele
+                    updates[`/data/${currentUser.uid}/workouts/${matchKey}/status`] = 'realizado';
+                    updates[`/data/${currentUser.uid}/workouts/${matchKey}/realizadoAt`] = new Date().toISOString();
+                    updates[`/data/${currentUser.uid}/workouts/${matchKey}/stravaData`] = stravaPayload;
+                    updates[`/data/${currentUser.uid}/workouts/${matchKey}/stravaActivityId`] = act.id;
+                    updates[`/data/${currentUser.uid}/workouts/${matchKey}/feedback`] = `Treino realizado (Sincronizado). ${distKm}`;
+                    
+                    // Atualiza Public
+                    const fullData = { ...existingWorkouts[matchKey], status: 'realizado', stravaData: stravaPayload };
+                    updates[`/publicWorkouts/${matchKey}`] = { ownerId: currentUser.uid, ownerName: AppPrincipal.state.userData.name, ...fullData };
+                    
+                } else {
+                    // CENÁRIO 2: Não tem treino -> Cria Avulso
+                    // Verifica se já importou esse ID pra não duplicar avulsos
+                    let alreadyImported = false;
+                    for (const [key, val] of Object.entries(existingWorkouts)) {
+                        if (val.stravaActivityId === act.id) alreadyImported = true;
+                    }
+
+                    if (!alreadyImported) {
+                        const newKey = AppPrincipal.state.db.ref().push().key;
+                        const workoutData = {
+                            title: act.name,
+                            date: actDate,
+                            description: `[Treino Avulso] ${act.type}`,
+                            status: 'realizado',
+                            realizadoAt: new Date().toISOString(),
+                            feedback: "Treino complementar do Strava.",
+                            stravaActivityId: act.id,
+                            stravaData: stravaPayload,
+                            createdBy: currentUser.uid
+                        };
+                        updates[`/data/${currentUser.uid}/workouts/${newKey}`] = workoutData;
+                        updates[`/publicWorkouts/${newKey}`] = { ownerId: currentUser.uid, ownerName: AppPrincipal.state.userData.name, ...workoutData };
+                    }
+                }
                 count++;
             }
-            await AppPrincipal.state.db.ref().update(updates);
-            alert(`${count} atividades sincronizadas com tabela de Pace!`);
+            
+            if(Object.keys(updates).length > 0) {
+                await AppPrincipal.state.db.ref().update(updates);
+                alert("Sincronização concluída! Treinos vinculados à planilha.");
+            } else {
+                alert("Nenhum treino novo encontrado no Strava.");
+            }
             document.getElementById('profile-modal').classList.add('hidden');
+
         } catch(e) { alert("Erro Sync: "+e.message); } finally { if(btn) { btn.disabled=false; btn.textContent="Sincronizar Strava"; } }
     },
 
-    // --- MODAL V2 (COM TABELA DE PACE) ---
+    // --- MODAL FEEDBACK ---
     openFeedbackModal: (workoutId, ownerId, title) => {
         const modal = document.getElementById('feedback-modal');
         AppPrincipal.state.modal = { isOpen: true, currentWorkoutId: workoutId, currentOwnerId: ownerId };
@@ -210,10 +243,10 @@ const AppPrincipal = {
         AppPrincipal.state.db.ref(`data/${ownerId}/workouts/${workoutId}`).once('value', s => {
             if(s.exists()) {
                 const d = s.val();
-                document.getElementById('workout-status').value = d.status || 'planejado';
-                document.getElementById('workout-feedback-text').value = d.feedback || '';
+                if(document.getElementById('workout-status')) document.getElementById('workout-status').value = d.status || 'planejado';
+                if(document.getElementById('workout-feedback-text')) document.getElementById('workout-feedback-text').value = d.feedback || '';
                 
-                // Exibe Tabela de Splits (Correção V2)
+                // Exibe Tabela de Splits
                 if(d.stravaData) {
                     sd.classList.remove('hidden');
                     let rows = "";
@@ -225,8 +258,8 @@ const AppPrincipal = {
                     sd.innerHTML = `
                         <div style="background:#f9f9f9; padding:10px; border:1px solid #ccc; margin-top:10px;">
                             <strong>Dados Strava:</strong> ${d.stravaData.distancia} | ${d.stravaData.tempo} | ${d.stravaData.ritmo}
-                            <table style="width:100%; font-size:0.8rem; margin-top:5px; text-align:center; border-collapse:collapse;">
-                                <thead style="background:#eee;"><tr><th>Km</th><th>Pace</th><th>Tempo</th><th>Elev</th></tr></thead>
+                            <table class="sisrun-table" style="margin-top:5px;">
+                                <thead><tr><th>Km</th><th>Pace</th><th>Tempo</th><th>Elev</th></tr></thead>
                                 <tbody>${rows}</tbody>
                             </table>
                         </div>
@@ -264,7 +297,7 @@ const AppPrincipal = {
         document.getElementById('comment-input').value = "";
     },
     
-    handleLogActivitySubmit: async (e) => { e.preventDefault(); },
+    handleLogActivitySubmit: async (e) => { e.preventDefault(); /* V2 Stub */ },
     handlePhotoUpload: () => {}, handleProfilePhotoUpload: () => {},
     
     openProfileModal: () => { 
@@ -275,19 +308,17 @@ const AppPrincipal = {
             btn = document.createElement('button'); btn.id='btn-strava-action'; btn.type='button'; btn.className='btn btn-secondary'; btn.style.marginTop='10px'; btn.style.width='100%';
             form.appendChild(btn);
         }
-        btn.textContent = AppPrincipal.state.stravaTokenData ? "Sincronizar Strava (Histórico Completo)" : "Conectar Strava";
+        btn.textContent = AppPrincipal.state.stravaTokenData ? "Sincronizar Strava" : "Conectar Strava";
         btn.onclick = AppPrincipal.state.stravaTokenData ? AppPrincipal.handleStravaSyncActivities : AppPrincipal.handleStravaConnect;
     },
     handleProfileSubmit: (e) => { e.preventDefault(); document.getElementById('profile-modal').classList.add('hidden'); },
     
-    // IA Gemini (Restaurada)
     callGeminiTextAPI: async (prompt) => {
         if(!window.GEMINI_API_KEY) throw new Error("Sem Chave API");
         const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${window.GEMINI_API_KEY}`, {
             method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
         });
         if(r.status === 429) return "⚠️ Limite de uso da IA atingido. Tente novamente mais tarde.";
-        if(!r.ok) throw new Error("Erro IA: "+r.status);
         const d = await r.json(); return d.candidates[0].content.parts[0].text;
     }
 };

@@ -1,21 +1,22 @@
 /* =================================================================== */
-/* ESTILO V15.0 - BASE V2 + SISRUN + LOGO FIX
+/* ESTILO V17 - LOGO TRAVADO E SISRUN
 /* =================================================================== */
 :root { --primary: #00008B; --bg: #f4f5f7; --orange: #fc4c02; }
 body { background: var(--bg); font-family: sans-serif; margin: 0; }
 .hidden { display: none !important; }
 
-/* Login Fix */
+/* LOGIN & LOGO FIX */
 .login-container { max-width: 400px; margin: 50px auto; background: white; padding: 20px; border-radius: 8px; text-align: center; }
-.logo { max-width: 120px; height: auto; margin-bottom: 20px; display:inline-block; } /* LOGO TRAVADO */
-input { width: 100%; padding: 10px; margin: 10px 0; border: 1px solid #ccc; border-radius: 4px; box-sizing:border-box; }
-button { width: 100%; padding: 10px; background: var(--primary); color: white; border: none; cursor: pointer; border-radius: 4px; }
+/* O !important abaixo obriga o logo a ficar pequeno */
+.logo { max-width: 120px !important; height: auto !important; margin-bottom: 20px; display:inline-block; } 
+input, select, textarea { width: 100%; padding: 10px; margin: 5px 0 15px 0; border: 1px solid #ccc; border-radius: 4px; box-sizing:border-box; background:#fff; }
+button { width: 100%; padding: 10px; background: var(--primary); color: white; border: none; cursor: pointer; border-radius: 4px; font-weight:bold; }
 
-/* App Layout */
+/* APP LAYOUT */
 .app-header { background: white; padding: 10px 20px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
 .app-main { padding: 20px; max-width: 1000px; margin: 0 auto; }
 
-/* SisRun Visuals */
+/* DASHBOARD SISRUN */
 .sisrun-dashboard { padding: 10px; }
 .feedback-stats { display: flex; gap: 15px; background: white; padding: 10px 20px; border-radius: 50px; margin-bottom:20px; }
 .stat-face i { font-size: 1.5rem; margin-right: 5px; }
@@ -26,13 +27,24 @@ button { width: 100%; padding: 10px; background: var(--primary); color: white; b
 .action-card:hover { background: #eee; }
 .action-card i { font-size: 2rem; color: var(--primary); display: block; margin-bottom: 5px; }
 
-/* Tables */
+/* TABELAS */
 .sisrun-table { width: 100%; background: white; border-collapse: collapse; }
 .sisrun-table td, .sisrun-table th { padding: 10px; border-bottom: 1px solid #eee; text-align:left; }
 .strava-pill { background: #fff5eb; color: var(--orange); padding: 2px 5px; border-radius: 4px; font-size: 0.8rem; border: 1px solid var(--orange); }
 
-/* Cards & Modals */
+/* FORMS GRID (Para o Form do Coach) */
+.form-grid-2col { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.prescription-box { background: white; padding: 20px; border-radius: 8px; border: 1px solid #ddd; margin-bottom: 20px; }
+
+/* CARDS & MODAL */
 .workout-card { background: white; padding: 15px; margin-bottom: 10px; border-radius: 8px; cursor: pointer; border-left: 5px solid var(--primary); }
-.athlete-card-mini { background: white; padding: 10px; margin-bottom: 5px; cursor: pointer; border: 1px solid #eee; }
-.modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); display: flex; justify-content: center; align-items: center; }
+.athlete-card-mini { background: white; padding: 10px; margin-bottom: 5px; cursor: pointer; border: 1px solid #eee; display:flex; align-items:center; justify-content:space-between; }
+.modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); display: flex; justify-content: center; align-items: center; z-index:9999; }
 .modal-content { background: white; padding: 20px; width: 90%; max-width: 500px; border-radius: 8px; max-height: 80vh; overflow-y: auto; }
+
+/* MOBILE */
+@media (max-width: 768px) {
+    .actions-grid { grid-template-columns: 1fr 1fr; }
+    .form-grid-2col { grid-template-columns: 1fr; }
+    .sisrun-table th:nth-child(4), .sisrun-table td:nth-child(4) { display: none; }
+}

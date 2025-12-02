@@ -1,10 +1,10 @@
 /* =================================================================== */
-/* ARQUIVO DE LÓGICA UNIFICADO (V3.9 - STRAVA DEEP SYNC)
-/* ATUALIZAÇÃO: Busca Profunda de Detalhes (Voltas, Elevação, Calorias)
+/* ARQUIVO DE LÓGICA UNIFICADO (V4.0 - DUAL ROLE & REFRESH TOKEN)
+/* ATUALIZAÇÃO: Renovação automática de Token Strava e Modo Coach/Atleta
 /* =================================================================== */
 
 // ===================================================================
-// 1. AppPrincipal (O Cérebro) - Lógica de app.html
+// 1. AppPrincipal (O Cérebro)
 // ===================================================================
 const AppPrincipal = {
     state: {
@@ -14,6 +14,7 @@ const AppPrincipal = {
         auth: null,
         listeners: {},
         currentView: 'planilha',
+        viewMode: 'admin', // 'admin' (padrão) ou 'atleta' (quando o coach alterna)
         adminUIDs: {},
         userCache: {},
         modal: { isOpen: false, currentWorkoutId: null, currentOwnerId: null, newPhotoUrl: null },
@@ -26,7 +27,7 @@ const AppPrincipal = {
 
     // Inicialização principal
     init: () => {
-        console.log("Iniciando AppPrincipal V3.9 (Strava Deep Sync)...");
+        console.log("Iniciando AppPrincipal V4.0 (Dual Role)...");
         
         if (typeof window.firebaseConfig === 'undefined') {
             document.body.innerHTML = "<h1>Erro Crítico: O arquivo js/config.js não foi configurado.</h1>";
@@ -201,43 +202,89 @@ const AppPrincipal = {
         });
 
         AppPrincipal.state.db.ref('admins/' + uid).once('value', adminSnapshot => {
-            if (adminSnapshot.exists() && adminSnapshot.val() === true) {
-                AppPrincipal.state.db.ref('users/' + uid).once('value', userSnapshot => {
-                    let adminName;
-                    if (userSnapshot.exists()) {
-                        adminName = userSnapshot.val().name;
-                        AppPrincipal.state.userData = { ...userSnapshot.val(), uid: uid };
-                    } else {
-                        adminName = user.email;
-                        const adminProfile = {
-                            name: adminName,
-                            email: user.email,
-                            role: "admin",
-                            createdAt: new Date().toISOString()
-                        };
-                        AppPrincipal.state.db.ref('users/' + uid).set(adminProfile);
-                        AppPrincipal.state.userData = adminProfile;
-                    }
-                    AppPrincipal.elements.userDisplay.textContent = `${adminName} (Coach)`;
-                    appContainer.classList.add('admin-view');
-                    appContainer.classList.remove('atleta-view');
-                    AppPrincipal.navigateTo('planilha');
-                });
-                return;
-            }
-
+            const isAdmin = (adminSnapshot.exists() && adminSnapshot.val() === true);
+            
             AppPrincipal.state.db.ref('users/' + uid).once('value', userSnapshot => {
                 if (userSnapshot.exists()) {
-                    AppPrincipal.state.userData = { ...userSnapshot.val(), uid: uid };
-                    AppPrincipal.elements.userDisplay.textContent = `${AppPrincipal.state.userData.name}`;
-                    appContainer.classList.add('atleta-view');
-                    appContainer.classList.remove('admin-view');
+                    const data = userSnapshot.val();
+                    
+                    // Se for Admin, garante que tem o papel no objeto, mas mantém nome e bio
+                    if (isAdmin) {
+                         data.role = 'admin';
+                         AppPrincipal.setupAdminToggle(true); // Adiciona botão de alternar
+                         AppPrincipal.state.viewMode = 'admin'; // Começa como Admin
+                    } else {
+                        AppPrincipal.state.viewMode = 'atleta';
+                    }
+                    
+                    AppPrincipal.state.userData = { ...data, uid: uid };
+                    AppPrincipal.elements.userDisplay.textContent = data.name;
+                    AppPrincipal.updateViewClasses();
+                    AppPrincipal.navigateTo('planilha');
+                    
+                } else if (isAdmin) {
+                    // Admin sem perfil de usuário ainda
+                     const adminProfile = {
+                        name: user.email,
+                        email: user.email,
+                        role: "admin",
+                        createdAt: new Date().toISOString()
+                    };
+                    AppPrincipal.state.db.ref('users/' + uid).set(adminProfile);
+                    AppPrincipal.state.userData = adminProfile;
+                    AppPrincipal.setupAdminToggle(true);
+                    AppPrincipal.state.viewMode = 'admin';
+                    AppPrincipal.updateViewClasses();
                     AppPrincipal.navigateTo('planilha');
                 } else {
                     AppPrincipal.handleLogout(); 
                 }
             });
         });
+    },
+
+    // NOVO (V4.0): Cria o Botão de Alternar Visão no Header
+    setupAdminToggle: (isAdmin) => {
+        const headerNav = document.querySelector('.app-header nav');
+        let toggleBtn = document.getElementById('admin-toggle-btn');
+        
+        if (isAdmin && !toggleBtn) {
+            toggleBtn = document.createElement('button');
+            toggleBtn.id = 'admin-toggle-btn';
+            toggleBtn.className = 'btn btn-nav';
+            toggleBtn.innerHTML = "<i class='bx bx-run'></i> Modo Atleta";
+            toggleBtn.style.border = "1px solid var(--primary-color)";
+            toggleBtn.style.borderRadius = "20px";
+            toggleBtn.style.marginLeft = "10px";
+            
+            toggleBtn.addEventListener('click', () => {
+                if (AppPrincipal.state.viewMode === 'admin') {
+                    AppPrincipal.state.viewMode = 'atleta';
+                    toggleBtn.innerHTML = "<i class='bx bx-shield-quarter'></i> Modo Coach";
+                    toggleBtn.classList.add('active');
+                } else {
+                    AppPrincipal.state.viewMode = 'admin';
+                    toggleBtn.innerHTML = "<i class='bx bx-run'></i> Modo Atleta";
+                    toggleBtn.classList.remove('active');
+                }
+                AppPrincipal.updateViewClasses();
+                AppPrincipal.navigateTo('planilha'); // Recarrega o painel
+            });
+            
+            // Insere antes do botão de Sair
+            headerNav.insertBefore(toggleBtn, AppPrincipal.elements.logoutButton);
+        }
+    },
+
+    updateViewClasses: () => {
+        const { appContainer } = AppPrincipal.elements;
+        if (AppPrincipal.state.viewMode === 'admin') {
+            appContainer.classList.add('admin-view');
+            appContainer.classList.remove('atleta-view');
+        } else {
+            appContainer.classList.add('atleta-view');
+            appContainer.classList.remove('admin-view');
+        }
     },
 
     navigateTo: (page) => {
@@ -255,12 +302,13 @@ const AppPrincipal = {
         }
 
         if (page === 'planilha') {
-            const role = AppPrincipal.state.userData.role;
-            if (role === 'admin') {
+            // Lógica V4.0: Depende do viewMode, não apenas do role
+            if (AppPrincipal.state.viewMode === 'admin') {
                 const adminTemplate = document.getElementById('admin-panel-template').content.cloneNode(true);
                 mainContent.appendChild(adminTemplate);
                 AdminPanel.init(AppPrincipal.state.currentUser, AppPrincipal.state.db);
             } else {
+                // Modo Atleta (ou Coach vendo sua planilha)
                 const atletaTemplate = document.getElementById('atleta-panel-template').content.cloneNode(true);
                 mainContent.appendChild(atletaTemplate);
                 const welcomeEl = document.getElementById('atleta-welcome-name');
@@ -295,7 +343,7 @@ const AppPrincipal = {
     },
 
     // ===================================================================
-    // MÓDULO PERFIL E STRAVA (Atualizado V3.9 - Deep Sync)
+    // MÓDULO PERFIL E STRAVA
     // ===================================================================
     openProfileModal: () => {
         const { profileModal, profileName, profileBio, profilePicPreview, profileUploadFeedback, saveProfileBtn } = AppPrincipal.elements;
@@ -331,7 +379,7 @@ const AppPrincipal = {
                         <i class='bx bx-check-circle'></i> Conta vinculada.
                     </p>
                     <button id="btn-sync-strava" class="btn btn-primary" style="background-color: var(--strava-orange); color: white;">
-                        <i class='bx bx-cloud-download'></i> Sincronizar Tudo (Lento)
+                        <i class='bx bx-cloud-download'></i> Sincronizar Tudo
                     </button>
                     <p id="strava-sync-status" style="font-size: 0.85rem; margin-top: 0.5rem; font-weight: bold; color: var(--primary-color);"></p>
                 </fieldset>
@@ -418,7 +466,7 @@ const AppPrincipal = {
     },
 
     // ===================================================================
-    // LÓGICA DE SINCRONIZAÇÃO STRAVA V3.9 (BUSCA PROFUNDA)
+    // LÓGICA DE SINCRONIZAÇÃO STRAVA (V4.0 - COM REFRESH)
     // ===================================================================
     handleStravaConnect: () => {
         if (typeof window.STRAVA_PUBLIC_CONFIG === 'undefined') {
@@ -457,7 +505,31 @@ const AppPrincipal = {
         }
     },
 
-    // AQUI ESTÁ A MÁGICA "SENIOR"
+    // NOVO (V4.0): Função para renovar token
+    refreshStravaToken: async () => {
+        const { stravaTokenData, currentUser } = AppPrincipal.state;
+        const VERCEL_API_URL = window.STRAVA_PUBLIC_CONFIG.vercelAPI;
+        
+        if (!stravaTokenData || !stravaTokenData.refreshToken) {
+            throw new Error("Token de renovação não encontrado. Reconecte o Strava.");
+        }
+
+        const idToken = await currentUser.getIdToken();
+        const response = await fetch(VERCEL_API_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${idToken}` },
+            body: JSON.stringify({ refresh_token: stravaTokenData.refreshToken })
+        });
+
+        if (!response.ok) {
+            const err = await response.json();
+            throw new Error(err.error || "Falha ao renovar token.");
+        }
+        
+        console.log("Token Strava renovado com sucesso.");
+        // Não precisa retornar nada, o Firebase listener vai atualizar o stravaTokenData automaticamente
+    },
+
     handleStravaSyncActivities: async () => {
         const { stravaTokenData, currentUser } = AppPrincipal.state;
         const statusEl = document.getElementById('strava-sync-status');
@@ -469,15 +541,28 @@ const AppPrincipal = {
         }
 
         btn.disabled = true;
-        statusEl.textContent = "Buscando lista de atividades...";
+        statusEl.textContent = "Verificando conexão...";
 
         try {
-            // 1. Busca lista (Sumário)
+            // 1. VERIFICAÇÃO DE VALIDADE DO TOKEN (NOVO)
+            const nowSeconds = Math.floor(Date.now() / 1000);
+            if (stravaTokenData.expiresAt && nowSeconds >= stravaTokenData.expiresAt) {
+                statusEl.textContent = "Renovando token de acesso...";
+                await AppPrincipal.refreshStravaToken();
+                // Aguarda um momento para o listener atualizar o state com o novo token
+                await new Promise(r => setTimeout(r, 2000));
+            }
+            
+            // Pega o token mais recente do state
+            const currentToken = AppPrincipal.state.stravaTokenData.accessToken;
+
+            // 2. Busca lista (Sumário)
+            statusEl.textContent = "Buscando atividades...";
             const response = await fetch(`https://www.strava.com/api/v3/athlete/activities?per_page=30`, {
-                headers: { 'Authorization': `Bearer ${stravaTokenData.accessToken}` }
+                headers: { 'Authorization': `Bearer ${currentToken}` }
             });
 
-            if (response.status === 401) throw new Error("Token expirado. Reconecte o Strava.");
+            if (response.status === 401) throw new Error("Falha na autenticação Strava. Tente reconectar no botão 'Conectar Strava'.");
             if (!response.ok) throw new Error("Erro Strava API.");
 
             const activities = await response.json();
@@ -487,7 +572,7 @@ const AppPrincipal = {
                 return;
             }
 
-            // 2. Verifica duplicatas
+            // 3. Verifica duplicatas
             const existingWorkoutsRef = AppPrincipal.state.db.ref(`data/${currentUser.uid}/workouts`);
             const snapshot = await existingWorkoutsRef.once('value');
             const existingStravaIds = [];
@@ -508,7 +593,7 @@ const AppPrincipal = {
                 return;
             }
 
-            // 3. BUSCA PROFUNDA (Loop com detalhes)
+            // 4. BUSCA PROFUNDA (Loop com detalhes)
             let importedCount = 0;
             const updates = {};
             
@@ -516,9 +601,9 @@ const AppPrincipal = {
                 const activitySummary = newActivities[i];
                 statusEl.textContent = `Importando ${i + 1} de ${newActivities.length}: ${activitySummary.name}...`;
                 
-                // Fetch Detalhado (Para pegar Laps/Splits e Calorias corretas)
+                // Fetch Detalhado
                 const detailResponse = await fetch(`https://www.strava.com/api/v3/activities/${activitySummary.id}`, {
-                     headers: { 'Authorization': `Bearer ${stravaTokenData.accessToken}` }
+                     headers: { 'Authorization': `Bearer ${currentToken}` }
                 });
                 const activity = await detailResponse.json();
 
@@ -542,7 +627,7 @@ const AppPrincipal = {
                 const paceSecInt = Math.floor((paceMin - paceMinInt) * 60);
                 const paceStr = `${paceMinInt}:${paceSecInt.toString().padStart(2, '0')} /km`;
 
-                // TRUQUE DO DEV SENIOR: Formatar as Voltas (Splits) em Texto para o Feedback
+                // Splits
                 let splitsText = "";
                 if (activity.splits_metric && activity.splits_metric.length > 0) {
                     splitsText = "\n\n📊 Parciais (Voltas):\n";
@@ -565,7 +650,7 @@ const AppPrincipal = {
                 const workoutData = {
                     title: activity.name,
                     date: activity.start_date.split('T')[0],
-                    description: `[Importado do Strava] - ${typePt}${splitsText}`, // Inclui as voltas na descrição
+                    description: `[Importado do Strava] - ${typePt}${splitsText}`, 
                     status: "realizado",
                     realizadoAt: new Date().toISOString(),
                     createdBy: currentUser.uid,
@@ -576,12 +661,11 @@ const AppPrincipal = {
                         distancia: distanceKm,
                         tempo: timeStr,
                         ritmo: paceStr,
-                        elevacao: elevationM, // Novo
-                        calorias: calories    // Novo
+                        elevacao: elevationM,
+                        calorias: calories
                     }
                 };
                 
-                // Link do Mapa (Se houver polyline, montamos o link para ver no Strava)
                 if (activity.map && activity.map.summary_polyline) {
                     workoutData.stravaData.mapLink = `https://www.strava.com/activities/${activity.id}`;
                 }
@@ -595,7 +679,6 @@ const AppPrincipal = {
                 };
 
                 importedCount++;
-                // Pequena pausa para não estourar API (Senior touch)
                 await new Promise(r => setTimeout(r, 500));
             }
 
@@ -614,7 +697,7 @@ const AppPrincipal = {
     },
 
     // ===================================================================
-    // FUNÇÕES AUXILIARES (Display atualizado)
+    // FUNÇÕES AUXILIARES
     // ===================================================================
     openFeedbackModal: (workoutId, ownerId, workoutTitle) => {
         const { feedbackModal, feedbackModalTitle, workoutStatusSelect, workoutFeedbackText, commentsList, commentInput, photoUploadInput, saveFeedbackBtn, photoUploadFeedback, stravaDataDisplay } = AppPrincipal.elements;
@@ -681,7 +764,13 @@ const AppPrincipal = {
         e.preventDefault();
         const { workoutStatusSelect, workoutFeedbackText, photoUploadInput, saveFeedbackBtn } = AppPrincipal.elements;
         const { currentWorkoutId, currentOwnerId } = AppPrincipal.state.modal;
-        if (currentOwnerId !== AppPrincipal.state.currentUser.uid) return alert("Apenas o dono pode editar.");
+        
+        // Coach pode editar feedbacks dos outros? Pelo vídeo sim (ele "Avalia").
+        // Mas por segurança básica inicial, mantemos Owner ou Admin.
+        const isAdmin = AppPrincipal.state.userData.role === 'admin';
+        const isOwner = currentOwnerId === AppPrincipal.state.currentUser.uid;
+
+        if (!isOwner && !isAdmin) return alert("Permissão negada.");
 
         saveFeedbackBtn.disabled = true;
         saveFeedbackBtn.textContent = "Salvando...";
@@ -706,7 +795,7 @@ const AppPrincipal = {
             const workoutData = snapshot.val();
             const publicData = {
                 ownerId: currentOwnerId,
-                ownerName: AppPrincipal.state.userData.name,
+                ownerName: AppPrincipal.state.userCache[currentOwnerId]?.name || "Atleta",
                 ...workoutData
             };
             
@@ -823,7 +912,6 @@ const AppPrincipal = {
     },
     fileToBase64: (file) => new Promise((r, j) => { const reader = new FileReader(); reader.onload = () => r(reader.result.split(',')[1]); reader.onerror = j; reader.readAsDataURL(file); }),
     
-    // ATUALIZADO: Mostra Elevação e Calorias
     displayStravaData: (data) => {
         let html = `
             <p>Distância: ${data.distancia || "N/A"}</p>
@@ -835,7 +923,6 @@ const AppPrincipal = {
         if (data.mapLink) html += `<p style="margin-top:5px;"><a href="${data.mapLink}" target="_blank" style="color: var(--strava-orange); font-weight: bold;">🗺️ Ver Mapa no Strava</a></p>`;
 
         const container = document.getElementById('strava-data-display');
-        // Mantém o título legend
         const legend = container.querySelector('legend');
         container.innerHTML = "";
         container.appendChild(legend);

@@ -1,7 +1,5 @@
 /* =================================================================== */
-/* ARQUIVO DE PAINÉIS (V5.7 - CORREÇÃO VISUALIZAÇÃO)
-/* - Feedbacks mostram histórico completo
-/* - Feed da equipe mostra histórico completo
+/* ARQUIVO DE PAINÉIS (V6.0 - SEM LIMITES VISUAIS)
 /* =================================================================== */
 
 const AdminPanel = {
@@ -9,6 +7,7 @@ const AdminPanel = {
     elements: {},
 
     init: (user, db) => {
+        console.log("AdminPanel V6.0: Iniciado.");
         AdminPanel.state.db = db;
         AdminPanel.state.currentUser = user;
         
@@ -18,7 +17,6 @@ const AdminPanel = {
                     <h2><i class='bx bxs-dashboard'></i> Painel do Treinador</h2>
                     <div class="user-display" style="color:#666;">Olá, Coach!</div>
                 </div>
-                
                 <div class="dashboard-grid">
                     <div class="dash-card" onclick="AdminPanel.showSection('feedbacks')">
                         <i class='bx bx-message-square-check'></i>
@@ -30,13 +28,10 @@ const AdminPanel = {
                     </div>
                     <div class="dash-card" onclick="AdminPanel.showSection('aprovacoes')">
                         <i class='bx bx-user-plus'></i>
-                        <span>Aprovações <span id="badge-aprovacoes" class="badge-count">0</span></span>
+                        <span>Pendentes <span id="badge-aprovacoes" class="badge-count">0</span></span>
                     </div>
-                    <div class="dash-card" onclick="alert('Em breve')">
-                        <i class='bx bx-dollar-circle'></i><span>Financeiro</span>
-                    </div>
+                    <div class="dash-card" onclick="alert('Em breve')"><i class='bx bx-dollar-circle'></i><span>Financeiro</span></div>
                 </div>
-
                 <div id="admin-content-area" class="panel" style="min-height: 400px;"></div>
             </div>
         `;
@@ -53,7 +48,6 @@ const AdminPanel = {
             if(document.getElementById('badge-alunos')) document.getElementById('badge-alunos').textContent = Object.keys(AdminPanel.state.athletes).length;
             if(AdminPanel.state.currentSection === 'alunos') AdminPanel.renderAthleteList();
         });
-        // REMOVIDO LIMITES para mostrar todos os treinos importados
         db.ref('publicWorkouts').on('value', s => {
             if(s.exists() && document.getElementById('badge-feed')) document.getElementById('badge-feed').textContent = s.numChildren();
             if(AdminPanel.state.currentSection === 'feedbacks') AdminPanel.renderFeedbackTable();
@@ -82,7 +76,6 @@ const AdminPanel = {
     },
 
     renderFeedbackTable: () => {
-        // MOSTRA TUDO, SEM LIMITE
         AdminPanel.state.db.ref('publicWorkouts').orderByChild('realizadoAt').once('value', snap => {
             const div = document.getElementById('feedback-list');
             if(!div) return;
@@ -153,12 +146,7 @@ const AdminPanel = {
             l.forEach(w => {
                 const color = w.status === 'realizado' ? 'var(--success-color)' : '#999';
                 let stravaInfo = w.stravaData ? `<div class="strava-data-display" style="font-size:0.85rem; margin-top:5px; padding:5px; border:1px solid #fc4c02; background:#fff5f0;"><i class='bx bxl-strava' style="color:#fc4c02"></i> <b>${w.stravaData.distancia}</b> | ${w.stravaData.tempo} | ${w.stravaData.ritmo}</div>` : '';
-                d.innerHTML += `<div class="workout-card">
-                    <div class="workout-card-header"><span class="date">${new Date(w.date).toLocaleDateString('pt-BR')}</span> <span class="title">${w.title}</span> <span class="status-tag" style="background:${color}">${w.status}</span></div>
-                    <div class="workout-card-body"><p style="white-space:pre-wrap;">${w.description}</p>${stravaInfo}
-                    ${w.feedback ? `<div class="feedback-text"><strong>Feedback:</strong> ${w.feedback}</div>` : ''}</div>
-                    <div class="workout-card-footer"><button class="btn btn-small" onclick="AppPrincipal.openFeedbackModal('${w.k}', '${uid}', '${w.title}')">Detalhes</button><button class="btn btn-small btn-danger" onclick="AdminPanel.del('${uid}','${w.k}')"><i class='bx bx-trash'></i></button></div>
-                </div>`;
+                d.innerHTML += `<div class="workout-card"><div class="workout-card-header"><span class="date">${new Date(w.date).toLocaleDateString('pt-BR')}</span> <span class="title">${w.title}</span> <span class="status-tag" style="background:${color}">${w.status}</span></div><div class="workout-card-body"><p>${w.description}</p>${stravaInfo}${w.feedback ? `<div class="feedback-text"><strong>Feedback:</strong> ${w.feedback}</div>` : ''}</div><div class="workout-card-footer"><button class="btn btn-small" onclick="AppPrincipal.openFeedbackModal('${w.k}','${uid}','${w.title}')">Detalhes</button><button class="btn btn-small btn-danger" onclick="AdminPanel.del('${uid}','${w.k}')"><i class='bx bx-trash'></i></button></div></div>`;
             });
         });
 
@@ -196,7 +184,7 @@ const AtletaPanel = {
         list.innerHTML = "Carregando...";
         db.ref(`data/${u.uid}/workouts`).orderByChild('date').on('value', s => {
             list.innerHTML = "";
-            if(!s.exists()) { list.innerHTML = "<p>Sem treinos na planilha.</p>"; return; }
+            if(!s.exists()) { list.innerHTML = "<p>Nenhum treino encontrado.</p>"; return; }
             const l = []; s.forEach(c=>l.push({k:c.key, ...c.val()})); l.sort((a,b)=>new Date(b.date)-new Date(a.date));
             l.forEach(w => {
                 const st = w.stravaData ? `<br><small style="color:#fc4c02">Strava Sync</small>` : '';

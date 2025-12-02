@@ -1,5 +1,5 @@
 /* =================================================================== */
-/* ARQUIVO DE LÓGICA (V13.0 - IMPORTAÇÃO TOTAL 200)
+/* ARQUIVO DE LÓGICA (V2.0.1 - BASE ORIGINAL + SMART LINKING)
 /* =================================================================== */
 const AppPrincipal = {
     state: { currentUser: null, userData: null, db: null, auth: null, listeners: {}, currentView: 'planilha', adminUIDs: {}, userCache: {}, modal: { isOpen: false }, stravaData: null, stravaTokenData: null },
@@ -102,9 +102,9 @@ const AppPrincipal = {
         stravaSection = document.createElement('div'); stravaSection.id = 'strava-connect-section';
         stravaSection.style.marginTop = "20px"; stravaSection.style.borderTop = "1px solid #eee"; stravaSection.style.paddingTop = "10px";
         if (stravaTokenData && stravaTokenData.accessToken) {
-            stravaSection.innerHTML = `<fieldset style="border-color:green"><legend style="color:green"><i class='bx bxl-strava'></i> Strava</legend><p style="color:green; font-size:0.9rem;">Conectado.</p><button id="btn-sync-strava" class="btn btn-primary" style="background:#fc4c02;color:white;width:100%"><i class='bx bx-refresh'></i> Sincronizar (200)</button><p id="strava-sync-status"></p></fieldset>`;
+            stravaSection.innerHTML = `<fieldset style="border-color:green"><legend style="color:green"><i class='bx bxl-strava'></i> Strava Conectado</legend><p style="color:green; font-size:0.9rem;">Vinculado.</p><button id="btn-sync-strava" class="btn btn-primary" style="background:#fc4c02;color:white;width:100%"><i class='bx bx-refresh'></i> Sincronizar Tudo (200)</button><p id="strava-sync-status"></p></fieldset>`;
         } else {
-            stravaSection.innerHTML = `<fieldset><legend><i class='bx bxl-strava'></i> Integração</legend><button id="btn-connect-strava" class="btn btn-secondary" style="background:#fc4c02;color:white;width:100%"><i class='bx bxl-strava'></i> Conectar</button></fieldset>`;
+            stravaSection.innerHTML = `<fieldset><legend><i class='bx bxl-strava'></i> Integração</legend><button id="btn-connect-strava" class="btn btn-secondary" style="background:#fc4c02;color:white;width:100%"><i class='bx bxl-strava'></i> Conectar Strava</button></fieldset>`;
         }
         profileModal.querySelector('.modal-body').appendChild(stravaSection);
         const btnConn = document.getElementById('btn-connect-strava'); if(btnConn) btnConn.onclick = AppPrincipal.handleStravaConnect;
@@ -136,30 +136,72 @@ const AppPrincipal = {
         const res = await fetch(window.STRAVA_PUBLIC_CONFIG.vercelAPI, { method:'POST', headers:{'Content-Type':'application/json', 'Authorization':`Bearer ${token}`}, body:JSON.stringify({code}) });
         if(res.ok) { alert("Conectado!"); window.location.href = "app.html"; } else { alert("Erro ao conectar."); }
     },
+    
+    // --- O CÓDIGO INTELIGENTE QUE PEDISTE ---
     handleStravaSyncActivities: async () => {
         const btn = document.getElementById('btn-sync-strava'); const status = document.getElementById('strava-sync-status'); const uid = AppPrincipal.state.currentUser.uid;
-        btn.disabled = true; status.textContent = "Buscando (200)...";
+        btn.disabled = true; status.textContent = "Buscando...";
         try {
+            // Puxa 200 itens (máximo)
             const res = await fetch(`https://www.strava.com/api/v3/athlete/activities?per_page=200`, { headers: { 'Authorization': `Bearer ${AppPrincipal.state.stravaTokenData.accessToken}` } });
             if (!res.ok) throw new Error("Erro Strava API");
             const activities = await res.json();
+            
+            // Busca o que já existe
             const snap = await AppPrincipal.state.db.ref(`data/${uid}/workouts`).once('value');
             const existingStravaIds = []; const plannedMap = {};
-            if (snap.exists()) { snap.forEach(child => { const w = child.val(); if (w.stravaActivityId) existingStravaIds.push(String(w.stravaActivityId)); if (w.status === 'planejado' && w.date) plannedMap[w.date] = { key: child.key, title: w.title, desc: w.description }; }); }
-            const updates = {}; let countImport = 0;
+            if (snap.exists()) { 
+                snap.forEach(child => { 
+                    const w = child.val(); 
+                    if (w.stravaActivityId) existingStravaIds.push(String(w.stravaActivityId)); 
+                    if (w.status === 'planejado' && w.date) plannedMap[w.date] = { key: child.key, title: w.title, desc: w.description }; 
+                }); 
+            }
+            
+            const updates = {}; let countImport = 0; let countLinked = 0;
+            
             for (const activity of activities) {
-                if (existingStravaIds.includes(String(activity.id))) continue;
-                const date = activity.start_date.split('T')[0]; let key, title, descPrefix;
-                if (plannedMap[date]) { key = plannedMap[date].key; title = plannedMap[date].title; descPrefix = plannedMap[date].desc + "\n\n[REALIZADO via Strava]: "; } 
-                else { key = AppPrincipal.state.db.ref(`data/${uid}/workouts`).push().key; title = activity.name; descPrefix = "[Importado]: "; }
+                if (existingStravaIds.includes(String(activity.id))) continue; // Pula duplicatas
+                
+                const date = activity.start_date.split('T')[0]; 
+                let key, title, descPrefix;
+
+                // INTELIGÊNCIA: Se tem treino planejado na data, ATUALIZA
+                if (plannedMap[date]) { 
+                    key = plannedMap[date].key; 
+                    title = plannedMap[date].title; 
+                    descPrefix = plannedMap[date].desc + "\n\n[REALIZADO via Strava]: ";
+                    countLinked++; 
+                } else { 
+                    key = AppPrincipal.state.db.ref(`data/${uid}/workouts`).push().key; 
+                    title = activity.name; 
+                    descPrefix = "[Importado]: ";
+                    countImport++; 
+                }
+                
                 const dist = (activity.distance/1000).toFixed(2) + " km";
                 const time = new Date(activity.moving_time * 1000).toISOString().substr(11, 8);
                 const pace = (activity.average_speed > 0 ? (60 / (activity.average_speed * 3.6)).toFixed(2) : "0") + " /km";
                 const stravaData = { distancia: dist, tempo: time, ritmo: pace, elevacao: activity.total_elevation_gain + "m", mapLink: `https://www.strava.com/activities/${activity.id}` };
-                const workoutData = { title: title, date: date, status: 'realizado', description: descPrefix + (activity.type === 'Run' ? 'Corrida' : activity.type), feedback: `Sincronizado. ${dist} em ${time}.`, stravaActivityId: String(activity.id), stravaData: stravaData, realizadoAt: new Date().toISOString() };
-                updates[`/data/${uid}/workouts/${key}`] = workoutData; updates[`/publicWorkouts/${key}`] = { ...workoutData, ownerId: uid, ownerName: AppPrincipal.state.userData.name }; countImport++;
+                
+                const workoutData = { 
+                    title: title, date: date, status: 'realizado', 
+                    description: descPrefix + (activity.type === 'Run' ? 'Corrida' : activity.type), 
+                    feedback: `Sincronizado. ${dist} em ${time}.`, 
+                    stravaActivityId: String(activity.id), 
+                    stravaData: stravaData, 
+                    realizadoAt: new Date().toISOString() 
+                };
+                
+                updates[`/data/${uid}/workouts/${key}`] = workoutData; 
+                updates[`/publicWorkouts/${key}`] = { ...workoutData, ownerId: uid, ownerName: AppPrincipal.state.userData.name }; 
             }
-            if (Object.keys(updates).length > 0) { await AppPrincipal.state.db.ref().update(updates); alert(`${countImport} novos!`); AppPrincipal.closeProfileModal(); } else { alert("Atualizado."); }
+            
+            if (Object.keys(updates).length > 0) { 
+                await AppPrincipal.state.db.ref().update(updates); 
+                alert(`Sincronizado!\nNovos: ${countImport}\nVinculados: ${countLinked}`); 
+                AppPrincipal.closeProfileModal(); 
+            } else { alert("Tudo atualizado."); }
         } catch (err) { alert("Erro: " + err.message); } finally { btn.disabled = false; status.textContent = ""; }
     },
     openFeedbackModal: (wid, oid, title) => {
@@ -171,10 +213,10 @@ const AppPrincipal = {
     },
     closeFeedbackModal: () => AppPrincipal.elements.feedbackModal.classList.add('hidden'),
     handleFeedbackSubmit: async (e) => { 
-        e.preventDefault(); const { currentWorkoutId, currentOwnerId } = AppPrincipal.state.modal;
+        e.preventDefault(); const { currentWorkoutId, currentOwnerId } = AppPrincipal.state.modal; const currentUser = AppPrincipal.state.currentUser; const role = AppPrincipal.state.userData.role;
+        if(currentOwnerId !== currentUser.uid && role !== 'admin') return alert("Permissão negada.");
         const updates = {}; const data = { status: AppPrincipal.elements.workoutStatusSelect.value, feedback: AppPrincipal.elements.workoutFeedbackText.value, realizadoAt: new Date().toISOString() };
-        updates[`/data/${currentOwnerId}/workouts/${currentWorkoutId}/status`] = data.status; updates[`/data/${currentOwnerId}/workouts/${currentWorkoutId}/feedback`] = data.feedback;
-        updates[`/publicWorkouts/${currentWorkoutId}/status`] = data.status; updates[`/publicWorkouts/${currentWorkoutId}/feedback`] = data.feedback;
+        updates[`/data/${currentOwnerId}/workouts/${currentWorkoutId}/status`] = data.status; updates[`/data/${currentOwnerId}/workouts/${currentWorkoutId}/feedback`] = data.feedback; updates[`/publicWorkouts/${currentWorkoutId}/status`] = data.status; updates[`/publicWorkouts/${currentWorkoutId}/feedback`] = data.feedback;
         await AppPrincipal.state.db.ref().update(updates); AppPrincipal.closeFeedbackModal();
     },
     handleCommentSubmit: (e) => {

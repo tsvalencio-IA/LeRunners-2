@@ -1,5 +1,5 @@
 /* =================================================================== */
-/* APP.JS V11.0 - SYNC PROFUNDO (SPLITS) + MODAL DETALHADO
+/* APP.JS V8.0 - LOGIN CORRIGIDO E SYNC ESTÁVEL
 /* =================================================================== */
 
 const AppPrincipal = {
@@ -17,8 +17,12 @@ const AppPrincipal = {
         AppPrincipal.state.auth = firebase.auth();
         AppPrincipal.state.db = firebase.database();
 
-        if (document.getElementById('login-form')) AuthLogic.init(AppPrincipal.state.auth, AppPrincipal.state.db);
-        else if (document.getElementById('app-container')) AppPrincipal.initPlatform();
+        // Verifica se é a página de login ou a aplicação principal
+        if (document.getElementById('login-form')) {
+            AuthLogic.init(AppPrincipal.state.auth, AppPrincipal.state.db);
+        } else if (document.getElementById('app-container')) {
+            AppPrincipal.initPlatform();
+        }
     },
 
     initPlatform: () => {
@@ -33,21 +37,23 @@ const AppPrincipal = {
         document.querySelectorAll('.close-btn').forEach(b => b.onclick = (e) => e.target.closest('.modal-overlay').classList.add('hidden'));
         
         // Forms
-        document.getElementById('feedback-form').onsubmit = AppPrincipal.handleFeedbackSubmit;
-        document.getElementById('comment-form').onsubmit = AppPrincipal.handleCommentSubmit;
-        document.getElementById('log-activity-form').onsubmit = AppPrincipal.handleLogActivitySubmit;
-        document.getElementById('profile-form').onsubmit = AppPrincipal.handleProfileSubmit;
-        document.getElementById('photo-upload-input').onchange = AppPrincipal.handlePhotoUpload;
+        if(document.getElementById('feedback-form')) document.getElementById('feedback-form').onsubmit = AppPrincipal.handleFeedbackSubmit;
+        if(document.getElementById('comment-form')) document.getElementById('comment-form').onsubmit = AppPrincipal.handleCommentSubmit;
+        if(document.getElementById('log-activity-form')) document.getElementById('log-activity-form').onsubmit = AppPrincipal.handleLogActivitySubmit;
+        if(document.getElementById('profile-form')) document.getElementById('profile-form').onsubmit = AppPrincipal.handleProfileSubmit;
+        if(document.getElementById('photo-upload-input')) document.getElementById('photo-upload-input').onchange = AppPrincipal.handlePhotoUpload;
         
-        // Botão de Avaliação do Coach (se existir no HTML)
         const btnEval = document.getElementById('save-coach-eval-btn');
         if(btnEval) btnEval.onclick = AppPrincipal.handleCoachEvaluationSubmit;
 
         const urlParams = new URLSearchParams(window.location.search);
         
         AppPrincipal.state.auth.onAuthStateChanged((user) => {
-            if(!user) { if(el.loader) el.loader.classList.add('hidden'); return; }
-            if(AppPrincipal.state.currentUser && AppPrincipal.state.currentUser.uid === user.uid) return;
+            if(!user) { 
+                if(el.loader) el.loader.classList.add('hidden'); 
+                window.location.href = 'index.html'; // Redireciona se não logado
+                return; 
+            }
             
             AppPrincipal.state.currentUser = user;
             if (urlParams.get('code')) { AppPrincipal.exchangeStravaCode(urlParams.get('code')); return; }
@@ -118,7 +124,7 @@ const AppPrincipal = {
 
     handleLogout: () => AppPrincipal.state.auth.signOut().then(() => window.location.href = 'index.html'),
 
-    // --- STRAVA DEEP SYNC (AQUI ESTÁ A CORREÇÃO DA SINCRONIZAÇÃO) ---
+    // --- STRAVA DEEP SYNC ---
     handleStravaConnect: () => { window.location.href = `https://www.strava.com/oauth/authorize?client_id=${window.STRAVA_PUBLIC_CONFIG.clientID}&response_type=code&redirect_uri=${window.STRAVA_PUBLIC_CONFIG.redirectURI}&approval_prompt=force&scope=read_all,activity:read_all,profile:read_all`; },
     
     exchangeStravaCode: async (code) => {
@@ -131,36 +137,21 @@ const AppPrincipal = {
         const { stravaTokenData, currentUser } = AppPrincipal.state;
         if (!stravaTokenData) return alert("Conecte o Strava primeiro.");
         
-        const btn = document.getElementById('btn-strava-action');
-        if(btn) { btn.disabled = true; btn.textContent = "Sincronizando (buscando detalhes)..."; }
-
         try {
-            // 1. Pega lista (aumentei para 30 para pegar tudo)
             const activities = await fetch(`https://www.strava.com/api/v3/athlete/activities?per_page=30`, { headers: { 'Authorization': `Bearer ${stravaTokenData.accessToken}` } }).then(r => r.json());
             const updates = {};
             let count = 0;
 
             for(const act of activities) {
-                // 2. FETCH DETALHADO (Para pegar parciais km a km)
                 const detail = await fetch(`https://www.strava.com/api/v3/activities/${act.id}`, { headers: { 'Authorization': `Bearer ${stravaTokenData.accessToken}` } }).then(r => r.json());
 
-                // Verifica se já existe (para não duplicar excessivamente)
-                // Nota: Firebase push ID é único, então aqui estamos confiando que o usuário quer importar recentes
-                
-                const distanceKm = (act.distance / 1000).toFixed(2) + " km";
-                // Calcula tempo formatado
-                const hours = Math.floor(act.moving_time / 3600);
-                const minutes = Math.floor((act.moving_time % 3600) / 60);
-                const seconds = act.moving_time % 60;
-                const timeStr = `${hours > 0 ? hours + ':' : ''}${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
-                
-                // Pace Médio
-                const paceMin = act.moving_time / 60 / (act.distance / 1000);
-                const pMin = Math.floor(paceMin);
-                const pSec = Math.round((paceMin - pMin) * 60);
-                const paceStr = `${pMin}:${pSec.toString().padStart(2, '0')} /km`;
+                const newKey = AppPrincipal.state.db.ref().push().key;
+                const distanceKm = (act.distance / 1000).toFixed(2) + "km";
+                const timeStr = new Date(act.moving_time * 1000).toISOString().substr(11, 8);
+                const pace = (act.moving_time / 60) / (act.distance / 1000); 
+                const paceMin = Math.floor(pace); const paceSec = Math.round((pace - paceMin) * 60);
+                const paceStr = `${paceMin}:${paceSec < 10 ? '0' : ''}${paceSec}/km`;
 
-                // 3. Processa os SPLITS (Parciais)
                 let splits = [];
                 if(detail.splits_metric) {
                     splits = detail.splits_metric.map((s, i) => {
@@ -170,14 +161,11 @@ const AppPrincipal = {
                         return {
                             km: i + 1,
                             pace: `${sMinCalc}'${sSecCalc.toString().padStart(2,'0')}"`,
-                            time: new Date(s.moving_time * 1000).toISOString().substr(14, 5), // mm:ss
+                            time: new Date(s.moving_time * 1000).toISOString().substr(14, 5),
                             elev: s.elevation_difference || 0
                         };
                     });
                 }
-
-                // Cria novo ID no Firebase
-                const newKey = AppPrincipal.state.db.ref().push().key;
 
                 const workoutData = {
                     title: act.name,
@@ -192,7 +180,7 @@ const AppPrincipal = {
                         tempo: timeStr, 
                         ritmo: paceStr, 
                         id: act.id,
-                        splits: splits, // Aqui estão os dados que faltavam!
+                        splits: splits,
                         elevacao: act.total_elevation_gain + "m",
                         calorias: act.calories || act.kilojoules
                     },
@@ -212,12 +200,9 @@ const AppPrincipal = {
             document.getElementById('profile-modal').classList.add('hidden');
         } catch(e) { 
             alert("Erro na sincronização: " + e.message); 
-        } finally {
-            if(btn) { btn.disabled = false; btn.textContent = "Sincronizar Strava Agora"; }
         }
     },
 
-    // --- MODAL DETALHADO (AQUI ESTÁ A TABELA DE PACE) ---
     openFeedbackModal: (workoutId, ownerId, title) => {
         const modal = document.getElementById('feedback-modal');
         AppPrincipal.state.modal = { isOpen: true, currentWorkoutId: workoutId, currentOwnerId: ownerId };
@@ -228,7 +213,6 @@ const AppPrincipal = {
         sd.classList.add('hidden');
         document.getElementById('comments-list').innerHTML = "Carregando...";
         
-        // Coach Evaluation Reset
         const coachArea = document.getElementById('coach-evaluation-area');
         const coachText = document.getElementById('coach-evaluation-text');
         if(coachText) coachText.value = "";
@@ -243,11 +227,8 @@ const AppPrincipal = {
                 document.getElementById('workout-feedback-text').value = d.feedback || '';
                 if(d.coachEvaluation && coachText) coachText.value = d.coachEvaluation;
                 
-                // RENDERIZAÇÃO DO STRAVA COM TABELA
                 if(d.stravaData) {
                     sd.classList.remove('hidden');
-                    
-                    // Monta Tabela HTML de Splits
                     let tableHTML = "";
                     if(d.stravaData.splits && d.stravaData.splits.length > 0) {
                         tableHTML = `
@@ -277,7 +258,6 @@ const AppPrincipal = {
                                 <span style="color:#fc4c02; font-weight:bold;"><i class='bx bxl-strava'></i> Strava</span>
                                 <a href="https://www.strava.com/activities/${d.stravaData.id}" target="_blank" style="font-size:0.8rem; color:#007bff; text-decoration:none;">Ver no App <i class='bx bx-link-external'></i></a>
                             </div>
-                            
                             <div style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap:10px; margin-top:15px; text-align:center;">
                                 <div style="background:#f4f5f7; padding:8px; border-radius:5px;">
                                     <div style="font-size:0.7rem; color:#666;">Distância</div>
@@ -292,7 +272,6 @@ const AppPrincipal = {
                                     <div style="font-weight:bold; color:#333;">${d.stravaData.ritmo}</div>
                                 </div>
                             </div>
-                            
                             ${tableHTML}
                         </div>
                     `;
@@ -300,7 +279,6 @@ const AppPrincipal = {
             }
         });
         
-        // Comentários
         AppPrincipal.state.db.ref(`workoutComments/${workoutId}`).on('value', s => {
             const list = document.getElementById('comments-list');
             list.innerHTML = "";
@@ -357,7 +335,6 @@ const AppPrincipal = {
         document.getElementById('comment-input').value = "";
     },
     
-    // Stub handles
     handleLogActivitySubmit: async (e) => { e.preventDefault(); },
     handlePhotoUpload: () => {}, handleProfilePhotoUpload: () => {},
     
@@ -387,7 +364,13 @@ const AuthLogic = {
     init: (auth, db) => {
         document.getElementById('login-form').addEventListener('submit', (e) => {
             e.preventDefault();
-            auth.signInWithEmailAndPassword(document.getElementById('loginEmail').value, document.getElementById('loginPassword').value);
+            const email = document.getElementById('loginEmail').value;
+            const password = document.getElementById('loginPassword').value;
+            auth.signInWithEmailAndPassword(email, password)
+                .catch(err => {
+                    const errorMsg = document.getElementById('login-error');
+                    errorMsg.textContent = "Erro ao entrar: " + err.message;
+                });
         });
     }
 };

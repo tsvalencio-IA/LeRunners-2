@@ -1,5 +1,7 @@
 /* =================================================================== */
-/* ARQUIVO DE PAINÉIS (V5.6 - SISRUN DASHBOARD SEM LIMITES)
+/* ARQUIVO DE PAINÉIS (V5.7 - CORREÇÃO VISUALIZAÇÃO)
+/* - Feedbacks mostram histórico completo
+/* - Feed da equipe mostra histórico completo
 /* =================================================================== */
 
 const AdminPanel = {
@@ -7,7 +9,6 @@ const AdminPanel = {
     elements: {},
 
     init: (user, db) => {
-        console.log("AdminPanel V5.6: Iniciado (Sem limites).");
         AdminPanel.state.db = db;
         AdminPanel.state.currentUser = user;
         
@@ -52,7 +53,7 @@ const AdminPanel = {
             if(document.getElementById('badge-alunos')) document.getElementById('badge-alunos').textContent = Object.keys(AdminPanel.state.athletes).length;
             if(AdminPanel.state.currentSection === 'alunos') AdminPanel.renderAthleteList();
         });
-        // REMOVIDO LIMITTOLAST para mostrar tudo
+        // REMOVIDO LIMITES para mostrar todos os treinos importados
         db.ref('publicWorkouts').on('value', s => {
             if(s.exists() && document.getElementById('badge-feed')) document.getElementById('badge-feed').textContent = s.numChildren();
             if(AdminPanel.state.currentSection === 'feedbacks') AdminPanel.renderFeedbackTable();
@@ -66,7 +67,6 @@ const AdminPanel = {
         AdminPanel.state.currentSection = section;
         const area = AdminPanel.elements.contentArea;
         area.innerHTML = "";
-
         if (section === 'feedbacks') {
             area.innerHTML = `<h3><i class='bx bx-list-check'></i> Central de Feedbacks</h3><div id="feedback-list">Carregando...</div>`;
             AdminPanel.renderFeedbackTable();
@@ -82,7 +82,7 @@ const AdminPanel = {
     },
 
     renderFeedbackTable: () => {
-        // CORREÇÃO: Mostra TODOS os treinos, não só os últimos 50
+        // MOSTRA TUDO, SEM LIMITE
         AdminPanel.state.db.ref('publicWorkouts').orderByChild('realizadoAt').once('value', snap => {
             const div = document.getElementById('feedback-list');
             if(!div) return;
@@ -134,15 +134,14 @@ const AdminPanel = {
             </div>
             <div class="admin-tabs"><button class="tab-btn active">Planilha Completa</button></div>
             <div id="student-workouts">Carregando histórico...</div>
-            <hr><h4>Adicionar Treino</h4>
+            <hr><h4>Adicionar Treino Manualmente</h4>
             <form id="add-w-form" class="form-minimal">
-                <input type="date" id="wd" required> <input type="text" id="wt" placeholder="Título" required>
-                <textarea id="wo" placeholder="Detalhes" rows="3"></textarea>
+                <div class="form-grid-2col"><input type="date" id="wd" required> <input type="text" id="wt" placeholder="Título do Treino" required></div>
+                <textarea id="wo" placeholder="Detalhes (Ex: 10km leve...)" rows="3"></textarea>
                 <button type="submit" class="btn btn-primary" style="width:100%; margin-top:10px;">Salvar Treino</button>
             </form>
         `;
         
-        // CORREÇÃO: Removido limitToLast para carregar TUDO
         AdminPanel.state.db.ref(`data/${uid}/workouts`).orderByChild('date').on('value', s => {
             const d = document.getElementById('student-workouts');
             if(!d) return; 
@@ -153,8 +152,13 @@ const AdminPanel = {
 
             l.forEach(w => {
                 const color = w.status === 'realizado' ? 'var(--success-color)' : '#999';
-                let stravaInfo = w.stravaData ? `<div class="strava-data-display" style="font-size:0.85rem; margin-top:5px; padding:5px; border:1px solid #fc4c02; background:#fff5f0;"><i class='bx bxl-strava' style="color:#fc4c02"></i> <b>${w.stravaData.distancia}</b> | ${w.stravaData.tempo}</div>` : '';
-                d.innerHTML += `<div class="workout-card"><div class="workout-card-header"><span class="date">${new Date(w.date).toLocaleDateString('pt-BR')}</span> <span class="title">${w.title}</span> <span class="status-tag" style="background:${color}">${w.status}</span></div><div class="workout-card-body"><p>${w.description}</p>${stravaInfo}</div><div class="workout-card-footer"><button class="btn btn-small" onclick="AppPrincipal.openFeedbackModal('${w.k}','${uid}','${w.title}')">Detalhes</button></div></div>`;
+                let stravaInfo = w.stravaData ? `<div class="strava-data-display" style="font-size:0.85rem; margin-top:5px; padding:5px; border:1px solid #fc4c02; background:#fff5f0;"><i class='bx bxl-strava' style="color:#fc4c02"></i> <b>${w.stravaData.distancia}</b> | ${w.stravaData.tempo} | ${w.stravaData.ritmo}</div>` : '';
+                d.innerHTML += `<div class="workout-card">
+                    <div class="workout-card-header"><span class="date">${new Date(w.date).toLocaleDateString('pt-BR')}</span> <span class="title">${w.title}</span> <span class="status-tag" style="background:${color}">${w.status}</span></div>
+                    <div class="workout-card-body"><p style="white-space:pre-wrap;">${w.description}</p>${stravaInfo}
+                    ${w.feedback ? `<div class="feedback-text"><strong>Feedback:</strong> ${w.feedback}</div>` : ''}</div>
+                    <div class="workout-card-footer"><button class="btn btn-small" onclick="AppPrincipal.openFeedbackModal('${w.k}', '${uid}', '${w.title}')">Detalhes</button><button class="btn btn-small btn-danger" onclick="AdminPanel.del('${uid}','${w.k}')"><i class='bx bx-trash'></i></button></div>
+                </div>`;
             });
         });
 
@@ -164,7 +168,7 @@ const AdminPanel = {
                 date: document.getElementById('wd').value, title: document.getElementById('wt').value, description: document.getElementById('wo').value,
                 status: 'planejado', createdBy: AdminPanel.state.currentUser.uid, createdAt: new Date().toISOString()
             });
-            e.target.reset();
+            e.target.reset(); alert("Treino salvo!");
         };
     },
 
@@ -181,20 +185,18 @@ const AdminPanel = {
     approve: (uid, name, email) => {
         const u = {}; u[`/users/${uid}`] = { name, email, role: 'atleta', createdAt: new Date().toISOString() }; u[`/data/${uid}`] = { workouts: {} }; u[`/pendingApprovals/${uid}`] = null;
         AdminPanel.state.db.ref().update(u).then(() => AdminPanel.showSection('aprovacoes'));
-    }
+    },
+    del: (uid, wid) => { if(confirm('Apagar?')) AdminPanel.state.db.ref(`data/${uid}/workouts/${wid}`).remove(); }
 };
 
-// ATLETA E FEED (MANTIDOS E COMPLETOS)
 const AtletaPanel = {
     init: (u, db) => {
         const list = document.getElementById('atleta-workouts-list');
         if(document.getElementById('log-manual-activity-btn')) document.getElementById('log-manual-activity-btn').onclick = AppPrincipal.openLogActivityModal;
         list.innerHTML = "Carregando...";
-        
-        // CORREÇÃO: Sem limites aqui também
         db.ref(`data/${u.uid}/workouts`).orderByChild('date').on('value', s => {
             list.innerHTML = "";
-            if(!s.exists()) { list.innerHTML = "<p>Nenhum treino encontrado.</p>"; return; }
+            if(!s.exists()) { list.innerHTML = "<p>Sem treinos na planilha.</p>"; return; }
             const l = []; s.forEach(c=>l.push({k:c.key, ...c.val()})); l.sort((a,b)=>new Date(b.date)-new Date(a.date));
             l.forEach(w => {
                 const st = w.stravaData ? `<br><small style="color:#fc4c02">Strava Sync</small>` : '';
@@ -210,8 +212,8 @@ const AtletaPanel = {
 const FeedPanel = {
     init: (u, db) => {
         const list = document.getElementById('feed-list');
-        // Feed mantém limite 20 para não pesar
-        db.ref('publicWorkouts').limitToLast(20).on('value', s => {
+        // REMOVIDO LIMITTOLAST para mostrar tudo
+        db.ref('publicWorkouts').on('value', s => {
             list.innerHTML = "";
             const l = []; s.forEach(c=>l.push({k:c.key, ...c.val()})); l.reverse();
             l.forEach(w => {

@@ -1,248 +1,180 @@
-/* =================================================================== */
-/* APP.JS V9.0 - CORREÇÃO DE PERMISSÃO E LOOP
-/* =================================================================== */
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LeRunners - Plataforma</title>
+    <link rel="stylesheet" href="css/styles.css">
+    
+    <link rel="manifest" href="manifest.json">
+    <link rel="icon" type="image/png" sizes="192x192" href="img/logo-192.png">
+    <link rel="apple-touch-icon" href="img/logo-192.png">
 
-const AppPrincipal = {
-    state: {
-        currentUser: null,
-        userData: null,
-        db: null,
-        auth: null,
-        modal: { isOpen: false },
-        stravaTokenData: null
-    },
-    elements: {},
+    <link href="https://cdn.jsdelivr.net/npm/boxicons@2.1.4/css/boxicons.min.css" rel="stylesheet">
+    <meta name="theme-color" content="#00008B">
+</head>
+<body class="app-page">
 
-    init: () => {
-        if(typeof window.firebaseConfig === 'undefined') return;
-        try { if(firebase.apps.length === 0) firebase.initializeApp(window.firebaseConfig); } catch(e){}
+    <div id="loader" class="loader-container">
+        <div class="loader"></div>
+        <p>Carregando...</p>
+    </div>
+
+    <div id="app-container" class="hidden">
         
-        AppPrincipal.state.auth = firebase.auth();
-        AppPrincipal.state.db = firebase.database();
+        <header class="app-header">
+            <h1>LeRunners</h1>
+            <nav>
+                <button id="nav-planilha-btn" class="btn btn-nav active">
+                    <i class='bx bx-calendar'></i> <span>Planilha</span>
+                </button>
+                <button id="nav-feed-btn" class="btn btn-nav">
+                    <i class='bx bx-news'></i> <span>Feed</span>
+                </button>
 
-        if (document.getElementById('login-form')) AuthLogic.init(AppPrincipal.state.auth, AppPrincipal.state.db);
-        else if (document.getElementById('app-container')) AppPrincipal.initPlatform();
-    },
+                <button id="nav-profile-btn" class="btn btn-nav">
+                    <i class='bx bx-user-circle'></i> <span>Meu Perfil</span>
+                </button>
 
-    initPlatform: () => {
-        const el = AppPrincipal.elements;
-        el.loader = document.getElementById('loader');
-        el.appContainer = document.getElementById('app-container');
-        
-        // Botões de navegação
-        document.getElementById('logoutButton').onclick = AppPrincipal.handleLogout;
-        document.getElementById('nav-planilha-btn').onclick = () => AppPrincipal.navigateTo('planilha');
-        document.getElementById('nav-feed-btn').onclick = () => AppPrincipal.navigateTo('feed');
-        document.getElementById('nav-profile-btn').onclick = AppPrincipal.openProfileModal;
+                <span id="userDisplay" class="user-display"></span>
+                <button id="logoutButton" class="btn btn-danger">
+                    <i class="bx bx-log-out"></i> Sair
+                </button>
+            </nav>
+        </header>
 
-        // Modais
-        document.querySelectorAll('.close-btn').forEach(b => b.onclick = (e) => e.target.closest('.modal-overlay').classList.add('hidden'));
-        document.getElementById('feedback-form').onsubmit = AppPrincipal.handleFeedbackSubmit;
-        document.getElementById('comment-form').onsubmit = AppPrincipal.handleCommentSubmit;
-        document.getElementById('log-activity-form').onsubmit = AppPrincipal.handleLogActivitySubmit;
-        document.getElementById('profile-form').onsubmit = AppPrincipal.handleProfileSubmit;
-        
-        const evalBtn = document.getElementById('save-coach-eval-btn');
-        if(evalBtn) evalBtn.onclick = AppPrincipal.handleCoachEvaluationSubmit;
+        <main id="app-main-content" class="app-main">
+            </main>
+    </div>
 
-        // AUTH (SEM LOOP)
-        AppPrincipal.state.auth.onAuthStateChanged((user) => {
-            if(!user) {
-                if(el.loader) el.loader.classList.add('hidden');
-                // Não redireciona, mostra aviso
-                return;
-            }
-            if(AppPrincipal.state.currentUser && AppPrincipal.state.currentUser.uid === user.uid) return;
-            
-            AppPrincipal.state.currentUser = user;
-            AppPrincipal.loadUserData(user.uid);
-        });
-    },
+    <footer class="app-footer">
+        Desenvolvido com 🤖 por thIAguinho Soluções
+    </footer>
 
-    loadUserData: (uid) => {
-        AppPrincipal.state.db.ref('users/' + uid).on('value', s => {
-            const data = s.val();
-            if(!data) return; // Aguarda criação
-            
-            AppPrincipal.state.userData = { ...data, uid: uid };
-            document.getElementById('userDisplay').textContent = data.name;
-            
-            // Verifica se é Admin
-            AppPrincipal.state.db.ref('admins/' + uid).once('value', adminSnap => {
-                const isAdmin = adminSnap.exists() && adminSnap.val() === true;
-                if(isAdmin) {
-                    AppPrincipal.state.userData.role = 'admin';
-                    document.getElementById('app-container').classList.add('admin-view');
-                    AppPrincipal.setupAdminToggle(true);
-                } else {
-                    document.getElementById('app-container').classList.add('atleta-view');
-                }
+    <div id="feedback-modal" class="modal-overlay hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="feedback-modal-title">Detalhes do Treino</h3>
+                <button class="close-btn" id="close-feedback-modal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="feedback-form">
+                    <fieldset>
+                        <legend>Feedback do Atleta</legend>
+                        <div class="form-group">
+                            <label>Status</label>
+                            <select id="workout-status">
+                                <option value="planejado">Planejado</option>
+                                <option value="realizado" style="color:green">Realizado</option>
+                                <option value="realizado_parcial" style="color:orange">Parcial</option>
+                                <option value="nao_realizado" style="color:red">Não Realizado</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Sensação / Comentário</label>
+                            <textarea id="workout-feedback-text" rows="3"></textarea>
+                        </div>
+                        <div class="form-group">
+                            <label>Foto</label>
+                            <input type="file" id="photo-upload-input" accept="image/*">
+                            <p id="photo-upload-feedback" class="upload-feedback"></p>
+                        </div>
+                        
+                        <div id="strava-data-display" class="strava-data-display hidden"></div>
+
+                        <button type="submit" id="save-feedback-btn" class="btn btn-primary">Salvar Feedback</button>
+                    </fieldset>
+                </form>
+
+                <div id="coach-evaluation-area" class="hidden" style="margin-top:20px; border:2px solid #00008B; padding:15px; border-radius:8px; background:#f0f8ff;">
+                    <h4 style="color:#00008B"><i class='bx bx-medal'></i> Avaliação do Treinador</h4>
+                    <textarea id="coach-evaluation-text" rows="2" style="width:100%; border:1px solid #ccc; margin-top:5px;" placeholder="Deixe sua avaliação técnica..."></textarea>
+                    <button id="save-coach-eval-btn" class="btn btn-secondary btn-small" style="margin-top:5px;">Salvar Avaliação</button>
+                </div>
+
+                <hr>
                 
-                // Carrega Token Strava
-                AppPrincipal.state.db.ref(`users/${uid}/stravaAuth`).on('value', ts => AppPrincipal.state.stravaTokenData = ts.val());
-                
-                AppPrincipal.navigateTo('planilha');
+                <div class="comments-section">
+                    <h4>Comentários</h4>
+                    <div id="comments-list" class="comments-list"></div>
+                    <form id="comment-form" class="comment-form">
+                        <input type="text" id="comment-input" placeholder="Escreva um comentário..." required>
+                        <button type="submit" class="btn btn-secondary"><i class='bx bxs-send'></i></button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="log-activity-modal" class="modal-overlay hidden">
+        <div class="modal-content">
+            <div class="modal-header"><h3>Registrar Atividade</h3><button class="close-btn" id="close-log-activity-modal">&times;</button></div>
+            <div class="modal-body">
+                <form id="log-activity-form">
+                    <div class="form-group"><label>Data</label><input type="date" id="log-activity-date" required></div>
+                    <div class="form-group"><label>Título</label><input type="text" id="log-activity-title" required></div>
+                    <div class="form-group"><label>Tipo</label><select id="log-activity-type"><option>Corrida</option><option>Caminhada</option><option>Outro</option></select></div>
+                    <div class="form-group"><label>Descrição</label><textarea id="log-activity-feedback" required></textarea></div>
+                    <button type="submit" class="btn btn-primary">Salvar</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div id="profile-modal" class="modal-overlay hidden">
+        <div class="modal-content">
+            <div class="modal-header"><h3>Meu Perfil</h3><button class="close-btn" id="close-profile-modal">&times;</button></div>
+            <div class="modal-body">
+                <form id="profile-form">
+                    <div style="text-align:center; margin-bottom:10px;">
+                        <img id="profile-pic-preview" style="width:100px; height:100px; border-radius:50%; object-fit:cover;">
+                    </div>
+                    <div class="form-group"><input type="file" id="profile-pic-upload"></div>
+                    <div class="form-group"><label>Nome</label><input type="text" id="profile-name" required></div>
+                    <div class="form-group"><label>Bio</label><textarea id="profile-bio"></textarea></div>
+                    <button type="submit" id="save-profile-btn" class="btn btn-primary">Salvar</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div id="view-profile-modal" class="modal-overlay hidden">
+        <div class="modal-content">
+            <div class="modal-header"><h3>Atleta</h3><button class="close-btn" id="close-view-profile-modal">&times;</button></div>
+            <div class="modal-body" style="text-align:center;">
+                <img id="view-profile-pic" style="width:120px; height:120px; border-radius:50%; margin-bottom:10px;">
+                <h2 id="view-profile-name" style="color:#00008B"></h2>
+                <p id="view-profile-bio" style="font-style:italic; color:#666;"></p>
+            </div>
+        </div>
+    </div>
+
+    <div id="who-liked-modal" class="modal-overlay hidden">
+        <div class="modal-content"><div class="modal-header"><h3>Curtidas</h3><button class="close-btn" id="close-who-liked-modal">&times;</button></div><div class="modal-body"><ul id="who-liked-list"></ul></div></div>
+    </div>
+
+    <div id="ia-analysis-modal" class="modal-overlay hidden">
+        <div class="modal-content">
+            <div class="modal-header"><h3>Análise IA</h3><button class="close-btn" id="close-ia-analysis-modal">&times;</button></div>
+            <div class="modal-body"><pre id="ia-analysis-output" style="white-space:pre-wrap; background:#f4f4f4; padding:10px;"></pre></div>
+            <div class="modal-footer"><button id="save-ia-analysis-btn" class="btn btn-primary hidden">Salvar</button></div>
+        </div>
+    </div>
+
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+    <script src="https://upload-widget.cloudinary.com/global/all.js" type="text/javascript"></script>
+
+    <script src="js/config.js"></script>
+    <script src="js/app.js"></script> 
+    <script src="js/panels.js"></script> 
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('./service-worker.js');
             });
-        });
-    },
-
-    navigateTo: (page) => {
-        const m = document.getElementById('app-main-content');
-        m.innerHTML = "";
-        
-        // Atualiza botões
-        document.querySelectorAll('.btn-nav').forEach(b => b.classList.remove('active'));
-        document.getElementById(`nav-${page}-btn`).classList.add('active');
-
-        if(page === 'planilha') {
-            if(AppPrincipal.state.userData.role === 'admin' && !AppPrincipal.state.viewModeAtleta) {
-                AdminPanel.init(AppPrincipal.state.currentUser, AppPrincipal.state.db);
-            } else {
-                AtletaPanel.init(AppPrincipal.state.currentUser, AppPrincipal.state.db);
-            }
-        } else {
-            FeedPanel.init(AppPrincipal.state.currentUser, AppPrincipal.state.db);
         }
-        
-        document.getElementById('loader').classList.add('hidden');
-        document.getElementById('app-container').classList.remove('hidden');
-    },
-
-    setupAdminToggle: (isAdmin) => {
-        if(document.getElementById('admin-toggle-btn')) return;
-        const nav = document.querySelector('.app-header nav');
-        const btn = document.createElement('button');
-        btn.id = 'admin-toggle-btn';
-        btn.className = 'btn btn-nav';
-        btn.innerHTML = "<i class='bx bx-run'></i> Modo Atleta";
-        btn.style.cssText = "background:white; color:#00008B; border:1px solid #00008B; border-radius:20px; margin-right:10px;";
-        
-        btn.onclick = () => {
-            AppPrincipal.state.viewModeAtleta = !AppPrincipal.state.viewModeAtleta;
-            btn.innerHTML = AppPrincipal.state.viewModeAtleta ? "<i class='bx bx-shield-quarter'></i> Modo Coach" : "<i class='bx bx-run'></i> Modo Atleta";
-            btn.style.background = AppPrincipal.state.viewModeAtleta ? "#00008B" : "white";
-            btn.style.color = AppPrincipal.state.viewModeAtleta ? "white" : "#00008B";
-            AppPrincipal.navigateTo('planilha');
-        };
-        nav.insertBefore(btn, document.getElementById('logoutButton'));
-    },
-
-    handleLogout: () => AppPrincipal.state.auth.signOut().then(() => window.location.href = 'index.html'),
-
-    // --- MODAIS ---
-    openFeedbackModal: (workoutId, ownerId, title) => {
-        const modal = document.getElementById('feedback-modal');
-        AppPrincipal.state.modal = { isOpen: true, currentWorkoutId: workoutId, currentOwnerId: ownerId };
-        
-        document.getElementById('feedback-modal-title').textContent = title || "Treino";
-        document.getElementById('workout-status').value = 'planejado';
-        document.getElementById('workout-feedback-text').value = '';
-        document.getElementById('comments-list').innerHTML = "Carregando...";
-        
-        // Verifica permissões para campos
-        const isOwner = AppPrincipal.state.currentUser.uid === ownerId;
-        const isAdmin = AppPrincipal.state.userData.role === 'admin';
-        
-        const coachArea = document.getElementById('coach-evaluation-area');
-        if(isAdmin && !isOwner) {
-            if(coachArea) coachArea.classList.remove('hidden');
-            document.getElementById('save-feedback-btn').classList.add('hidden');
-        } else {
-            if(coachArea) coachArea.classList.add('hidden');
-            document.getElementById('save-feedback-btn').classList.remove('hidden');
-        }
-
-        // Carrega dados
-        AppPrincipal.state.db.ref(`data/${ownerId}/workouts/${workoutId}`).once('value', s => {
-            if(s.exists()) {
-                const d = s.val();
-                document.getElementById('workout-status').value = d.status || 'planejado';
-                document.getElementById('workout-feedback-text').value = d.feedback || '';
-                if(d.coachEvaluation && document.getElementById('coach-evaluation-text')) 
-                    document.getElementById('coach-evaluation-text').value = d.coachEvaluation;
-            }
-        });
-
-        // Comentários
-        AppPrincipal.state.db.ref(`workoutComments/${workoutId}`).on('value', s => {
-            const list = document.getElementById('comments-list');
-            list.innerHTML = "";
-            if(!s.exists()) { list.innerHTML = "<small>Seja o primeiro a comentar.</small>"; return; }
-            s.forEach(c => {
-                const d = document.createElement('div');
-                d.className = 'comment-item';
-                d.innerHTML = `<strong>${c.val().name || 'Usuário'}:</strong> ${c.val().text}`;
-                list.appendChild(d);
-            });
-        });
-
-        modal.classList.remove('hidden');
-    },
-
-    handleFeedbackSubmit: async (e) => {
-        e.preventDefault();
-        const { currentWorkoutId, currentOwnerId } = AppPrincipal.state.modal;
-        const updates = {
-            status: document.getElementById('workout-status').value,
-            feedback: document.getElementById('workout-feedback-text').value,
-            realizadoAt: new Date().toISOString()
-        };
-        
-        await AppPrincipal.state.db.ref(`data/${currentOwnerId}/workouts/${currentWorkoutId}`).update(updates);
-        
-        // Atualiza público
-        if(updates.status !== 'planejado') {
-            const full = (await AppPrincipal.state.db.ref(`data/${currentOwnerId}/workouts/${currentWorkoutId}`).once('value')).val();
-            await AppPrincipal.state.db.ref(`publicWorkouts/${currentWorkoutId}`).set({ ownerId: currentOwnerId, ownerName: AppPrincipal.state.userData.name, ...full });
-        }
-        
-        document.getElementById('feedback-modal').classList.add('hidden');
-    },
-
-    handleCoachEvaluationSubmit: async () => {
-        const text = document.getElementById('coach-evaluation-text').value;
-        const { currentWorkoutId, currentOwnerId } = AppPrincipal.state.modal;
-        await AppPrincipal.state.db.ref(`data/${currentOwnerId}/workouts/${currentWorkoutId}`).update({ coachEvaluation: text });
-        alert("Avaliação salva!");
-        document.getElementById('feedback-modal').classList.add('hidden');
-    },
-
-    handleCommentSubmit: (e) => {
-        e.preventDefault();
-        const text = document.getElementById('comment-input').value;
-        if(!text) return;
-        
-        AppPrincipal.state.db.ref(`workoutComments/${AppPrincipal.state.modal.currentWorkoutId}`).push({
-            uid: AppPrincipal.state.currentUser.uid,
-            name: AppPrincipal.state.userData.name, // Correção do Nome
-            text: text,
-            timestamp: firebase.database.ServerValue.TIMESTAMP
-        });
-        document.getElementById('comment-input').value = "";
-    },
-
-    // Funções auxiliares (Mantidas)
-    openProfileModal: () => {
-        document.getElementById('profile-modal').classList.remove('hidden');
-        document.getElementById('profile-name').value = AppPrincipal.state.userData.name;
-    },
-    handleProfileSubmit: async (e) => {
-        e.preventDefault();
-        const name = document.getElementById('profile-name').value;
-        await AppPrincipal.state.db.ref(`users/${AppPrincipal.state.currentUser.uid}`).update({ name });
-        document.getElementById('profile-modal').classList.add('hidden');
-    },
-    // Stubs
-    handleLogActivitySubmit: () => {}, handlePhotoUpload: () => {}, handleProfilePhotoUpload: () => {}
-};
-
-const AuthLogic = {
-    init: (auth, db) => {
-        document.getElementById('login-form').addEventListener('submit', (e) => {
-            e.preventDefault();
-            auth.signInWithEmailAndPassword(document.getElementById('loginEmail').value, document.getElementById('loginPassword').value);
-        });
-    }
-};
-
-document.addEventListener('DOMContentLoaded', AppPrincipal.init);
+    </script>
+</body>
+</html>

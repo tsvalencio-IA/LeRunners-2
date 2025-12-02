@@ -1,16 +1,14 @@
 /* =================================================================== */
-/* PANELS.JS V15.0 - SISRUN DASHBOARD + PLANILHA V2 (FUNCIONAL)
+/* PANELS.JS V17 - SISRUN COMPLETO
 /* =================================================================== */
 
 const AdminPanel = {
-    state: { db: null, currentUser: null, selectedAthleteId: null, athletes: {} },
-    elements: {},
+    state: {}, elements: {},
 
     init: (user, db) => {
-        AdminPanel.state.db = db;
-        AdminPanel.state.currentUser = user;
+        console.log("AdminPanel V17 Carregado"); // Para verificar no console
+        AdminPanel.state = { db, currentUser: user, athletes: {} };
         
-        // 1. DASHBOARD SISRUN (INÍCIO)
         const main = document.getElementById('app-main-content');
         if(main) {
             main.innerHTML = `
@@ -35,26 +33,20 @@ const AdminPanel = {
             `;
             AdminPanel.elements.contentArea = document.getElementById('admin-content-area');
             AdminPanel.loadData();
-            AdminPanel.showSection('feedbacks'); // Inicia na tabela
+            AdminPanel.showSection('feedbacks');
         }
     },
 
     loadData: () => {
         AdminPanel.state.db.ref('users').on('value', s => AdminPanel.state.athletes = s.val() || {});
-        
         AdminPanel.state.db.ref('publicWorkouts').limitToLast(100).on('value', s => {
             if(!s.exists()) return;
-            let happy=0, neutral=0, sad=0;
-            s.forEach(c => {
-                const w = c.val();
-                if(w.status === 'nao_realizado') sad++; else if(w.stravaData) happy++; else neutral++;
-            });
-            if(document.getElementById('count-happy')) document.getElementById('count-happy').textContent = happy;
-            if(document.getElementById('count-sad')) document.getElementById('count-sad').textContent = sad;
-            
+            let h=0, n=0, sa=0;
+            s.forEach(c => { const w=c.val(); if(w.status==='nao_realizado') sa++; else if(w.stravaData) h++; else n++; });
+            if(document.getElementById('count-happy')) document.getElementById('count-happy').textContent = h;
+            if(document.getElementById('count-sad')) document.getElementById('count-sad').textContent = sa;
             if(AdminPanel.state.currentSection === 'feedbacks') AdminPanel.renderFeedbackTable();
         });
-        
         AdminPanel.state.db.ref('pendingApprovals').on('value', s => {
             if(document.getElementById('badge-aprovacoes')) document.getElementById('badge-aprovacoes').textContent = s.exists() ? s.numChildren() : 0;
         });
@@ -70,16 +62,15 @@ const AdminPanel = {
             AdminPanel.renderFeedbackTable();
         } 
         else if (section === 'alunos') {
-            // ESTRUTURA V2 PARA ALUNOS
             area.innerHTML = `<h3>Meus Alunos</h3><input type="text" class="search-input" placeholder="Buscar..." onkeyup="AdminPanel.renderList(this.value)"><div id="list" class="athlete-grid"></div><div id="ws" class="hidden"></div>`;
             AdminPanel.renderList();
         }
         else if (section === 'ia') {
             area.innerHTML = `
                 <h3>Central de Inteligência (KPIs)</h3>
-                <p>Selecione um aluno para análise:</p>
+                <p>Selecione um aluno:</p>
                 <select id="ia-select" class="search-input"><option value="">Selecione...</option></select>
-                <button class="btn btn-primary" style="margin-top:10px" onclick="AdminPanel.runGlobalIA()">Gerar Relatório Gemini</button>
+                <button class="btn btn-primary" style="margin-top:10px" onclick="AdminPanel.runGlobalIA()">Gerar Relatório</button>
                 <div id="ia-output" style="margin-top:20px; white-space:pre-wrap; background:#fff; padding:10px;"></div>
             `;
             AdminPanel.populateIA();
@@ -94,7 +85,7 @@ const AdminPanel = {
         AdminPanel.state.db.ref('publicWorkouts').limitToLast(50).once('value', snap => {
             const div = document.getElementById('feedback-list');
             if(!snap.exists()) { div.innerHTML = "Sem dados."; return; }
-            let html = `<table class="sisrun-table"><thead><tr><th>Aluno</th><th>Treino</th><th>Detalhes</th><th>Ver</th></tr></thead><tbody>`;
+            let html = `<table class="sisrun-table"><thead><tr><th>Aluno</th><th>Treino</th><th>Status</th><th>Ver</th></tr></thead><tbody>`;
             const list = []; snap.forEach(c => list.push({k:c.key, ...c.val()})); list.reverse();
             
             list.forEach(w => {
@@ -117,11 +108,10 @@ const AdminPanel = {
         if(!uid) return alert("Selecione um aluno");
         const out = document.getElementById('ia-output');
         out.textContent = "Analisando...";
-        
         try {
             const snap = await AdminPanel.state.db.ref(`data/${uid}/workouts`).limitToLast(15).once('value');
             if(!snap.exists()) throw new Error("Sem dados.");
-            const res = await AppPrincipal.callGeminiTextAPI(`Analise os treinos: ${JSON.stringify(snap.val())}. Fale sobre Pace e Volume.`);
+            const res = await AppPrincipal.callGeminiTextAPI(`Analise: ${JSON.stringify(snap.val())}`);
             out.textContent = res;
         } catch(e) { out.textContent = e.message; }
     },
@@ -135,49 +125,62 @@ const AdminPanel = {
         });
     },
 
-    // AQUI ESTÁ A LÓGICA V2 (QUE FUNCIONAVA) PARA A PLANILHA E PRESCRIÇÃO
+    // --- FORMULÁRIO DETALHADO (IGUAL SISRUN) ---
     openWS: (uid, name) => {
         document.getElementById('list').classList.add('hidden');
         const ws = document.getElementById('ws');
         ws.classList.remove('hidden');
+        
         ws.innerHTML = `
             <h3>${name}</h3>
             <button class="btn btn-secondary" onclick="document.getElementById('ws').classList.add('hidden');document.getElementById('list').classList.remove('hidden')">Voltar</button>
             
-            <div class="prescription-box" style="margin-top:20px; background:#f4f4f4; padding:15px; border-radius:8px;">
-                <h4>Adicionar Treino</h4>
+            <div class="prescription-box">
+                <h4 style="border-bottom:1px solid #eee; padding-bottom:10px;">Adicionar Treino</h4>
                 <form id="ws-add-form">
-                    <div class="row" style="display:flex; gap:10px; margin-bottom:10px;">
-                        <input type="date" id="w-date" required style="flex:1;">
-                        <input type="text" id="w-title" placeholder="Título (ex: Longão)" required style="flex:2;">
+                    <div class="form-grid-2col">
+                        <div class="form-group"><label>Data</label><input type="date" id="w-date" required></div>
+                        <div class="form-group"><label>Título</label><input type="text" id="w-title" required></div>
                     </div>
-                    <textarea id="w-obs" placeholder="Detalhes do treino..." rows="3" style="width:100%; margin-bottom:10px;"></textarea>
-                    <button type="submit" class="btn btn-success" style="width:100%;">Salvar na Planilha</button>
+                    <div class="form-grid-2col">
+                        <div class="form-group">
+                            <label>Modalidade</label>
+                            <select id="w-mod"><option>Corrida</option><option>Caminhada</option><option>Bike</option></select>
+                        </div>
+                        <div class="form-group">
+                            <label>Tipo</label>
+                            <select id="w-type"><option>Rodagem</option><option>Intervalado</option><option>Longo</option><option>Fartlek</option></select>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Descrição Detalhada</label>
+                        <textarea id="w-obs" rows="4" placeholder="Aquecimento, Principal, Desaquecimento..."></textarea>
+                    </div>
+                    <button type="submit" class="btn btn-success" style="width:100%">Salvar</button>
                 </form>
             </div>
             
             <div id="timeline" style="margin-top:20px;">Carregando...</div>`;
         
-        // Listener do Form
         document.getElementById('ws-add-form').onsubmit = (e) => {
             e.preventDefault();
-            const data = {
+            const fullDesc = `[${document.getElementById('w-mod').value}] ${document.getElementById('w-type').value}\n\n${document.getElementById('w-obs').value}`;
+            AdminPanel.state.db.ref(`data/${uid}/workouts`).push({
                 date: document.getElementById('w-date').value,
                 title: document.getElementById('w-title').value,
-                description: document.getElementById('w-obs').value,
+                description: fullDesc,
                 status: 'planejado',
                 createdBy: AdminPanel.state.currentUser.uid,
                 createdAt: new Date().toISOString()
-            };
-            AdminPanel.state.db.ref(`data/${uid}/workouts`).push(data);
-            alert("Treino Salvo!");
-            AdminPanel.loadWorkspaceWorkouts(uid); // Recarrega lista
+            });
+            alert("Salvo!");
+            AdminPanel.loadWorkspaceWorkouts(uid);
         };
         
         AdminPanel.loadWorkspaceWorkouts(uid);
     },
     
-    // RENDERIZAÇÃO DA LISTA V2 (SEM FILTROS COMPLEXOS, MOSTRA TUDO)
+    // Lista segura que não trava com dados antigos
     loadWorkspaceWorkouts: (uid) => {
         const div = document.getElementById('timeline');
         AdminPanel.state.db.ref(`data/${uid}/workouts`).orderByChild('date').limitToLast(50).on('value', snap => {
@@ -186,23 +189,23 @@ const AdminPanel = {
             
             const list = [];
             snap.forEach(c => list.push({k:c.key, ...c.val()}));
-            // Ordena por data (recente primeiro)
-            list.sort((a,b) => new Date(b.date) - new Date(a.date));
+            // Ordenação segura
+            list.sort((a,b) => new Date(b.date || 0) - new Date(a.date || 0));
             
             list.forEach(w => {
-                // Se tiver Strava, mostra o detalhe em laranja
-                const s = w.stravaData ? `<br><small style='color:#fc4c02; font-weight:bold;'>Strava: ${w.stravaData.distancia} | Pace: ${w.stravaData.ritmo}</small>` : '';
+                const s = w.stravaData ? `<br><small style='color:orange'><b>Strava:</b> ${w.stravaData.distancia}</small>` : '';
+                const statusColor = w.status === 'realizado' ? 'green' : '#999';
                 
                 div.innerHTML += `
-                    <div class="timeline-item" style="border:1px solid #ccc; background:#fff; margin-bottom:10px; padding:15px; border-radius:8px;">
+                    <div class="timeline-item" style="border:1px solid #ccc; margin:5px; padding:15px; border-radius:8px; background:#fff; position:relative; border-left:5px solid ${statusColor}">
                         <div style="display:flex; justify-content:space-between;">
-                            <b>${new Date(w.date).toLocaleDateString('pt-BR')} - ${w.title}</b>
-                            <span class="status-tag ${w.status}">${w.status}</span>
+                            <b>${new Date(w.date).toLocaleDateString()} - ${w.title}</b>
+                            <span class="status-tag" style="background:${statusColor}; color:white; padding:2px 5px; border-radius:4px;">${w.status}</span>
                         </div>
-                        <p style="margin:5px 0;">${w.description}</p>
+                        <p style="white-space:pre-wrap; font-size:0.9rem; margin:10px 0;">${w.description}</p>
                         ${s}
-                        <div style="text-align:right; margin-top:5px;">
-                            <button class="btn btn-small btn-secondary" onclick="AppPrincipal.openFeedbackModal('${w.k}','${uid}','${w.title}')">Ver Detalhes</button>
+                        <div style="text-align:right;">
+                            <button class="btn btn-small btn-secondary" onclick="AppPrincipal.openFeedbackModal('${w.k}','${uid}','${w.title}')">Ver</button>
                             <button class="btn btn-small btn-danger" onclick="AdminPanel.deleteWorkout('${uid}','${w.k}')">X</button>
                         </div>
                     </div>`;
@@ -210,14 +213,8 @@ const AdminPanel = {
         });
     },
     
-    deleteWorkout: (uid, wid) => { 
-        if(confirm("Apagar?")) { 
-            const u={}; u[`/data/${uid}/workouts/${wid}`]=null; u[`/publicWorkouts/${wid}`]=null; 
-            AdminPanel.state.db.ref().update(u); 
-        }
-    },
-    
-    renderPendingList: () => {
+    deleteWorkout: (uid, wid) => { if(confirm("Apagar?")) { const u={}; u[`/data/${uid}/workouts/${wid}`]=null; u[`/publicWorkouts/${wid}`]=null; AdminPanel.state.db.ref().update(u); }},
+    renderPendingList: () => { 
         const div = document.getElementById('pending-list');
         AdminPanel.state.db.ref('pendingApprovals').once('value', s => {
             div.innerHTML = ""; if(!s.exists()) { div.innerHTML = "Nada."; return; }

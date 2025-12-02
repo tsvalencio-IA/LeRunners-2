@@ -7,7 +7,7 @@
     --danger-color: #DC3545;
     --success-color: #28a745;
     --warning-color: #ffc107;
-    --strava-orange: #e87a38;
+    --strava-orange: #fc4c02;
     --light-gray: #f4f5f7;
     --text-color: #333;
     --text-light: #667;
@@ -33,1124 +33,184 @@ body {
     min-height: 100vh;
 }
 
-.hidden {
-    display: none !important;
-}
+.hidden { display: none !important; }
 
 h2 { color: var(--primary-color); }
-.subtitle {
-    color: var(--text-light);
-    margin-bottom: 1.5rem;
-    text-align: center;
-}
+.subtitle { color: var(--text-light); margin-bottom: 1.5rem; text-align: center; }
 hr { border: 0; height: 1px; background-color: var(--border-color); margin: 1.5rem 0; }
-fieldset {
-    border: 1px solid var(--border-color);
-    border-radius: var(--border-radius);
-    padding: 1rem;
-    margin-bottom: 1rem;
-}
-legend {
-    font-weight: 600;
-    color: var(--primary-color);
-    padding: 0 0.5rem;
-    margin-left: 0.5rem;
-}
+fieldset { border: 1px solid var(--border-color); border-radius: var(--border-radius); padding: 1rem; margin-bottom: 1rem; }
+legend { font-weight: 600; color: var(--primary-color); padding: 0 0.5rem; margin-left: 0.5rem; }
 
 /* =================================================================== */
-/* 2. COMPONENTES REUTILIZÁVEIS (Botões, Formulários, etc)
+/* 2. COMPONENTES REUTILIZÁVEIS
 /* =================================================================== */
 .btn {
-    display: inline-flex;
-    width: 100%;
-    align-items: center;
-    justify-content: center;
-    gap: 0.5rem;
-    padding: 0.85rem 1rem;
-    border: none;
-    border-radius: var(--border-radius);
-    cursor: pointer;
-    font-size: 1rem;
-    font-weight: 700;
-    text-align: center;
+    display: inline-flex; width: 100%; align-items: center; justify-content: center; gap: 0.5rem;
+    padding: 0.85rem 1rem; border: none; border-radius: var(--border-radius); cursor: pointer;
+    font-size: 1rem; font-weight: 700; text-transform: uppercase; text-decoration: none;
     transition: all 0.3s ease;
-    text-transform: uppercase;
-    text-decoration: none;
 }
-
 .btn-primary { background-color: var(--primary-color); color: #fff; }
-.btn-primary:hover:not(:disabled) { background-color: #00005a; transform: translateY(-2px); }
-
+.btn-primary:hover { background-color: #00005a; transform: translateY(-2px); }
 .btn-secondary { background-color: var(--secondary-color); color: #fff; }
-.btn-secondary:hover:not(:disabled) { background-color: #2a4ac8; }
-
 .btn-danger { background-color: var(--danger-color); color: #fff; }
-.btn-danger:hover:not(:disabled) { background-color: #a71d2a; }
-
 .btn-success { background-color: var(--success-color); color: #fff; }
-.btn-success:hover:not(:disabled) { background-color: #1e7e34; }
-
 .btn-small { padding: 0.35rem 0.6rem; font-size: 0.8rem; width: auto; }
 
-.btn:disabled {
-    opacity: 0.6;
-    cursor: not-allowed;
-}
+.btn-icon { background:none; border:none; cursor:pointer; font-size:1.2rem; color:var(--secondary-color); }
+.btn-small-outline { background:none; border:1px solid #ccc; padding:5px 10px; border-radius:4px; cursor:pointer; font-size:0.8rem; }
+.btn-small-danger { background:none; border:1px solid var(--danger-color); color:var(--danger-color); padding:5px 10px; border-radius:4px; cursor:pointer; }
 
-/* Botões de Navegação (V2) */
-.btn-nav {
-    background-color: transparent;
-    color: var(--text-light);
-    text-transform: none;
-    font-size: 0.9rem;
-    width: auto;
-    padding: 0.5rem 1rem;
-}
-.btn-nav.active,
-.btn-nav:hover {
-    background-color: var(--light-gray);
-    color: var(--primary-color);
-}
-.btn-nav i {
-    font-size: 1.2rem;
-}
+.btn:disabled { opacity: 0.6; cursor: not-allowed; }
 
-.panel {
-    background: #fff;
-    border-radius: var(--border-radius);
-    padding: 1.5rem;
-    box-shadow: var(--shadow);
-    margin-top: 1.5rem;
-}
+/* Navegação */
+.btn-nav { background: transparent; color: var(--text-light); text-transform: none; font-size: 0.9rem; width: auto; padding: 0.5rem 1rem; }
+.btn-nav.active, .btn-nav:hover { background-color: var(--light-gray); color: var(--primary-color); }
+.btn-nav i { font-size: 1.2rem; }
 
-.form-group {
-    margin-bottom: 1rem;
-}
-.form-group label {
-    display: block;
-    font-weight: 600;
-    margin-bottom: 0.5rem;
-    font-size: 0.9rem;
-}
-.form-group input,
-.form-group textarea,
-.form-group select,
-.search-input {
-    width: 100%;
-    padding: 0.75rem;
-    border: 1px solid var(--border-color);
-    border-radius: var(--border-radius);
-    font-size: 1rem;
-    background-color: #fff;
-}
-/* Estilo para input[type=file] (V2.3) */
-.form-group input[type="file"] {
-    padding: 0.5rem;
-    font-size: 0.9rem;
-    background: var(--light-gray);
-    cursor: pointer;
-}
-/* Feedback de Upload (V2.6) */
-.upload-feedback {
-    font-size: 0.85rem;
-    color: var(--strava-orange);
-    font-style: italic;
-    margin-top: 0.5rem;
-}
+.panel { background: #fff; border-radius: var(--border-radius); padding: 1.5rem; box-shadow: var(--shadow); margin-top: 1.5rem; }
 
-.form-group textarea {
-    resize: vertical;
+.form-group { margin-bottom: 1rem; }
+.form-group label { display: block; font-weight: 600; margin-bottom: 0.5rem; font-size: 0.9rem; }
+.form-group input, .form-group textarea, .form-group select, .search-input {
+    width: 100%; padding: 0.75rem; border: 1px solid var(--border-color); border-radius: var(--border-radius);
+    font-size: 1rem; background-color: #fff;
 }
+.search-input-small { padding: 8px; border: 1px solid #ddd; border-radius: 4px; font-size: 0.9rem; width: 250px; }
 
 /* =================================================================== */
-/* 3. TELA DE LOGIN (index.html)
+/* 3. TELA DE LOGIN
 /* =================================================================== */
-.login-page {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    flex-grow: 1; /* Para centralizar verticalmente com o footer */
-    padding: 20px;
-}
-
-.login-container {
-    width: 100%;
-    max-width: 450px;
-    background-color: #fff;
-    padding: 2.5rem;
-    border-radius: var(--border-radius);
-    box-shadow: 0 10px 30px rgba(0,0,0,0.1);
-}
-
-.logo {
-    display: block;
-    margin: 0 auto 1rem auto;
-    width: 120px;
-    height: 120px;
-    /* (V3.0) */
-    border-radius: 0; 
-    object-fit: contain; 
-}
-
-.login-container h2 {
-    text-align: center;
-    margin-bottom: 0.25rem;
-}
-
-.input-icon {
-    position: relative;
-}
-.input-icon i {
-    position: absolute;
-    left: 15px;
-    top: 50%;
-    transform: translateY(-50%);
-    color: #999;
-}
-.input-icon input {
-    padding-left: 40px;
-}
-
-.error-message {
-    color: var(--danger-color);
-    font-size: 0.9rem;
-    text-align: center;
-    margin-top: 1rem;
-    min-height: 1.2em;
-}
-
-.toggle-link {
-    text-align: center;
-    margin-top: 1rem;
-    font-size: 0.9rem;
-}
-.toggle-link a {
-    color: var(--secondary-color);
-    font-weight: 600;
-    text-decoration: none;
-    cursor: pointer;
-}
-
-/* Mensagem de Pendente */
-#pending-view {
-    text-align: center;
-    border-top: 4px solid var(--warning-color);
-}
-#pending-view h3 {
-    color: var(--warning-color);
-    margin-bottom: 1rem;
-}
-#pending-view button {
-    width: auto;
-    margin-top: 1rem;
-}
+.login-page { display: flex; justify-content: center; align-items: center; flex-grow: 1; padding: 20px; }
+.login-container { width: 100%; max-width: 450px; background: #fff; padding: 2.5rem; border-radius: var(--border-radius); box-shadow: 0 10px 30px rgba(0,0,0,0.1); }
+.logo { display: block; margin: 0 auto 1rem auto; width: 120px; height: 120px; object-fit: contain; }
+.input-icon { position: relative; }
+.input-icon i { position: absolute; left: 15px; top: 50%; transform: translateY(-50%); color: #999; }
+.input-icon input { padding-left: 40px; }
+.error-message { color: var(--danger-color); font-size: 0.9rem; text-align: center; margin-top: 1rem; min-height: 1.2em; }
+.toggle-link { text-align: center; margin-top: 1rem; font-size: 0.9rem; }
+.toggle-link a { color: var(--secondary-color); font-weight: 600; text-decoration: none; cursor: pointer; }
 
 /* =================================================================== */
-/* 4. TELA DA PLATAFORMA (app.html)
+/* 4. HEADER E FOOTER
 /* =================================================================== */
-#app-container {
-    flex-grow: 1; /* Empurra o footer para baixo */
-}
-
-.loader-container {
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    align-items: center;
-    height: 100vh;
-}
-.loader {
-    border: 6px solid var(--light-gray);
-    border-top: 6px solid var(--primary-color);
-    border-radius: 50%;
-    width: 60px;
-    height: 60px;
-    animation: spin 1s linear infinite;
-    margin-bottom: 1rem;
-}
-@keyframes spin {
-    0% { transform: rotate(0deg); }
-    100% { transform: rotate(360deg); }
-}
-
 .app-header {
-    background-color: #fff;
-    padding: 1rem 2rem;
-    box-shadow: var(--shadow);
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    position: sticky;
-    top: 0;
-    z-index: 1000;
+    background: #fff; padding: 1rem 2rem; box-shadow: var(--shadow);
+    display: flex; justify-content: space-between; align-items: center;
+    position: sticky; top: 0; z-index: 1000;
 }
-.app-header h1 {
-    color: var(--primary-color);
-    font-size: 1.5rem;
-}
-.app-header nav {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem; /* Reduzido */
-}
-.user-display {
-    font-weight: 600;
-    font-size: 0.9rem;
-    color: var(--text-light);
-    text-transform: capitalize;
-    margin-left: 1rem;
-    border-left: 1px solid var(--border-color);
-    padding-left: 1rem;
-}
-.app-header #logoutButton {
-    width: auto;
-    padding: 0.5rem 1rem;
-}
-
-/* (V3.0): Controle de View (Admin vs Atleta) */
-.admin-view #nav-profile-btn {
-    display: none;
-}
-.atleta-view #nav-profile-btn {
-    display: inline-flex;
-}
-
-
-.app-main {
-    max-width: 1400px;
-    margin: 2rem auto;
-    padding: 0 2rem;
-    width: 100%;
-}
-
-/* Rodapé (V2.6) */
-.app-footer {
-    text-align: center;
-    padding: 2rem 1rem 1.5rem 1rem;
-    color: var(--text-light);
-    font-size: 0.9rem;
-    margin-top: 2rem;
-    width: 100%;
-    border-top: 1px solid var(--border-color);
-}
-
+.app-header h1 { color: var(--primary-color); font-size: 1.5rem; }
+.app-header nav { display: flex; align-items: center; gap: 0.5rem; }
+.user-display { font-weight: 600; font-size: 0.9rem; color: var(--text-light); text-transform: capitalize; margin-left: 1rem; border-left: 1px solid var(--border-color); padding-left: 1rem; }
+.app-main { max-width: 1400px; margin: 2rem auto; padding: 0 2rem; width: 100%; }
+.app-footer { text-align: center; padding: 2rem 1rem; color: var(--text-light); font-size: 0.9rem; margin-top: 2rem; width: 100%; border-top: 1px solid var(--border-color); }
+.admin-view #nav-profile-btn { display: none; }
+.atleta-view #nav-profile-btn { display: inline-flex; }
 
 /* =================================================================== */
-/* 5. PAINEL ADMIN (V3.5)
+/* 5. LOADER
 /* =================================================================== */
-.admin-dashboard h2,
-.atleta-dashboard h2,
-.feed-dashboard h2 {
-    border-bottom: 2px solid var(--border-color);
-    padding-bottom: 0.5rem;
-    margin-bottom: 1rem;
-}
-.admin-dashboard h2 i,
-.atleta-dashboard h2 i,
-.feed-dashboard h2 i {
-    margin-right: 0.5rem;
-}
-
-/* Painel de Aprovação */
-.approval-panel {
-    border-left: 4px solid var(--warning-color);
-}
-.approval-panel h3 {
-    color: var(--warning-color);
-}
-.pending-item {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 0.75rem;
-    border-bottom: 1px solid var(--border-color);
-}
-.pending-item:last-child {
-    border-bottom: none;
-}
-.pending-item-info {
-    font-size: 0.9rem;
-}
-.pending-item-info strong {
-    color: var(--primary-color);
-}
-.pending-item-actions {
-    display: flex;
-    gap: 0.5rem;
-}
-
-/* Layout Admin */
-.admin-layout {
-    display: grid;
-    grid-template-columns: 350px 1fr;
-    gap: 1.5rem;
-    align-items: flex-start;
-}
-
-.athlete-list-container {
-    max-height: 80vh;
-    overflow-y: auto;
-}
-.athlete-list-container h3 { margin-bottom: 1rem; }
-
-.search-input {
-    margin-bottom: 1rem;
-    padding-left: 1rem;
-}
-
-.athlete-list-item {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 1rem;
-    border: 1px solid var(--border-color);
-    border-radius: var(--border-radius);
-    margin-bottom: 0.5rem;
-    cursor: pointer;
-    transition: all 0.2s ease-in-out;
-    border-left: 4px solid transparent;
-}
-.athlete-list-item:hover {
-    background-color: #fcfcfc;
-    border-left-color: var(--secondary-color);
-}
-.athlete-list-item.selected {
-    background-color: var(--light-gray);
-    color: var(--primary-color);
-    border-color: var(--secondary-color);
-    border-left-width: 4px;
-}
-.athlete-list-item span {
-    font-weight: 600;
-}
-
-.form-minimal {
-    background: var(--light-gray);
-    padding: 1rem;
-    border-radius: var(--border-radius);
-    border: 1px solid var(--border-color);
-}
-
-/* Abas do Admin (V2.6) */
-.admin-tabs {
-    display: flex;
-    border-bottom: 2px solid var(--border-color);
-    margin-bottom: 1rem;
-    margin-top: 1rem;
-}
-.admin-tabs .tab-btn {
-    padding: 0.5rem 1rem;
-    cursor: pointer;
-    border: none;
-    background: none;
-    font-size: 1rem;
-    font-weight: 600;
-    color: var(--text-light);
-    border-bottom: 3px solid transparent;
-}
-.admin-tabs .tab-btn.active {
-    color: var(--primary-color);
-    border-bottom-color: var(--primary-color);
-}
-.admin-tab-content {
-    display: none;
-}
-.admin-tab-content.active {
-    display: block;
-}
-
-/* ===================================================================
-  NOVO (V3.5): Estilos do Formulário Estruturado
-  ===================================================================
-*/
-.form-grid-2col {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 1rem;
-}
-.form-grid-4col {
-    display: grid;
-    grid-template-columns: 1fr 1fr 1fr 1fr;
-    gap: 1rem;
-}
-.form-minimal .form-group {
-    margin-bottom: 0; /* Remove margem dupla dentro do fieldset */
-}
-.form-minimal .form-grid-4col .form-group input,
-.form-minimal .form-grid-2col .form-group input {
-    font-size: 0.9rem;
-    padding: 0.6rem;
-}
-.form-minimal .form-group select {
-    font-size: 0.9rem;
-    padding: 0.6rem 0.4rem;
-}
-.workout-fieldset {
-    padding: 0.75rem 1rem 1rem 1rem;
-    background: #fdfdfd;
-}
-.workout-fieldset legend {
-    font-size: 0.9rem;
-    color: var(--secondary-color);
-}
-/* =================================================================== */
-
-
-/* Lista de Histórico de IA */
-.ia-history-list .workout-card { /* Reutilizando o card */
-    cursor: pointer;
-}
-.ia-history-list .workout-card-header {
-    display: block;
-}
-.ia-history-list .date {
-    font-size: 0.9rem;
-    font-weight: 600;
-    color: var(--text-light);
-}
-.ia-history-list .title {
-    font-size: 1.1rem;
-    color: var(--primary-color);
-}
-.ia-history-list .workout-card-body p {
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    white-space: pre-wrap;
-    font-style: italic;
-    background: #fdfdfd;
-}
-
+.loader-container { display: flex; flex-direction: column; justify-content: center; align-items: center; height: 100vh; }
+.loader { border: 6px solid var(--light-gray); border-top: 6px solid var(--primary-color); border-radius: 50%; width: 60px; height: 60px; animation: spin 1s linear infinite; margin-bottom: 1rem; }
+@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
 
 /* =================================================================== */
-/* 6. PAINEL ATLETA (V2.6)
+/* 6. MODAIS
 /* =================================================================== */
-/* Header do Atleta com botão (V2.6) */
-.atleta-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    flex-wrap: wrap; /* Para mobile */
-    gap: 1rem;
-}
-.atleta-header h2 {
-    margin-bottom: 0;
-    border-bottom: none;
-}
-.atleta-header .btn {
-    width: auto; /* Botão não ocupa 100% */
-}
-
-.atleta-dashboard #atleta-workouts-container {
-    max-width: 800px;
-    margin: 1.5rem 0;
-}
-.atleta-dashboard .subtitle {
-    text-align: left;
-    margin-bottom: 0.5rem;
-}
+.modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); display: flex; align-items: center; justify-content: center; z-index: 2000; padding: 20px; }
+.modal-content { background: var(--white); border-radius: var(--border-radius); width: 100%; max-width: 600px; max-height: 90vh; display: flex; flex-direction: column; }
+.modal-header { display: flex; justify-content: space-between; align-items: center; padding: 1rem 1.5rem; border-bottom: 1px solid var(--border-color); }
+.close-btn { background: none; border: none; font-size: 2rem; cursor: pointer; color: var(--text-light); }
+.modal-body { padding: 1.5rem; overflow-y: auto; }
+.profile-pic-preview { width: 150px; height: 150px; border-radius: 50%; object-fit: cover; border: 4px solid var(--border-color); background: var(--light-gray); display:block; margin: 0 auto; }
 
 /* =================================================================== */
-/* 7. CARD DE TREINO (V2.6)
+/* 7. SISRUN DASHBOARD (NOVOS ESTILOS V6.0)
 /* =================================================================== */
-.workout-card {
-    background: #fff;
-    border: 1px solid var(--border-color);
-    border-radius: var(--border-radius);
-    margin-bottom: 1rem;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-}
-/* Deixa o card do atleta clicável */
-.atleta-dashboard .workout-card {
-    cursor: pointer;
-    transition: all 0.2s ease;
-}
-.atleta-dashboard .workout-card:hover {
-    transform: translateY(-2px);
-    box-shadow: var(--shadow);
-}
+.sisrun-dashboard { padding: 1rem; }
+.dashboard-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem; flex-wrap: wrap; gap:15px; }
 
-.workout-card-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 1rem 1rem 0.5rem 1rem;
-    gap: 0.5rem;
-}
-.workout-card-header .date {
-    font-weight: 700;
-    color: var(--primary-color);
-    font-size: 1.1rem;
-    flex-shrink: 0; /* Não encolhe a data */
-}
-.workout-card-header .title {
-    font-weight: 600;
-    font-size: 1.1rem;
-    text-align: left;
-    flex-grow: 1; /* Ocupa o espaço */
-}
-.workout-card-body {
-    padding: 0.5rem 1rem 1rem 1rem;
-}
-.workout-card-body p {
-    white-space: pre-wrap;
-    font-family: monospace;
-    background: var(--light-gray);
-    padding: 0.75rem;
-    border-radius: 4px;
-    color: #333;
-}
-.workout-card-body .feedback-text {
-    border-left: 3px solid var(--secondary-color);
-    background: #f0f5ff;
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    white-space: pre-wrap;
-    font-style: italic;
-    padding: 0.5rem 0.75rem;
-    margin-top: 0.5rem;
-}
-.workout-card-body .workout-image {
-    width: 100%;
-    max-height: 400px;
-    object-fit: cover;
-    border-radius: var(--border-radius);
-    margin-top: 1rem;
-    border: 1px solid var(--border-color);
-}
+.coach-avatar { width: 50px; height: 50px; background: #eee; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 1.5rem; color: #555; }
 
-/* Display de dados do Strava (V2.6) */
-.strava-data-display {
-    background: #fcf4e8; /* Laranja claro do Strava */
-    border: 1px solid var(--strava-orange);
-    border-radius: var(--border-radius);
-    padding: 0.75rem;
-    margin-top: 1rem;
-}
-.strava-data-display legend {
-    color: var(--strava-orange);
-    font-weight: bold;
-    font-size: 0.9rem;
-}
-.strava-data-display p {
-    font-family: monospace;
-    font-size: 0.9rem;
-    background: none;
-    padding: 0.2rem 0;
-    white-space: pre;
-}
+.feedback-stats { display: flex; gap: 15px; align-items: center; background: #fff; padding: 10px 20px; border-radius: 50px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
+.stat-face { display: flex; align-items: center; gap: 5px; font-weight: bold; font-size: 1.1rem; }
+.stat-face.happy i { color: #28a745; font-size: 1.4rem; }
+.stat-face.neutral i { color: #ffc107; font-size: 1.4rem; }
+.stat-face.sad i { color: #dc3545; font-size: 1.4rem; }
+.stat-label { font-size: 0.8rem; color: #777; margin-left: 10px; border-left: 1px solid #ddd; padding-left: 10px; }
 
+.actions-grid { 
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 1.5rem; margin-bottom: 2rem; 
+}
+.action-card {
+    background: #fff; padding: 1.5rem; border-radius: 12px; text-align: center;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.05); cursor: pointer; transition: transform 0.2s;
+    border: 1px solid #eee; display: flex; flex-direction: column; align-items: center; gap: 10px; position: relative;
+}
+.action-card:hover { transform: translateY(-5px); border-color: var(--secondary-color); }
+.action-card i { font-size: 2.2rem; margin-bottom: 5px; }
+.action-card span { font-weight: 600; color: #555; font-size: 0.95rem; }
+.badge { background: #dc3545; color: white; padding: 2px 6px; border-radius: 10px; font-size: 0.7rem; position: absolute; top: 10px; right: 10px; }
 
-.status-tag {
-    font-size: 0.75rem;
-    padding: 0.2rem 0.4rem;
-    border-radius: 4px;
-    color: #fff;
-    text-transform: capitalize;
-    font-weight: 600;
-    flex-shrink: 0;
-}
-.status-tag.planejado { background-color: var(--text-light); }
-.status-tag.realizado { background-color: var(--success-color); }
-.status-tag.realizado_parcial { background-color: var(--warning-color); color: #333; }
-.status-tag.nao_realizado { background-color: var(--danger-color); }
+/* Tabela SisRun */
+.sisrun-table { width: 100%; border-collapse: collapse; background: #fff; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
+.sisrun-table th { background: #f4f5f7; padding: 15px; text-align: left; color: #666; font-size: 0.85rem; text-transform: uppercase; font-weight: 700; }
+.sisrun-table td { padding: 12px 15px; border-bottom: 1px solid #eee; vertical-align: middle; font-size: 0.9rem; }
+.user-info { display: flex; align-items: center; gap: 10px; }
+.user-info img { width: 36px; height: 36px; border-radius: 50%; object-fit: cover; }
+.strava-pill { background: #fff5eb; border: 1px solid #fc4c02; color: #fc4c02; padding: 4px 8px; border-radius: 4px; font-size: 0.8rem; display: inline-block; line-height: 1.2; }
+.workout-title { font-weight: 600; color: var(--primary-color); }
 
+/* Grelha de Alunos */
+.athlete-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 15px; margin-top: 15px; }
+.athlete-card-mini { background: #fff; padding: 15px; border-radius: 8px; border: 1px solid #eee; display: flex; align-items: center; justify-content: space-between; cursor: pointer; transition: all 0.2s; }
+.athlete-card-mini:hover { border-color: var(--secondary-color); box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
+.athlete-card-mini img { width: 40px; height: 40px; border-radius: 50%; }
+.athlete-card-mini .info { display: flex; flex-direction: column; margin-left: 10px; flex: 1; }
+.athlete-card-mini .info strong { font-size: 0.9rem; color: #333; }
+.athlete-card-mini .info span { font-size: 0.75rem; color: #888; }
+.btn-arrow { background: none; border: none; color: #ccc; }
 
-.workout-card-footer {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 0.5rem 1rem 0.75rem 1rem;
-    border-top: 1px solid var(--border-color);
-    background-color: #fdfdfd;
-}
-.workout-actions {
-    display: flex;
-    gap: 1rem;
-}
-.action-btn {
-    background: none;
-    border: none;
-    cursor: pointer;
-    color: var(--text-light);
-    display: flex;
-    align-items: center;
-    gap: 0.3rem;
-    font-size: 0.9rem;
-    font-weight: 600;
-}
-.action-btn:hover:not(:disabled) {
-    color: var(--primary-color);
-}
-.action-btn.liked {
-    color: var(--danger-color);
-}
-/* Dono do treino não pode curtir (V2.6) */
-.action-btn.btn-like:disabled {
-    opacity: 1; /* Nao ficar cinza */
-    color: var(--danger-color); /* Mantem vermelho */
-    cursor: default;
-}
+/* Workspace (Planilha) */
+.workspace { background: #fff; padding: 20px; border-radius: 12px; box-shadow: 0 5px 15px rgba(0,0,0,0.1); margin-top: 20px; }
+.workspace-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 1px solid #eee; padding-bottom: 15px; }
+.workspace-subtitle { color: #888; font-weight: normal; font-size: 0.9rem; }
+.workspace-tabs { display: flex; gap: 10px; margin-bottom: 20px; }
+.ws-tab { padding: 8px 20px; border: none; background: #f4f5f7; border-radius: 20px; cursor: pointer; font-weight: 600; color: #666; transition: 0.2s; }
+.ws-tab.active { background: var(--primary-color); color: #fff; }
 
-.like-count-btn {
-    cursor: pointer;
-}
-.like-count-btn:hover {
-    text-decoration: underline;
-}
+.prescription-box { background: #f8f9fa; padding: 20px; border-radius: 8px; border: 1px solid #ddd; margin-bottom: 25px; }
+.presc-header { display: flex; justify-content: space-between; margin-bottom: 15px; border-bottom: 1px solid #eee; padding-bottom: 10px; }
+.presc-form .row { display: flex; gap: 10px; margin-bottom: 10px; }
+.presc-form select, .presc-form input { padding: 10px; border: 1px solid #ccc; border-radius: 4px; flex: 1; }
+.presc-form textarea { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px; margin-bottom: 10px; resize: vertical; }
 
-/* =================================================================== */
-/* 8. FEED SOCIAL (V3.2)
-/* =================================================================== */
-.feed-dashboard {
-    max-width: 800px;
-    margin: 0 auto;
-}
-.feed-list .workout-card {
-    cursor: pointer;
-    transition: all 0.2s ease;
-}
-.feed-list .workout-card:hover {
-    transform: translateY(-2px);
-    box-shadow: var(--shadow);
-}
-.feed-list .workout-card-header {
-    display: block;
-    position: relative; /* Para o avatar */
-}
+/* Timeline de Treinos */
+.timeline-item { display: flex; gap: 15px; margin-bottom: 15px; }
+.tl-date { display: flex; flex-direction: column; align-items: center; background: #eee; padding: 10px; border-radius: 8px; min-width: 60px; height: fit-content; text-align: center; }
+.tl-date span { font-size: 1.2rem; font-weight: bold; color: var(--primary-color); display: block; }
+.tl-content { flex: 1; background: #fff; border: 1px solid #eee; padding: 15px; border-radius: 8px; position: relative; }
+.tl-content.done { border-left: 5px solid #28a745; }
+.tl-content.planned { border-left: 5px solid #999; }
+.tl-header { display: flex; justify-content: space-between; margin-bottom: 5px; }
+.tag { font-size: 0.7rem; padding: 2px 6px; border-radius: 4px; background: #eee; color: #555; text-transform: uppercase; }
+.tag.realizado { background: #28a745; color: #fff; }
+.tl-strava { color: #fc4c02; font-weight: bold; font-size: 0.85rem; margin-top: 8px; border-top: 1px dashed #eee; padding-top: 5px; }
+.tl-actions { margin-top: 10px; display: flex; gap: 10px; justify-content: flex-end; }
 
-/* Avatar no Feed (V3.0) */
-.feed-list .athlete-avatar {
-    width: 40px;
-    height: 40px;
-    border-radius: 50%;
-    object-fit: cover;
-    border: 2px solid var(--border-color);
-    position: absolute;
-    top: 1rem;
-    left: 1rem;
-    /* (V3.2): Deixa o avatar clicável */
-    cursor: pointer;
-    transition: transform 0.2s ease;
-}
-.feed-list .athlete-avatar:hover {
-    transform: scale(1.1);
-}
+/* Cards Genéricos (Atleta/Feed) */
+.workout-card { background: #fff; border: 1px solid var(--border-color); border-radius: var(--border-radius); margin-bottom: 1rem; padding: 1rem; box-shadow: 0 2px 4px rgba(0,0,0,0.05); cursor: pointer; transition: 0.2s; }
+.workout-card:hover { transform: translateY(-3px); box-shadow: var(--shadow); }
+.workout-card-header { display: flex; justify-content: space-between; margin-bottom: 10px; align-items: center; }
+.status-tag.realizado { background: var(--success-color); color: white; padding: 2px 6px; border-radius: 4px; font-size: 0.75rem; }
+.status-tag.planejado { background: #999; color: white; padding: 2px 6px; border-radius: 4px; font-size: 0.75rem; }
+.strava-data-display { margin-top: 10px; background: #fff5eb; color: #fc4c02; padding: 5px; border-radius: 4px; font-size: 0.9rem; font-weight: 500; }
 
-.feed-list .athlete-name {
-    font-size: 1rem;
-    font-weight: 600;
-    color: var(--secondary-color);
-    /* Ajuste para dar espaço ao avatar */
-    margin-left: 55px;
-    display: block;
-    padding-top: 0.25rem;
-    /* (V3.2): Deixa o nome clicável */
-    cursor: pointer;
-    text-decoration: none;
-    display: inline-block; /* Para o hover funcionar bem */
-}
-.feed-list .athlete-name:hover {
-    text-decoration: underline;
-}
-
-.feed-list .workout-card-header .date {
-    margin-left: 55px;
-    font-size: 0.9rem;
-}
-.feed-list .workout-card-header .title {
-    margin-left: 55px;
-    font-size: 0.9rem;
-}
-.feed-list .workout-card-header .status-tag {
-    position: absolute;
-    top: 1rem;
-    right: 1rem;
-}
-
-
-/* =================================================================== */
-/* 9. MODAIS (V3.2)
-/* =================================================================== */
-.modal-overlay {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background: rgba(0,0,0,0.6);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    z-index: 2000;
-    padding: 20px;
-}
-.modal-content {
-    background: var(--white);
-    border-radius: var(--border-radius);
-    width: 100%;
-    max-width: 600px;
-    max-height: 90vh;
-    display: flex;
-    flex-direction: column;
-}
-.modal-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 1rem 1.5rem;
-    border-bottom: 1px solid var(--border-color);
-}
-.modal-header h3 {
-    color: var(--primary-color);
-}
-.close-btn {
-    background: none;
-    border: none;
-    font-size: 2rem;
-    cursor: pointer;
-    color: var(--text-light);
-}
-.close-btn:hover {
-    color: var(--danger-color);
-}
-.modal-body {
-    padding: 1.5rem;
-    overflow-y: auto;
-}
-
-/* Comentários (V2) */
-.comments-list {
-    max-height: 200px;
-    overflow-y: auto;
-    margin-bottom: 1rem;
-    padding: 0.5rem;
-    background: var(--light-gray);
-    border-radius: 4px;
-}
-.comment-item {
-    font-size: 0.9rem;
-    border-bottom: 1px solid var(--border-color);
-    padding: 0.5rem 0;
-}
-.comment-item:last-child {
-    border-bottom: none;
-}
-.comment-item strong {
-    color: var(--primary-color);
-}
-.comment-item span {
-    font-size: 0.75rem;
-    color: var(--text-light);
-    margin-left: 0.5rem;
-}
-.comment-form {
-    display: flex;
-    gap: 0.5rem;
-}
-.comment-form input {
-    flex: 1;
-}
-.comment-form button {
-    width: auto;
-}
-
-/* Modal "Quem Curtiu" */
-#who-liked-list {
-    list-style: none;
-    padding: 0;
-    margin: 0;
-    max-height: 300px;
-    overflow-y: auto;
-}
-#who-liked-list li {
-    padding: 0.5rem;
-    font-weight: 600;
-    border-bottom: 1px solid var(--border-color);
-}
-#who-liked-list li:last-child {
-    border-bottom: none;
-}
-
-/* Modal Análise IA */
-#ia-analysis-output {
-    white-space: pre-wrap;  /* CORREÇÃO V2.6 */
-    word-wrap: break-word;
-    background-color: var(--light-gray);
-    border: 1px solid var(--border-color);
-    padding: 1rem;
-    border-radius: var(--border-radius);
-    max-height: 50vh;
-    overflow-y: auto;
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    font-size: 0.9rem;
-}
-/* Footer do modal de IA (V2.6) */
-.modal-footer {
-    padding: 1rem 1.5rem;
-    border-top: 1px solid var(--border-color);
-    background-color: #fdfdfd;
-    display: flex;
-    justify-content: flex-end; /* Alinha o botão à direita */
-}
-.modal-footer .btn {
-    width: auto; /* Botão não ocupa 100% */
-}
-
-/* Estilos do Modal de Perfil (V3.0) */
-.profile-pic-container {
-    display: flex;
-    justify-content: center;
-    margin-bottom: 1rem;
-}
-.profile-pic-preview {
-    width: 150px;
-    height: 150px;
-    border-radius: 50%;
-    object-fit: cover;
-    border: 4px solid var(--border-color);
-    background-color: var(--light-gray);
-}
-#profile-upload-feedback {
-    color: var(--success-color); /* Feedback de upload de perfil */
-}
-
-/* Estilos do Modal de Visualização de Perfil (V3.2) */
-#view-profile-modal .modal-content {
-    max-width: 500px; /* Um pouco menor */
-}
-.view-profile-name {
-    text-align: center;
-    color: var(--primary-color);
-    margin-bottom: 0.5rem;
-    font-size: 1.8rem;
-}
-.view-profile-bio {
-    text-align: center;
-    color: var(--text-light);
-    font-style: italic;
-    white-space: pre-wrap; /* Respeita quebras de linha da bio */
-    background: var(--light-gray);
-    padding: 1rem;
-    border-radius: var(--border-radius);
-    min-height: 50px;
-}
-/* =================================================================== */
-
-
-/* =================================================================== */
-/* 10. RESPONSIVIDADE
-/* =================================================================== */
-@media (max-width: 900px) {
-    .admin-layout {
-        grid-template-columns: 1fr;
-    }
-    .athlete-list-container {
-        max-height: 300px; /* Limita altura em telas pequenas */
-    }
-    
-    /* V3.5: Formulário estruturado em 1 coluna */
-    .form-grid-2col,
-    .form-grid-4col {
-        grid-template-columns: 1fr;
-    }
-    .form-minimal .form-group {
-        margin-bottom: 0.5rem; /* Adiciona espaço no mobile */
-    }
-}
-
-@media (max-width: 600px) {
-    .app-header {
-        flex-direction: column;
-        gap: 0.5rem;
-        padding: 1rem;
-    }
-    .app-header nav {
-        flex-wrap: wrap;
-        justify-content: center;
-    }
-    .user-display {
-        border-left: none;
-        padding-left: 0;
-        margin-left: 0;
-        width: 100%;
-        text-align: center;
-        border-top: 1px solid var(--border-color);
-        padding-top: 0.5rem;
-    }
-    .app-main {
-        padding: 0 1rem; /* Reduz padding horizontal no mobile */
-        margin-top: 1rem;
-    }
-    .login-container {
-        padding: 1.5rem;
-    }
-    .panel {
-        padding: 1rem;
-    }
-    .pending-item {
-        flex-direction: column;
-        align-items: flex-start;
-        gap: 0.5rem;
-    }
-    .pending-item-actions {
-        width: 100%;
-        gap: 1rem;
-    }
-    .pending-item-actions .btn {
-        flex: 1;
-    }
-    /* Nav Botões Mobile */
-    .btn-nav span {
-        display: none; /* Esconde o texto, mostra só ícone */
-    }
-    .atleta-header {
-        justify-content: center; /* Centraliza o h2 e o botão */
-    }
-
-    /* Ajuste do avatar do feed no mobile (V3.0) */
-    .feed-list .athlete-name {
-        margin-left: 50px;
-    }
-    .feed-list .workout-card-header .date,
-    .feed-list .workout-card-header .title {
-        margin-left: 50px;
-        margin-right: 50px; /* Espaço para o status tag */
-    }
-    .feed-list .athlete-avatar {
-        width: 35px;
-        height: 35px;
-    }
-    
-    /* V3.5: Garante que 4 colunas virem 2 no mobile */
-    .form-grid-4col {
-        grid-template-columns: 1fr 1fr;
-    }
-
-}
-
-/* =================================================================== */
-/* V5.1 - ESTILOS DO DASHBOARD ADMIN (ESTILO SISRUN)
-/* =================================================================== */
-
-/* 1. Grade do Dashboard (Ícones Grandes) */
-.dashboard-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-    gap: 1.5rem;
-    margin-bottom: 2rem;
-}
-
-.dash-card {
-    background: white;
-    padding: 1.5rem;
-    border-radius: 12px;
-    box-shadow: 0 4px 6px rgba(0,0,0,0.05);
-    text-align: center;
-    cursor: pointer;
-    border: 1px solid #e0e0e0;
-    transition: transform 0.2s, box-shadow 0.2s, border-color 0.2s;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 12px;
-    height: 100%;
-}
-
-.dash-card:hover {
-    transform: translateY(-5px);
-    box-shadow: 0 10px 20px rgba(0,0,0,0.1);
-    border-color: var(--secondary-color);
-}
-
-.dash-card i {
-    font-size: 2.8rem;
-    color: var(--primary-color);
-}
-
-.dash-card span {
-    font-weight: 700;
-    color: #444;
-    font-size: 0.95rem;
-    display: flex;
-    align-items: center;
-    gap: 5px;
-}
-
-/* Bolinha vermelha de contagem */
-.badge-count {
-    background-color: var(--danger-color);
-    color: white;
-    padding: 2px 8px;
-    border-radius: 12px;
-    font-size: 0.75rem;
-    font-weight: bold;
-}
-
-/* 2. Tabela de Feedback Profissional */
-.feedback-table-container {
-    background: white;
-    border-radius: 8px;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
-    overflow-x: auto; /* Permite rolar em telas pequenas */
-    border: 1px solid #eee;
-}
-
-.feedback-table {
-    width: 100%;
-    border-collapse: collapse;
-    min-width: 600px; /* Garante largura mínima para não quebrar layout */
-}
-
-.feedback-table th {
-    background: #f8f9fa;
-    padding: 15px;
-    text-align: left;
-    font-size: 0.85rem;
-    text-transform: uppercase;
-    color: #666;
-    border-bottom: 2px solid #eee;
-}
-
-.feedback-table td {
-    padding: 15px;
-    border-bottom: 1px solid #eee;
-    font-size: 0.9rem;
-    vertical-align: middle;
-    color: #333;
-}
-
-.feedback-table tr:last-child td {
-    border-bottom: none;
-}
-
-.feedback-table tr:hover {
-    background-color: #fcfcfc;
-}
-
-/* Célula de Usuário na Tabela */
-.user-cell {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-}
-
-.user-avatar-small {
-    width: 38px;
-    height: 38px;
-    border-radius: 50%;
-    object-fit: cover;
-    border: 1px solid #ddd;
-}
-
-/* Área de Workspace (Detalhes do Aluno) */
-#athlete-workspace {
-    background: #fff;
-    border-radius: 8px;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.08);
-    padding: 20px;
-    margin-top: 20px;
-}
-
-/* Garante que o botão de Perfil apareça para o Admin (para ele conectar o próprio Strava) */
-.admin-view #nav-profile-btn {
-    display: inline-flex !important;
+/* Mobile */
+@media (max-width: 768px) {
+    .dashboard-header { flex-direction: column; align-items: flex-start; gap: 15px; }
+    .actions-grid { grid-template-columns: 1fr 1fr; }
+    .presc-form .row { flex-direction: column; }
+    .sisrun-table th:nth-child(4), .sisrun-table td:nth-child(4) { display: none; } /* Esconde detalhes sync no mobile */
+    .app-main { padding: 0 10px; }
 }

@@ -1,16 +1,15 @@
 /* =================================================================== */
-/* PANELS.JS V14.0 - SISRUN VISUAL + LÓGICA V2
+/* PANELS.JS V13.0 - BASE V2 + SISRUN FEATURES + IA
 /* =================================================================== */
 
 const AdminPanel = {
-    state: { db: null, currentUser: null, selectedAthleteId: null, athletes: {} },
+    state: {},
     elements: {},
 
     init: (user, db) => {
-        AdminPanel.state.db = db;
-        AdminPanel.state.currentUser = user;
+        AdminPanel.state = { db, currentUser: user, selectedAthleteId: null, athletes: {} };
         
-        // INJETA O DASHBOARD (VISUAL SISRUN)
+        // INJETA DASHBOARD SISRUN
         const main = document.getElementById('app-main-content');
         if(main) {
             main.innerHTML = `
@@ -54,9 +53,14 @@ const AdminPanel = {
             
             if(AdminPanel.state.currentSection === 'feedbacks') AdminPanel.renderFeedbackTable();
         });
+        
+        AdminPanel.state.db.ref('pendingApprovals').on('value', s => {
+            if(document.getElementById('badge-aprovacoes')) document.getElementById('badge-aprovacoes').textContent = s.exists() ? s.numChildren() : 0;
+        });
     },
 
     showSection: (section) => {
+        AdminPanel.state.currentSection = section;
         const area = AdminPanel.elements.contentArea;
         area.innerHTML = "";
 
@@ -65,7 +69,7 @@ const AdminPanel = {
             AdminPanel.renderFeedbackTable();
         } 
         else if (section === 'alunos') {
-            area.innerHTML = `<h3>Meus Alunos</h3><input type="text" class="search-input" placeholder="Buscar..." onkeyup="AdminPanel.renderList(this.value)"><div id="list"></div><div id="ws" class="hidden"></div>`;
+            area.innerHTML = `<h3>Meus Alunos</h3><input type="text" class="search-input" placeholder="Buscar..." onkeyup="AdminPanel.renderList(this.value)"><div id="list" class="athlete-grid"></div><div id="ws" class="hidden"></div>`;
             AdminPanel.renderList();
         }
         else if (section === 'ia') {
@@ -133,19 +137,44 @@ const AdminPanel = {
         document.getElementById('list').classList.add('hidden');
         const ws = document.getElementById('ws');
         ws.classList.remove('hidden');
-        ws.innerHTML = `<h3>${name}</h3><button class="btn btn-secondary" onclick="document.getElementById('ws').classList.add('hidden');document.getElementById('list').classList.remove('hidden')">Voltar</button><div id="timeline"></div>`;
+        ws.innerHTML = `
+            <h3>${name}</h3>
+            <button class="btn btn-secondary" onclick="document.getElementById('ws').classList.add('hidden');document.getElementById('list').classList.remove('hidden')">Voltar</button>
+            <div class="prescription-box">
+                <h4>Adicionar Treino</h4>
+                <form id="ws-add-form">
+                    <div class="row"><input type="date" id="w-date" required><input type="text" id="w-title" placeholder="Título" required></div>
+                    <textarea id="w-obs" placeholder="Detalhes..." style="width:100%"></textarea>
+                    <button type="submit" class="btn btn-success">Salvar</button>
+                </form>
+            </div>
+            <div id="timeline"></div>`;
         
+        document.getElementById('ws-add-form').onsubmit = (e) => {
+            e.preventDefault();
+            AdminPanel.state.db.ref(`data/${uid}/workouts`).push({
+                date: document.getElementById('w-date').value, title: document.getElementById('w-title').value, description: document.getElementById('w-obs').value,
+                status: 'planejado', createdBy: AdminPanel.state.currentUser.uid
+            });
+            alert("Salvo!"); AdminPanel.loadWorkspaceWorkouts(uid);
+        };
+        
+        AdminPanel.loadWorkspaceWorkouts(uid);
+    },
+    
+    loadWorkspaceWorkouts: (uid) => {
+        const div = document.getElementById('timeline');
         AdminPanel.state.db.ref(`data/${uid}/workouts`).orderByChild('date').limitToLast(50).on('value', snap => {
-            const tl = document.getElementById('timeline');
-            tl.innerHTML = "";
-            if(!snap.exists()) { tl.innerHTML = "Sem treinos."; return; }
+            div.innerHTML = ""; if(!snap.exists()) { div.innerHTML = "Sem treinos."; return; }
             const l = []; snap.forEach(c => l.push({k:c.key, ...c.val()})); l.sort((a,b)=>new Date(b.date)-new Date(a.date));
             l.forEach(w => {
                 const s = w.stravaData ? `<br><small style='color:orange'>Strava: ${w.stravaData.distancia}</small>` : '';
-                tl.innerHTML += `<div class="timeline-item" style="border:1px solid #ccc; margin:5px; padding:10px;"><b>${w.date} - ${w.title}</b><br>${w.description}${s} <button onclick="AppPrincipal.openFeedbackModal('${w.k}','${uid}','${w.title}')">Ver</button></div>`;
+                div.innerHTML += `<div class="timeline-item" style="border:1px solid #ccc; margin:5px; padding:10px;"><b>${w.date} - ${w.title}</b><br>${w.description}${s} <button onclick="AppPrincipal.openFeedbackModal('${w.k}','${uid}','${w.title}')">Ver</button> <button onclick="AdminPanel.deleteWorkout('${uid}','${w.k}')" style="color:red">X</button></div>`;
             });
         });
     },
+    
+    deleteWorkout: (uid, wid) => { if(confirm("Apagar?")) { const u={}; u[`/data/${uid}/workouts/${wid}`]=null; u[`/publicWorkouts/${wid}`]=null; AdminPanel.state.db.ref().update(u); }},
     
     renderPendingList: () => {
         const div = document.getElementById('pending-list');

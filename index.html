@@ -3,11 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>LeRunners - Login</title>
+    <title>LeRunners - Plataforma de Treinos</title>
     <link rel="stylesheet" href="css/styles.css">
     <link rel="manifest" href="manifest.json">
     <link href="https://cdn.jsdelivr.net/npm/boxicons@2.1.4/css/boxicons.min.css" rel="stylesheet">
     <meta name="theme-color" content="#00008B">
+
     <link rel="icon" type="image/png" sizes="192x192" href="img/logo-192.png">
     <link rel="apple-touch-icon" href="img/logo-192.png">
 </head>
@@ -23,14 +24,14 @@
                 <label for="loginEmail">Email</label>
                 <div class="input-icon">
                     <i class="bx bx-envelope"></i>
-                    <input type="email" id="loginEmail" required placeholder="seu@email.com">
+                    <input type="email" id="loginEmail" required>
                 </div>
             </div>
             <div class="form-group">
                 <label for="loginPassword">Senha</label>
                 <div class="input-icon">
                     <i class="bx bx-lock"></i>
-                    <input type="password" id="loginPassword" required placeholder="Sua senha">
+                    <input type="password" id="loginPassword" required>
                 </div>
             </div>
             <button type="submit" id="btn-submit-login" class="btn btn-primary">Entrar</button>
@@ -41,27 +42,27 @@
             <h2>Criar Nova Conta</h2>
             <p class="subtitle">Solicite acesso à plataforma</p>
             <div class="form-group">
-                <label for="registerName">Nome Completo</label>
+                <label for="registerName">Nome Completo (para seu Coach)</label>
                 <div class="input-icon">
                     <i class="bx bx-user"></i>
-                    <input type="text" id="registerName" required placeholder="Seu nome completo">
+                    <input type="text" id="registerName" required>
                 </div>
             </div>
             <div class="form-group">
                 <label for="registerEmail">Email</label>
                 <div class="input-icon">
                     <i class="bx bx-envelope"></i>
-                    <input type="email" id="registerEmail" required placeholder="seu@email.com">
+                    <input type="email" id="registerEmail" required>
                 </div>
             </div>
             <div class="form-group">
-                <label for="registerPassword">Senha</label>
+                <label for="registerPassword">Senha (mínimo 6 caracteres)</label>
                 <div class="input-icon">
                     <i class="bx bx-lock-alt"></i>
-                    <input type="password" id="registerPassword" required placeholder="Mínimo 6 caracteres">
+                    <input type="password" id="registerPassword" required>
                 </div>
             </div>
-            <button type="submit" id="btn-submit-register" class="btn btn-secondary">Solicitar Acesso</button>
+            <button type="submit" id="btn-submit-register" class="btn">Solicitar Acesso</button>
             <p id="register-error" class="error-message"></p>
         </form>
 

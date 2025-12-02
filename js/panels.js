@@ -1,5 +1,5 @@
 /* =================================================================== */
-/* PANELS.JS V5.0 - FEED SORTING & PRESCRIPTION FIX
+/* PANELS.JS V5.2 - MODO SEGURO
 /* =================================================================== */
 
 const AdminPanel = {
@@ -7,28 +7,26 @@ const AdminPanel = {
 
     init: (user, db) => {
         AdminPanel.state = { db, currentUser: user, selectedAthleteId: null, athletes: {} };
-        const el = AdminPanel.elements = {
+        AdminPanel.elements = {
             list: document.getElementById('athlete-list'),
             search: document.getElementById('athlete-search'),
             details: document.getElementById('athlete-detail-content'),
             name: document.getElementById('athlete-detail-name'),
             form: document.getElementById('add-workout-form'),
-            workouts: document.getElementById('workouts-list'),
-            iaBtn: document.getElementById('analyze-athlete-btn-ia')
+            workouts: document.getElementById('workouts-list')
         };
 
-        if(el.form) el.form.addEventListener('submit', AdminPanel.handleAddWorkout);
-        el.search.addEventListener('input', AdminPanel.renderList);
-        if(el.iaBtn) el.iaBtn.addEventListener('click', AdminPanel.handleIA);
+        if(AdminPanel.elements.form) AdminPanel.elements.form.addEventListener('submit', AdminPanel.handleAddWorkout);
+        AdminPanel.elements.search.addEventListener('input', AdminPanel.renderList);
 
-        // Aba Switch
+        // Abas
         document.querySelectorAll('.tab-btn').forEach(b => {
-            b.addEventListener('click', (e) => {
-                document.querySelectorAll('.tab-btn').forEach(x => x.classList.remove('active'));
-                document.querySelectorAll('.admin-tab-content').forEach(x => x.classList.remove('active'));
+            b.onclick = (e) => {
+                document.querySelectorAll('.tab-btn').forEach(t => t.classList.remove('active'));
+                document.querySelectorAll('.admin-tab-content').forEach(c => c.classList.remove('active'));
                 e.target.classList.add('active');
                 document.getElementById(`admin-tab-${e.target.dataset.tab}`).classList.add('active');
-            });
+            };
         });
 
         db.ref('users').orderByChild('name').on('value', s => {
@@ -43,13 +41,13 @@ const AdminPanel = {
         const term = AdminPanel.elements.search.value.toLowerCase();
         
         Object.entries(AdminPanel.state.athletes).forEach(([uid, data]) => {
-            // PERMITE COACH VER A SI MESMO NA LISTA PARA PRESCREVER
             if (term && !data.name.toLowerCase().includes(term)) return;
-            const div = document.createElement('div');
-            div.className = 'athlete-list-item';
-            div.textContent = data.name;
-            div.onclick = () => AdminPanel.select(uid, data.name);
-            list.appendChild(div);
+            const d = document.createElement('div');
+            d.className = 'athlete-list-item';
+            d.textContent = data.name;
+            if(uid === AdminPanel.state.selectedAthleteId) d.classList.add('selected');
+            d.onclick = () => AdminPanel.select(uid, data.name);
+            list.appendChild(d);
         });
     },
 
@@ -65,11 +63,10 @@ const AdminPanel = {
         list.innerHTML = "Carregando...";
         AdminPanel.state.db.ref(`data/${uid}/workouts`).orderByChild('date').on('value', s => {
             list.innerHTML = "";
-            if (!s.exists()) { list.innerHTML = "<p>Sem treinos agendados.</p>"; return; }
+            if(!s.exists()) { list.innerHTML = "<p>Sem treinos.</p>"; return; }
             const arr = [];
             s.forEach(c => arr.push({ k: c.key, v: c.val() }));
-            // Ordena Data (Mais longe -> Mais perto)
-            arr.sort((a, b) => new Date(b.v.date) - new Date(a.v.date));
+            arr.sort((a,b) => new Date(b.v.date) - new Date(a.v.date)); // Decrescente
             arr.forEach(i => list.appendChild(AdminPanel.card(i.k, i.v, uid)));
         });
     },
@@ -77,40 +74,39 @@ const AdminPanel = {
     handleAddWorkout: (e) => {
         e.preventDefault();
         const uid = AdminPanel.state.selectedAthleteId;
-        if (!uid) return alert("Selecione um atleta");
+        if(!uid) return alert("Selecione um atleta");
 
         const date = document.getElementById('workout-date').value;
         const title = document.getElementById('workout-title').value;
+        
+        // Estrutura SisRUN
         const warm = document.getElementById('workout-warmup').value;
         const main = document.getElementById('workout-main').value;
         const cool = document.getElementById('workout-cooldown').value;
-        const intensity = document.getElementById('workout-intensidade').value;
-        const volume = document.getElementById('workout-volume').value;
+        const inten = document.getElementById('workout-intensidade').value;
+        const vol = document.getElementById('workout-volume').value;
 
-        // Monta Descrição Formatada (Visualização simples)
         let desc = "";
-        if(warm) desc += `🔥 AQUECIMENTO:\n${warm}\n\n`;
-        desc += `🏃 PRINCIPAL:\n${main}\n\n`;
-        if(cool) desc += `❄️ DESAQUECIMENTO:\n${cool}\n\n`;
-        desc += `📊 META: ${intensity} | ${volume}`;
+        if(warm) desc += `🔥 AQUEC: ${warm}\n`;
+        desc += `🏃 PRINCIPAL: ${main}\n`;
+        if(cool) desc += `❄️ DESAQUEC: ${cool}\n`;
+        desc += `📊 ${inten} | ${vol}`;
 
         const data = {
             date, title, description: desc, status: 'planejado',
             createdAt: new Date().toISOString(),
-            createdBy: AdminPanel.state.currentUser.uid,
-            // Salva dados estruturados para futuro uso
-            structure: { warm, main, cool, intensity, volume } 
+            createdBy: AdminPanel.state.currentUser.uid
         };
 
         AdminPanel.state.db.ref(`data/${uid}/workouts`).push(data)
-            .then(() => { alert("Treino Agendado!"); e.target.reset(); })
+            .then(() => { alert("Treino Criado!"); e.target.reset(); })
             .catch(err => alert(err.message));
     },
 
     card: (id, data, uid) => {
-        const div = document.createElement('div');
-        div.className = 'workout-card';
-        div.innerHTML = `
+        const d = document.createElement('div');
+        d.className = 'workout-card';
+        d.innerHTML = `
             <div class="workout-card-header">
                 <span>${data.date}</span> <strong>${data.title}</strong>
                 <span class="status-tag ${data.status}">${data.status}</span>
@@ -120,14 +116,7 @@ const AdminPanel = {
                 <button class="btn btn-secondary btn-small" onclick="AppPrincipal.openFeedbackModal('${id}', '${uid}', '${data.title}')">Detalhes</button>
             </div>
         `;
-        return div;
-    },
-
-    handleIA: () => {
-        const uid = AdminPanel.state.selectedAthleteId;
-        if(!uid) return alert("Selecione um atleta");
-        AppPrincipal.openIaAnalysisModal();
-        document.getElementById('ia-analysis-output').textContent = "Gerando análise (simulação)... \nAtleta consistente.";
+        return d;
     }
 };
 
@@ -141,23 +130,21 @@ const AtletaPanel = {
             if(!s.exists()) { list.innerHTML = "<p>Sem treinos.</p>"; return; }
             const arr = [];
             s.forEach(c => arr.push({ k: c.key, v: c.val() }));
-            // Ordena data mais próxima no topo
-            arr.sort((a, b) => new Date(a.v.date) - new Date(b.v.date));
-            arr.forEach(i => list.appendChild(AtletaPanel.card(i.k, i.v, user.uid)));
+            arr.sort((a,b) => new Date(a.v.date) - new Date(b.v.date)); // Crescente (Mais próximo primeiro)
+            arr.forEach(i => {
+                const d = document.createElement('div');
+                d.className = 'workout-card';
+                d.onclick = () => AppPrincipal.openFeedbackModal(i.k, user.uid, i.v.title);
+                d.innerHTML = `
+                    <div class="workout-card-header">
+                        <span>${i.v.date}</span> <strong>${i.v.title}</strong>
+                        <span class="status-tag ${i.v.status}">${i.v.status}</span>
+                    </div>
+                    <div class="workout-card-body" style="white-space: pre-wrap;">${i.v.description}</div>
+                `;
+                list.appendChild(d);
+            });
         });
-    },
-    card: (id, v, uid) => {
-        const div = document.createElement('div');
-        div.className = 'workout-card';
-        div.onclick = () => AppPrincipal.openFeedbackModal(id, uid, v.title);
-        div.innerHTML = `
-            <div class="workout-card-header">
-                <span>${v.date}</span> <strong>${v.title}</strong>
-                <span class="status-tag ${v.status}">${v.status}</span>
-            </div>
-            <div class="workout-card-body" style="white-space: pre-wrap;">${v.description}</div>
-        `;
-        return div;
     }
 };
 
@@ -169,7 +156,7 @@ const FeedPanel = {
             if(!s.exists()) { list.innerHTML = "<p>Feed vazio.</p>"; return; }
             const arr = [];
             s.forEach(c => arr.push({ k: c.key, v: c.val() }));
-            arr.reverse(); // Mais recente primeiro
+            arr.reverse(); 
             
             arr.forEach(i => {
                 const d = i.v;

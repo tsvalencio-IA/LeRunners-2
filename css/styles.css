@@ -1,98 +1,92 @@
 /* =================================================================== */
-/* ESTILOS GERAIS E RESET (V10.0)
+/* ESTILOS GERAIS E RESET (V11.0 - SISRUN CLONE)
 /* =================================================================== */
 :root {
     --primary-color: #00008B; --secondary-color: #4169E1; --danger-color: #DC3545;
     --success-color: #28a745; --warning-color: #ffc107; --strava-orange: #fc4c02;
     --light-gray: #f4f5f7; --text-color: #333; --text-light: #667;
-    --border-color: #e0e0e0; --border-radius: 8px; --shadow: 0 4px 12px rgba(0,0,0,0.08);
+    --border-color: #e0e0e0; --border-radius: 5px; --shadow: 0 2px 5px rgba(0,0,0,0.05);
     --white: #ffffff;
 }
-* { margin: 0; padding: 0; box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
-body { background-color: var(--light-gray); color: var(--text-color); line-height: 1.6; display: flex; flex-direction: column; min-height: 100vh; }
+* { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+body { background-color: var(--light-gray); color: var(--text-color); line-height: 1.5; display: flex; flex-direction: column; min-height: 100vh; font-size: 14px; }
 .hidden { display: none !important; }
-h2 { color: var(--primary-color); }
-.subtitle { color: var(--text-light); margin-bottom: 1.5rem; text-align: center; }
-hr { border: 0; height: 1px; background-color: var(--border-color); margin: 1.5rem 0; }
-fieldset { border: 1px solid var(--border-color); border-radius: var(--border-radius); padding: 1rem; margin-bottom: 1rem; }
-legend { font-weight: 600; color: var(--primary-color); padding: 0 0.5rem; margin-left: 0.5rem; }
+
+/* LAYOUT GERAL */
+#app-container { flex-grow: 1; }
+.app-header { background: #fff; padding: 10px 20px; box-shadow: var(--shadow); display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 1000; height: 60px; }
+.app-header h1 { color: var(--primary-color); font-size: 1.4rem; margin: 0; }
+.user-display { font-weight: 600; color: #555; border-left: 1px solid #eee; padding-left: 15px; margin-left: 15px; }
+.app-main { max-width: 100%; padding: 20px; }
 
 /* COMPONENTES */
-.btn { display: inline-flex; width: 100%; align-items: center; justify-content: center; gap: 0.5rem; padding: 0.85rem 1rem; border: none; border-radius: var(--border-radius); cursor: pointer; font-size: 1rem; font-weight: 700; text-align: center; transition: all 0.3s ease; text-transform: uppercase; text-decoration: none; }
-.btn-primary { background-color: var(--primary-color); color: #fff; }
-.btn-primary:hover:not(:disabled) { background-color: #00005a; transform: translateY(-2px); }
-.btn-secondary { background-color: var(--secondary-color); color: #fff; }
-.btn-secondary:hover:not(:disabled) { background-color: #2a4ac8; }
-.btn-danger { background-color: var(--danger-color); color: #fff; }
-.btn-success { background-color: var(--success-color); color: #fff; }
-.btn-small { padding: 0.35rem 0.6rem; font-size: 0.8rem; width: auto; }
-.btn:disabled { opacity: 0.6; cursor: not-allowed; }
-.btn-nav { background-color: transparent; color: var(--text-light); text-transform: none; font-size: 0.9rem; width: auto; padding: 0.5rem 1rem; }
-.btn-nav.active, .btn-nav:hover { background-color: var(--light-gray); color: var(--primary-color); }
-.btn-nav i { font-size: 1.2rem; }
-.panel { background: #fff; border-radius: var(--border-radius); padding: 1.5rem; box-shadow: var(--shadow); margin-top: 1.5rem; }
-.form-group { margin-bottom: 1rem; }
-.form-group label { display: block; font-weight: 600; margin-bottom: 0.5rem; font-size: 0.9rem; }
-.form-group input, .form-group textarea, .form-group select, .search-input { width: 100%; padding: 0.75rem; border: 1px solid var(--border-color); border-radius: var(--border-radius); font-size: 1rem; background-color: #fff; }
-.form-group input[type="file"] { padding: 0.5rem; font-size: 0.9rem; background: var(--light-gray); cursor: pointer; }
-.upload-feedback { font-size: 0.85rem; color: var(--strava-orange); font-style: italic; margin-top: 0.5rem; }
-.form-group textarea { resize: vertical; }
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 5px; padding: 8px 16px; border: none; border-radius: 4px; cursor: pointer; font-size: 13px; font-weight: 600; transition: 0.2s; text-transform: uppercase; }
+.btn-primary { background: var(--primary-color); color: #fff; }
+.btn-secondary { background: var(--secondary-color); color: #fff; }
+.btn-danger { background: var(--danger-color); color: #fff; }
+.btn-success { background: var(--success-color); color: #fff; }
+.btn-small { padding: 4px 8px; font-size: 12px; }
+.form-group { margin-bottom: 10px; }
+.form-group label { display: block; font-weight: 600; margin-bottom: 4px; font-size: 12px; color: #555; }
+.form-group input, .form-group select, .form-group textarea { width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; font-size: 13px; }
 
-/* DASHBOARD SISRUN (ADMIN) */
-.dashboard-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
-.dashboard-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 1.5rem; margin-bottom: 2rem; }
-.dash-card { background: white; padding: 1.5rem; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); text-align: center; cursor: pointer; border: 1px solid #e0e0e0; transition: all 0.2s; display: flex; flex-direction: column; align-items: center; gap: 12px; height: 100%; justify-content: center; }
-.dash-card:hover { transform: translateY(-5px); box-shadow: 0 10px 20px rgba(0,0,0,0.1); border-color: var(--secondary-color); }
-.icon-box { font-size: 2.5rem; color: var(--primary-color); margin-bottom: 5px; }
-.dash-card span { font-weight: 700; color: #444; font-size: 0.95rem; display: flex; align-items: center; justify-content: center; gap: 5px; }
-.badge-count { background-color: var(--danger-color); color: white; padding: 2px 8px; border-radius: 12px; font-size: 0.75rem; font-weight: bold; }
-.badge-coach { background: var(--warning-color); color: #333; padding: 2px 8px; border-radius: 12px; font-size: 0.7rem; font-weight: bold; text-transform: uppercase; margin-left: 10px; }
+/* --- DASHBOARD SISRUN (NOVO) --- */
+.admin-dashboard { max-width: 1200px; margin: 0 auto; }
+.dashboard-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; margin-bottom: 20px; }
+.dash-card { background: #fff; padding: 15px 10px; border-radius: 6px; text-align: center; cursor: pointer; border: 1px solid #ddd; box-shadow: 0 1px 3px rgba(0,0,0,0.05); transition: 0.2s; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100px; }
+.dash-card:hover { border-color: var(--secondary-color); transform: translateY(-2px); }
+.icon-box { font-size: 32px; margin-bottom: 5px; color: var(--secondary-color); }
+.dash-card span { font-weight: 600; color: #444; font-size: 12px; line-height: 1.2; }
 
-/* TABELA FEEDBACK */
-.feedback-table-container { background: white; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); overflow-x: auto; border: 1px solid #eee; }
-.feedback-table { width: 100%; border-collapse: collapse; min-width: 700px; }
-.feedback-table th { background: #f8f9fa; padding: 12px 15px; text-align: left; font-size: 0.8rem; color: #666; border-bottom: 2px solid #eee; text-transform: uppercase; font-weight: 700; }
-.feedback-table td { padding: 12px 15px; border-bottom: 1px solid #eee; font-size: 0.9rem; vertical-align: middle; color: #333; }
-.feedback-table tr:hover { background-color: #fcfcfc; }
-.feedback-preview { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 300px; font-style: italic; color: #666; }
-.strava-badge-small { color: var(--strava-orange); font-weight: bold; font-size: 0.75rem; margin-left: 5px; }
-.status-dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; margin-right: 5px; }
-.dot-green { background: var(--success-color); }
-.admin-view #nav-profile-btn { display: inline-flex !important; background-color: var(--secondary-color); color: white; }
+/* --- BARRA DE STATUS (CARINHAS) --- */
+.stats-bar { display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; }
+.stat-box { flex: 1; background: #fff; border: 1px solid #ddd; border-radius: 6px; padding: 10px; display: flex; flex-direction: column; align-items: center; min-width: 80px; }
+.face-icon { font-size: 24px; margin-bottom: 5px; }
+.stat-label { font-size: 11px; color: #666; text-transform: uppercase; }
+.stat-value { font-size: 16px; font-weight: bold; color: #333; }
+.face-excelente { color: #28a745; } /* Verde */
+.face-bom { color: #8bc34a; }      /* Verde Claro */
+.face-normal { color: #ffc107; }   /* Amarelo */
+.face-ruim { color: #fd7e14; }     /* Laranja */
+.face-pessimo { color: #dc3545; }  /* Vermelho */
 
-/* WORKSPACE & ALUNOS */
-.athlete-list-item { display: flex; justify-content: space-between; align-items: center; padding: 1rem; border: 1px solid #eee; border-radius: 8px; margin-bottom: 0.5rem; cursor: pointer; background: #fff; transition: 0.2s; }
-.athlete-list-item:hover { background: #f9f9f9; border-color: var(--secondary-color); }
-.badge-me { color: var(--secondary-color); font-size: 0.8rem; font-weight: bold; margin-left: 5px; }
-.form-minimal { background: #f8f9fa; padding: 1.5rem; border-radius: 8px; border: 1px solid #eee; }
-.admin-tabs { display: flex; gap: 1rem; margin-bottom: 1rem; border-bottom: 1px solid #eee; padding-bottom: 10px; }
-.tab-btn { background: none; border: none; padding: 5px 10px; cursor: pointer; font-weight: 600; color: #666; border-bottom: 2px solid transparent; }
-.tab-btn.active { color: var(--primary-color); border-bottom-color: var(--primary-color); }
-.ws-tab-content { display: none; }
-.ws-tab-content.active { display: block; }
+/* --- TABELA SISRUN PROFISSIONAL --- */
+.feedback-table-container { background: #fff; border: 1px solid #ccc; border-radius: 4px; overflow-x: auto; }
+.feedback-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.feedback-table th { background: #e0e0e0; padding: 10px; text-align: left; font-weight: 700; color: #333; border-bottom: 2px solid #ccc; white-space: nowrap; }
+.feedback-table td { padding: 10px; border-bottom: 1px solid #eee; vertical-align: top; color: #333; }
+.feedback-table tr:nth-child(even) { background-color: #f9f9f9; }
+.feedback-table tr:hover { background-color: #f1f1f1; }
 
-/* CARDS DE TREINO */
-.workout-card { background: #fff; border: 1px solid #e0e0e0; border-radius: 8px; margin-bottom: 1rem; box-shadow: 0 2px 4px rgba(0,0,0,0.05); transition: 0.2s; }
-.workout-card:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
-.workout-card-header { display: flex; justify-content: space-between; align-items: center; padding: 1rem; border-bottom: 1px solid #f0f0f0; }
-.workout-card-body { padding: 1rem; }
-.workout-card-footer { display: flex; justify-content: space-between; align-items: center; padding: 0.8rem 1rem; border-top: 1px solid #f0f0f0; background: #fcfcfc; }
-.status-tag { font-size: 0.75rem; padding: 0.25rem 0.6rem; border-radius: 12px; color: white; text-transform: uppercase; font-weight: bold; }
-.strava-data-display { background: #fff5f0; border: 1px solid var(--strava-orange); border-radius: 6px; padding: 10px; margin-top: 10px; font-size: 0.9rem; }
-.action-btn { background: none; border: none; cursor: pointer; color: #666; font-weight: 600; display: flex; align-items: center; gap: 5px; }
-.action-btn.liked { color: var(--danger-color); }
-.icon-only { padding: 5px 10px; }
+/* Colunas Específicas */
+.col-aluno { display: flex; align-items: center; gap: 8px; }
+.avatar-small { width: 30px; height: 30px; border-radius: 50%; object-fit: cover; border: 1px solid #999; }
+.col-proposto { color: #0056b3; font-weight: 600; font-size: 12px; }
+.col-feedback { font-style: italic; color: #555; background: #fffdf0; padding: 5px; border-radius: 4px; border: 1px solid #eee; }
+.check-box { width: 20px; height: 20px; cursor: pointer; border: 2px solid #ccc; border-radius: 4px; display: inline-flex; align-items: center; justify-content: center; color: transparent; }
+.check-box.checked { background: var(--success-color); border-color: var(--success-color); color: #fff; }
 
-/* RESPONSIVIDADE */
+/* LOGIN & MODAIS */
+.login-container { max-width: 400px; margin: 50px auto; background: #fff; padding: 30px; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); text-align: center; }
+.input-icon { position: relative; margin-bottom: 15px; }
+.input-icon i { position: absolute; left: 10px; top: 10px; color: #999; }
+.input-icon input { padding-left: 35px; }
+.modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 2000; }
+.modal-content { background: #fff; width: 95%; max-width: 700px; max-height: 90vh; overflow-y: auto; border-radius: 6px; padding: 0; }
+.modal-header { background: #f4f5f7; padding: 15px; border-bottom: 1px solid #ddd; display: flex; justify-content: space-between; align-items: center; }
+.modal-body { padding: 20px; }
+
+/* CARDS TREINO ATLETA */
+.workout-card { background: #fff; border: 1px solid #ddd; margin-bottom: 15px; border-radius: 6px; }
+.workout-card-header { background: #f8f9fa; padding: 10px 15px; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; font-weight: bold; }
+.workout-card-body { padding: 15px; }
+.status-tag { padding: 2px 6px; border-radius: 4px; font-size: 11px; text-transform: uppercase; color: #fff; }
+.status-tag.planejado { background: #999; }
+.status-tag.realizado { background: var(--success-color); }
+.admin-view #nav-profile-btn { display: inline-flex !important; background: var(--secondary-color); color: white; }
+
 @media (max-width: 600px) {
-    .dashboard-grid { grid-template-columns: 1fr 1fr; gap: 1rem; }
-    .app-header { flex-direction: column; padding: 1rem; }
-    .app-header nav { margin-top: 10px; justify-content: center; flex-wrap: wrap; }
-    .user-display { display: none; }
-    .form-grid-2col { grid-template-columns: 1fr; }
+    .dashboard-grid { grid-template-columns: 1fr 1fr; }
+    .feedback-table th:nth-child(4), .feedback-table td:nth-child(4), /* Esconde checks no mobile */
+    .feedback-table th:nth-child(5), .feedback-table td:nth-child(5) { display: none; }
 }
-
-/* LOADER */
-.loader-container { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; }
-.loader { border: 6px solid #f3f3f3; border-top: 6px solid var(--primary-color); border-radius: 50%; width: 50px; height: 50px; animation: spin 1s linear infinite; }
-@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }

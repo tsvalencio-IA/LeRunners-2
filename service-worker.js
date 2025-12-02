@@ -1,34 +1,56 @@
 /* =================================================================== */
-/* SERVICE WORKER V8.0 - LIMPEZA TOTAL
+/* SERVICE WORKER V7.0 - FORÇAR ATUALIZAÇÃO IMEDIATA
 /* =================================================================== */
-const CACHE_NAME = 'lerunners-cache-v8.0-MAX-SYNC'; 
+const CACHE_NAME = 'lerunners-cache-v7.0-FINAL-FIX'; 
 
 const FILES_TO_CACHE = [
-    './', './index.html', './app.html', './css/styles.css',
-    './js/config.js', './js/app.js', './js/panels.js', './manifest.json',
+    './', 
+    './index.html', 
+    './app.html', 
+    './css/styles.css',
+    './js/config.js', 
+    './js/app.js', 
+    './js/panels.js', 
+    './manifest.json',
+    './img/logo-192.png',
+    './img/logo-512.png',
     'https://cdn.jsdelivr.net/npm/boxicons@2.1.4/css/boxicons.min.css'
 ];
 
-self.addEventListener('install', (e) => {
+// Instalação: Pula espera e assume controle
+self.addEventListener('install', (event) => {
     self.skipWaiting(); 
-    e.waitUntil(caches.open(CACHE_NAME).then((c) => c.addAll(FILES_TO_CACHE)));
+    event.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.addAll(FILES_TO_CACHE)));
 });
 
-self.addEventListener('activate', (e) => {
-    e.waitUntil(caches.keys().then((names) => {
-        return Promise.all(names.map((name) => {
-            if (name !== CACHE_NAME) {
-                console.log('Limpando cache antigo:', name);
-                return caches.delete(name);
-            }
-        }));
-    }).then(() => self.clients.claim()));
+// Ativação: Deleta tudo que for velho
+self.addEventListener('activate', (event) => {
+    event.waitUntil(
+        caches.keys().then((cacheNames) => {
+            return Promise.all(
+                cacheNames.map((cacheName) => {
+                    if (cacheName !== CACHE_NAME) {
+                        console.log('Limpando cache antigo:', cacheName);
+                        return caches.delete(cacheName);
+                    }
+                })
+            );
+        }).then(() => self.clients.claim())
+    );
 });
 
-self.addEventListener('fetch', (e) => {
-    if (e.request.url.includes('firebase') || e.request.url.includes('strava') || e.request.url.includes('vercel')) {
-        e.respondWith(fetch(e.request));
+// Fetch: Prioriza a rede para não travar
+self.addEventListener('fetch', (event) => {
+    // Ignora APIs
+    if (event.request.url.includes('firebase') || 
+        event.request.url.includes('strava') || 
+        event.request.url.includes('vercel')) {
+        event.respondWith(fetch(event.request));
         return;
     }
-    e.respondWith(caches.match(e.request).then((r) => r || fetch(e.request)));
+    event.respondWith(
+        caches.match(event.request).then((response) => {
+            return response || fetch(event.request);
+        })
+    );
 });

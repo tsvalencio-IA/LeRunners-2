@@ -1,5 +1,5 @@
 /* =================================================================== */
-/* ARQUIVO DE PAINÉIS (V5.3 - SISRUN DASHBOARD COMPLETO)
+/* ARQUIVO DE PAINÉIS (V5.6 - SISRUN DASHBOARD SEM LIMITES)
 /* =================================================================== */
 
 const AdminPanel = {
@@ -7,188 +7,199 @@ const AdminPanel = {
     elements: {},
 
     init: (user, db) => {
+        console.log("AdminPanel V5.6: Iniciado (Sem limites).");
         AdminPanel.state.db = db;
         AdminPanel.state.currentUser = user;
         
-        // DASHBOARD LAYOUT
         document.getElementById('app-main-content').innerHTML = `
             <div class="admin-dashboard">
                 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
                     <h2><i class='bx bxs-dashboard'></i> Painel do Treinador</h2>
-                    <span style="color:#666">Olá, Coach!</span>
+                    <div class="user-display" style="color:#666;">Olá, Coach!</div>
                 </div>
                 
                 <div class="dashboard-grid">
-                    <div class="dash-card" onclick="AdminPanel.show('feedbacks')">
+                    <div class="dash-card" onclick="AdminPanel.showSection('feedbacks')">
                         <i class='bx bx-message-square-check'></i>
-                        <span>Feedbacks <span id="bg-feed" class="badge-count">0</span></span>
+                        <span>Feedbacks <span id="badge-feed" class="badge-count">0</span></span>
                     </div>
-                    <div class="dash-card" onclick="AdminPanel.show('alunos')">
+                    <div class="dash-card" onclick="AdminPanel.showSection('alunos')">
                         <i class='bx bx-group'></i>
-                        <span>Alunos <span id="bg-alunos" class="badge-count">0</span></span>
+                        <span>Meus Alunos <span id="badge-alunos" class="badge-count">0</span></span>
                     </div>
-                    <div class="dash-card" onclick="AdminPanel.show('aprovacoes')">
+                    <div class="dash-card" onclick="AdminPanel.showSection('aprovacoes')">
                         <i class='bx bx-user-plus'></i>
-                        <span>Pendentes <span id="bg-pend" class="badge-count">0</span></span>
+                        <span>Aprovações <span id="badge-aprovacoes" class="badge-count">0</span></span>
                     </div>
                     <div class="dash-card" onclick="alert('Em breve')">
                         <i class='bx bx-dollar-circle'></i><span>Financeiro</span>
                     </div>
                 </div>
 
-                <div id="admin-area" class="panel" style="min-height:300px"></div>
+                <div id="admin-content-area" class="panel" style="min-height: 400px;"></div>
             </div>
         `;
         
-        AdminPanel.elements.area = document.getElementById('admin-area');
-        AdminPanel.loadCounts();
-        AdminPanel.show('feedbacks');
+        AdminPanel.elements.contentArea = document.getElementById('admin-content-area');
+        AdminPanel.loadData();
+        AdminPanel.showSection('feedbacks');
     },
 
-    loadCounts: () => {
+    loadData: () => {
         const db = AdminPanel.state.db;
         db.ref('users').on('value', s => {
             AdminPanel.state.athletes = s.val() || {};
-            if(document.getElementById('bg-alunos')) document.getElementById('bg-alunos').textContent = Object.keys(s.val()||{}).length;
+            if(document.getElementById('badge-alunos')) document.getElementById('badge-alunos').textContent = Object.keys(AdminPanel.state.athletes).length;
+            if(AdminPanel.state.currentSection === 'alunos') AdminPanel.renderAthleteList();
         });
-        db.ref('publicWorkouts').limitToLast(20).on('value', s => {
-            if(s.exists() && document.getElementById('bg-feed')) document.getElementById('bg-feed').textContent = s.numChildren();
+        // REMOVIDO LIMITTOLAST para mostrar tudo
+        db.ref('publicWorkouts').on('value', s => {
+            if(s.exists() && document.getElementById('badge-feed')) document.getElementById('badge-feed').textContent = s.numChildren();
+            if(AdminPanel.state.currentSection === 'feedbacks') AdminPanel.renderFeedbackTable();
         });
         db.ref('pendingApprovals').on('value', s => {
-            if(document.getElementById('bg-pend')) document.getElementById('bg-pend').textContent = s.exists() ? s.numChildren() : 0;
+            if(document.getElementById('badge-aprovacoes')) document.getElementById('badge-aprovacoes').textContent = s.exists() ? s.numChildren() : 0;
         });
     },
 
-    show: (sec) => {
-        const area = AdminPanel.elements.area;
+    showSection: (section) => {
+        AdminPanel.state.currentSection = section;
+        const area = AdminPanel.elements.contentArea;
         area.innerHTML = "";
-        
-        if (sec === 'feedbacks') {
-            area.innerHTML = `<h3><i class='bx bx-list-check'></i> Central de Feedbacks</h3><div id="feed-tbl">Carregando...</div>`;
-            AdminPanel.renderFeedTable();
-        } else if (sec === 'alunos') {
-            area.innerHTML = `<h3><i class='bx bx-user'></i> Alunos</h3><div id="alist"></div>`;
-            AdminPanel.renderAlunos();
-        } else if (sec === 'aprovacoes') {
-            area.innerHTML = `<h3>Pendentes</h3><div id="plist"></div>`;
-            AdminPanel.renderPendentes();
+
+        if (section === 'feedbacks') {
+            area.innerHTML = `<h3><i class='bx bx-list-check'></i> Central de Feedbacks</h3><div id="feedback-list">Carregando...</div>`;
+            AdminPanel.renderFeedbackTable();
+        } else if (section === 'alunos') {
+            area.innerHTML = `<h3><i class='bx bx-user'></i> Gestão de Alunos</h3><div id="athlete-list-container"></div>`;
+            AdminPanel.renderAthleteList();
+        } else if (section === 'aprovacoes') {
+            area.innerHTML = `<h3>Aprovações</h3><div id="pending-list"></div>`;
+            AdminPanel.renderPendingList();
+        } else {
+            area.innerHTML = `<div style="padding:40px; text-align:center; color:#999;">Módulo <b>${section}</b> em desenvolvimento.</div>`;
         }
     },
 
-    renderFeedTable: () => {
-        AdminPanel.state.db.ref('publicWorkouts').orderByChild('realizadoAt').limitToLast(50).once('value', s => {
-            const d = document.getElementById('feed-tbl');
-            if(!d) return;
-            if(!s.exists()) { d.innerHTML = "<p>Sem dados.</p>"; return; }
+    renderFeedbackTable: () => {
+        // CORREÇÃO: Mostra TODOS os treinos, não só os últimos 50
+        AdminPanel.state.db.ref('publicWorkouts').orderByChild('realizadoAt').once('value', snap => {
+            const div = document.getElementById('feedback-list');
+            if(!div) return;
+            if(!snap.exists()) { div.innerHTML = "<p>Nenhum treino realizado.</p>"; return; }
             
-            let h = `<div class="feedback-table-container"><table class="feedback-table"><thead><tr><th>Status</th><th>Aluno</th><th>Treino</th><th>Feedback</th><th></th></tr></thead><tbody>`;
-            const l = []; s.forEach(c => l.push({k:c.key, ...c.val()})); l.reverse();
+            let html = `<div class="feedback-table-container"><table class="feedback-table"><thead><tr><th>Status</th><th>Aluno</th><th>Treino</th><th>Feedback</th><th></th></tr></thead><tbody>`;
+            const list = []; snap.forEach(c => list.push({ k: c.key, ...c.val() })); 
+            list.reverse();
 
-            l.forEach(w => {
-                const a = AdminPanel.state.athletes[w.ownerId] || {name: w.ownerName};
-                const img = a.photoUrl || 'https://placehold.co/30x30/4169E1/fff?text=A';
-                h += `<tr>
+            list.forEach(w => {
+                const atleta = AdminPanel.state.athletes[w.ownerId] || { name: w.ownerName };
+                const foto = atleta.photoUrl || 'https://placehold.co/40x40/4169E1/FFFFFF?text=AT';
+                const stravaBadge = w.stravaData ? `<span style="color:#fc4c02; font-weight:bold; font-size:0.8rem;"><i class='bx bxl-strava'></i> Sync</span>` : '';
+                const dateStr = w.realizadoAt ? new Date(w.realizadoAt).toLocaleDateString('pt-BR') : w.date;
+
+                html += `<tr>
                     <td><span class="status-dot"></span></td>
-                    <td><div class="user-cell"><img src="${img}" class="user-avatar-small"><b>${a.name}</b></div></td>
-                    <td><b>${w.title}</b><br><small>${w.date}</small></td>
-                    <td><i style="color:#666">${w.feedback||'--'}</i></td>
-                    <td><button class="btn btn-small btn-secondary" onclick="AppPrincipal.openFeedbackModal('${w.k}','${w.ownerId}','${w.title}')">Ver</button></td>
+                    <td><div class="user-cell"><img src="${foto}" class="user-avatar-small"><strong>${atleta.name}</strong></div></td>
+                    <td><div style="font-weight:bold;">${w.title}</div><small style="color:#777;">${dateStr} ${stravaBadge}</small></td>
+                    <td><div style="font-style:italic; color:#555; font-size:0.9rem;">"${w.feedback || '...'}"</div></td>
+                    <td><button class="btn btn-small btn-secondary" onclick="AppPrincipal.openFeedbackModal('${w.k}', '${w.ownerId}', '${w.title}')">Detalhes</button></td>
                 </tr>`;
             });
-            d.innerHTML = h + `</tbody></table></div>`;
+            div.innerHTML = html + `</tbody></table></div>`;
         });
     },
 
-    renderAlunos: () => {
-        const d = document.getElementById('alist');
-        Object.entries(AdminPanel.state.athletes).forEach(([uid, u]) => {
+    renderAthleteList: () => {
+        const div = document.getElementById('athlete-list-container');
+        if(!div) return;
+        div.innerHTML = "";
+        Object.entries(AdminPanel.state.athletes).forEach(([uid, data]) => {
             const isMe = uid === AdminPanel.state.currentUser.uid;
-            d.innerHTML += `<div class="athlete-list-item" onclick="AdminPanel.openStudent('${uid}','${u.name}')" style="cursor:pointer">
-                <b>${u.name}</b> ${isMe ? '(Eu)' : ''} <i class='bx bx-chevron-right' style="float:right"></i>
-            </div>`;
+            const item = document.createElement('div');
+            item.className = 'athlete-list-item';
+            item.innerHTML = `<div style="display:flex; align-items:center; gap:10px;"><img src="${data.photoUrl || 'https://placehold.co/40x40/ccc/fff'}" style="width:40px; height:40px; border-radius:50%; object-fit:cover;"><div><span style="font-weight:bold;">${data.name}</span> ${isMe ? '<small style="color:var(--secondary-color)">(Eu)</small>' : ''}</div></div><i class='bx bx-chevron-right'></i>`;
+            item.onclick = () => AdminPanel.openWorkspace(uid, data.name);
+            div.appendChild(item);
         });
     },
 
-    renderPendentes: () => {
-        const d = document.getElementById('plist');
-        AdminPanel.state.db.ref('pendingApprovals').once('value', s => {
-            if(!s.exists()) { d.innerHTML = "Nada pendente."; return; }
-            s.forEach(c => {
-                d.innerHTML += `<div class="pending-item"><span>${c.val().name}</span> 
-                <button class="btn btn-small btn-success" onclick="AdminPanel.approve('${c.key}', '${c.val().name}', '${c.val().email}')">OK</button></div>`;
-            });
-        });
-    },
-
-    openStudent: (uid, name) => {
-        // Lógica simplificada de Workspace para não estourar tamanho
-        const area = AdminPanel.elements.area;
+    openWorkspace: (uid, name) => {
+        AdminPanel.state.selectedAthleteId = uid;
+        const area = AdminPanel.elements.contentArea;
         area.innerHTML = `
-            <div style="display:flex; justify-content:space-between"><h3>${name}</h3> <button class="btn btn-small" onclick="AdminPanel.show('alunos')">Voltar</button></div>
-            <div class="admin-tabs"><button class="tab-btn active">Planilha</button></div>
-            <div id="student-workouts">Carregando...</div>
-            <hr>
-            <h4>Adicionar Treino</h4>
+            <div style="display:flex; justify-content:space-between; margin-bottom:15px;">
+                <h3 style="color:var(--primary-color)">${name}</h3> 
+                <button class="btn btn-small btn-secondary" onclick="AdminPanel.showSection('alunos')">Voltar</button>
+            </div>
+            <div class="admin-tabs"><button class="tab-btn active">Planilha Completa</button></div>
+            <div id="student-workouts">Carregando histórico...</div>
+            <hr><h4>Adicionar Treino</h4>
             <form id="add-w-form" class="form-minimal">
                 <input type="date" id="wd" required> <input type="text" id="wt" placeholder="Título" required>
-                <textarea id="wo" placeholder="Detalhes"></textarea>
-                <button type="submit" class="btn btn-secondary">Salvar</button>
+                <textarea id="wo" placeholder="Detalhes" rows="3"></textarea>
+                <button type="submit" class="btn btn-primary" style="width:100%; margin-top:10px;">Salvar Treino</button>
             </form>
         `;
         
-        // Load Workouts
-        AdminPanel.state.db.ref(`data/${uid}/workouts`).orderByChild('date').limitToLast(30).on('value', s => {
-            const wd = document.getElementById('student-workouts');
-            if(!wd) return;
-            wd.innerHTML = "";
-            const l = []; s.forEach(c=>l.push({k:c.key, ...c.val()})); l.sort((a,b)=>new Date(b.date)-new Date(a.date));
+        // CORREÇÃO: Removido limitToLast para carregar TUDO
+        AdminPanel.state.db.ref(`data/${uid}/workouts`).orderByChild('date').on('value', s => {
+            const d = document.getElementById('student-workouts');
+            if(!d) return; 
+            if(!s.exists()) { d.innerHTML = "<p>Sem treinos registrados.</p>"; return; }
+            d.innerHTML = "";
+            const l = []; s.forEach(c => l.push({k:c.key, ...c.val()})); 
+            l.sort((a,b) => new Date(b.date) - new Date(a.date)); 
+
             l.forEach(w => {
-                const color = w.status==='realizado'?'green':'#999';
-                wd.innerHTML += `<div class="workout-card">
-                    <div class="workout-card-header"><span style="color:${color}">${w.status}</span> <b>${w.title}</b> <small>${w.date}</small></div>
-                    <div class="workout-card-body">${w.description} <br> ${w.stravaData ? `<b style="color:#fc4c02">Strava: ${w.stravaData.distancia}</b>` : ''}</div>
-                    <div class="workout-card-footer"><button class="btn btn-small btn-danger" onclick="AdminPanel.del('${uid}','${w.k}')">X</button></div>
-                </div>`;
+                const color = w.status === 'realizado' ? 'var(--success-color)' : '#999';
+                let stravaInfo = w.stravaData ? `<div class="strava-data-display" style="font-size:0.85rem; margin-top:5px; padding:5px; border:1px solid #fc4c02; background:#fff5f0;"><i class='bx bxl-strava' style="color:#fc4c02"></i> <b>${w.stravaData.distancia}</b> | ${w.stravaData.tempo}</div>` : '';
+                d.innerHTML += `<div class="workout-card"><div class="workout-card-header"><span class="date">${new Date(w.date).toLocaleDateString('pt-BR')}</span> <span class="title">${w.title}</span> <span class="status-tag" style="background:${color}">${w.status}</span></div><div class="workout-card-body"><p>${w.description}</p>${stravaInfo}</div><div class="workout-card-footer"><button class="btn btn-small" onclick="AppPrincipal.openFeedbackModal('${w.k}','${uid}','${w.title}')">Detalhes</button></div></div>`;
             });
         });
 
-        // Add Workout
         document.getElementById('add-w-form').onsubmit = (e) => {
             e.preventDefault();
             AdminPanel.state.db.ref(`data/${uid}/workouts`).push({
-                date: document.getElementById('wd').value,
-                title: document.getElementById('wt').value,
-                description: document.getElementById('wo').value,
-                status: 'planejado', createdBy: AdminPanel.state.currentUser.uid
+                date: document.getElementById('wd').value, title: document.getElementById('wt').value, description: document.getElementById('wo').value,
+                status: 'planejado', createdBy: AdminPanel.state.currentUser.uid, createdAt: new Date().toISOString()
             });
             e.target.reset();
         };
     },
 
-    approve: (uid, name, email) => {
-        const u = {}; u[`/users/${uid}`] = {name, email, role:'atleta'}; u[`/data/${uid}`]={workouts:{}}; u[`/pendingApprovals/${uid}`]=null;
-        AdminPanel.state.db.ref().update(u).then(()=>AdminPanel.show('aprovacoes'));
+    renderPendingList: () => {
+        const div = document.getElementById('pending-list');
+        AdminPanel.state.db.ref('pendingApprovals').once('value', s => {
+            if(!s.exists()) { div.innerHTML = "<p>Nada pendente.</p>"; return; }
+            div.innerHTML = "";
+            s.forEach(c => {
+                div.innerHTML += `<div class="pending-item"><span><b>${c.val().name}</b></span> <button class="btn btn-small btn-success" onclick="AdminPanel.approve('${c.key}', '${c.val().name}', '${c.val().email}')">Aceitar</button></div>`;
+            });
+        });
     },
-    del: (uid, wid) => { if(confirm('Apagar?')) AdminPanel.state.db.ref(`data/${uid}/workouts/${wid}`).remove(); }
+    approve: (uid, name, email) => {
+        const u = {}; u[`/users/${uid}`] = { name, email, role: 'atleta', createdAt: new Date().toISOString() }; u[`/data/${uid}`] = { workouts: {} }; u[`/pendingApprovals/${uid}`] = null;
+        AdminPanel.state.db.ref().update(u).then(() => AdminPanel.showSection('aprovacoes'));
+    }
 };
 
-// ATLETA E FEED (MANTIDOS E FUNCIONAIS)
+// ATLETA E FEED (MANTIDOS E COMPLETOS)
 const AtletaPanel = {
     init: (u, db) => {
         const list = document.getElementById('atleta-workouts-list');
-        if(document.getElementById('log-manual-activity-btn')) 
-            document.getElementById('log-manual-activity-btn').onclick = AppPrincipal.openLogActivityModal;
-        
+        if(document.getElementById('log-manual-activity-btn')) document.getElementById('log-manual-activity-btn').onclick = AppPrincipal.openLogActivityModal;
         list.innerHTML = "Carregando...";
+        
+        // CORREÇÃO: Sem limites aqui também
         db.ref(`data/${u.uid}/workouts`).orderByChild('date').on('value', s => {
             list.innerHTML = "";
+            if(!s.exists()) { list.innerHTML = "<p>Nenhum treino encontrado.</p>"; return; }
             const l = []; s.forEach(c=>l.push({k:c.key, ...c.val()})); l.sort((a,b)=>new Date(b.date)-new Date(a.date));
             l.forEach(w => {
                 const st = w.stravaData ? `<br><small style="color:#fc4c02">Strava Sync</small>` : '';
                 const card = document.createElement('div'); card.className = 'workout-card';
-                card.innerHTML = `<div class="workout-card-header"><b>${w.title}</b> <span>${w.date}</span></div>
-                <div class="workout-card-body">${w.description} ${st}</div>
-                <div class="workout-card-footer"><button class="btn btn-small btn-primary">Feedback</button></div>`;
+                card.innerHTML = `<div class="workout-card-header"><b>${w.title}</b> <span>${w.date}</span></div><div class="workout-card-body">${w.description} ${st}</div><div class="workout-card-footer"><button class="btn btn-small btn-primary">Feedback</button></div>`;
                 card.onclick = (e) => { if(!e.target.closest('button')) AppPrincipal.openFeedbackModal(w.k, u.uid, w.title); };
                 list.appendChild(card);
             });
@@ -199,13 +210,13 @@ const AtletaPanel = {
 const FeedPanel = {
     init: (u, db) => {
         const list = document.getElementById('feed-list');
+        // Feed mantém limite 20 para não pesar
         db.ref('publicWorkouts').limitToLast(20).on('value', s => {
             list.innerHTML = "";
             const l = []; s.forEach(c=>l.push({k:c.key, ...c.val()})); l.reverse();
             l.forEach(w => {
                 const card = document.createElement('div'); card.className = 'workout-card';
-                card.innerHTML = `<div class="workout-card-header"><b>${w.ownerName || 'Atleta'}</b> completou <b>${w.title}</b></div>
-                <div class="workout-card-body">${w.feedback || 'Sem feedback.'}</div>`;
+                card.innerHTML = `<div class="workout-card-header"><b>${w.ownerName}</b> completou <b>${w.title}</b></div><div class="workout-card-body">${w.feedback || 'Sem feedback.'}</div>`;
                 list.appendChild(card);
             });
         });

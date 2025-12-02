@@ -1,7 +1,7 @@
 /* =================================================================== */
-/* SERVICE WORKER V11.0 - SISRUN FINAL UPDATE
+/* SERVICE WORKER V13.0 - LIMPEZA TOTAL DE CACHE
 /* =================================================================== */
-const CACHE_NAME = 'lerunners-v11-SISRUN-FINAL'; 
+const CACHE_NAME = 'lerunners-cache-v13.0-FINAL'; 
 
 const FILES_TO_CACHE = [
     './', './index.html', './app.html', './css/styles.css',

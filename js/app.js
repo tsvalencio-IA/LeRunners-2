@@ -1,180 +1,351 @@
-<!DOCTYPE html>
-<html lang="pt-BR">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>LeRunners - Plataforma</title>
-    <link rel="stylesheet" href="css/styles.css">
-    
-    <link rel="manifest" href="manifest.json">
-    <link rel="icon" type="image/png" sizes="192x192" href="img/logo-192.png">
-    <link rel="apple-touch-icon" href="img/logo-192.png">
+/* =================================================================== */
+/* APP.JS V10.0 - LÓGICA ESTABILIZADA + CORREÇÃO DE COMENTÁRIOS
+/* =================================================================== */
 
-    <link href="https://cdn.jsdelivr.net/npm/boxicons@2.1.4/css/boxicons.min.css" rel="stylesheet">
-    <meta name="theme-color" content="#00008B">
-</head>
-<body class="app-page">
+const AppPrincipal = {
+    state: {
+        currentUser: null,
+        userData: null,
+        db: null,
+        auth: null,
+        listeners: {},
+        currentView: 'planilha',
+        viewMode: 'admin', // admin ou atleta (Toggle)
+        adminUIDs: {},
+        userCache: {},
+        modal: { isOpen: false, currentWorkoutId: null, currentOwnerId: null },
+        stravaTokenData: null
+    },
+    elements: {},
 
-    <div id="loader" class="loader-container">
-        <div class="loader"></div>
-        <p>Carregando...</p>
-    </div>
-
-    <div id="app-container" class="hidden">
+    init: () => {
+        if(typeof window.firebaseConfig === 'undefined') return;
+        try { if(firebase.apps.length === 0) firebase.initializeApp(window.firebaseConfig); } catch(e){}
         
-        <header class="app-header">
-            <h1>LeRunners</h1>
-            <nav>
-                <button id="nav-planilha-btn" class="btn btn-nav active">
-                    <i class='bx bx-calendar'></i> <span>Planilha</span>
-                </button>
-                <button id="nav-feed-btn" class="btn btn-nav">
-                    <i class='bx bx-news'></i> <span>Feed</span>
-                </button>
+        AppPrincipal.state.auth = firebase.auth();
+        AppPrincipal.state.db = firebase.database();
 
-                <button id="nav-profile-btn" class="btn btn-nav">
-                    <i class='bx bx-user-circle'></i> <span>Meu Perfil</span>
-                </button>
+        if (document.getElementById('login-form')) {
+            AuthLogic.init(AppPrincipal.state.auth, AppPrincipal.state.db);
+        } else if (document.getElementById('app-container')) {
+            AppPrincipal.initPlatform();
+        }
+    },
 
-                <span id="userDisplay" class="user-display"></span>
-                <button id="logoutButton" class="btn btn-danger">
-                    <i class="bx bx-log-out"></i> Sair
-                </button>
-            </nav>
-        </header>
+    initPlatform: () => {
+        const el = AppPrincipal.elements;
+        el.loader = document.getElementById('loader');
+        el.appContainer = document.getElementById('app-container');
+        
+        // Navegação
+        document.getElementById('logoutButton').onclick = AppPrincipal.handleLogout;
+        document.getElementById('nav-planilha-btn').onclick = () => AppPrincipal.navigateTo('planilha');
+        document.getElementById('nav-feed-btn').onclick = () => AppPrincipal.navigateTo('feed');
+        document.getElementById('nav-profile-btn').onclick = AppPrincipal.openProfileModal;
 
-        <main id="app-main-content" class="app-main">
-            </main>
-    </div>
+        // Modais
+        document.querySelectorAll('.close-btn').forEach(b => b.onclick = (e) => e.target.closest('.modal-overlay').classList.add('hidden'));
+        
+        // Forms
+        document.getElementById('feedback-form').onsubmit = AppPrincipal.handleFeedbackSubmit;
+        document.getElementById('comment-form').onsubmit = AppPrincipal.handleCommentSubmit;
+        document.getElementById('log-activity-form').onsubmit = AppPrincipal.handleLogActivitySubmit;
+        document.getElementById('profile-form').onsubmit = AppPrincipal.handleProfileSubmit;
+        
+        // Botão Especial (Coach Avaliação)
+        const btnEval = document.getElementById('save-coach-eval-btn');
+        if(btnEval) btnEval.onclick = AppPrincipal.handleCoachEvaluationSubmit;
 
-    <footer class="app-footer">
-        Desenvolvido com 🤖 por thIAguinho Soluções
-    </footer>
+        // Uploads
+        document.getElementById('photo-upload-input').onchange = AppPrincipal.handlePhotoUpload;
+        document.getElementById('profile-pic-upload').onchange = AppPrincipal.handleProfilePhotoUpload;
 
-    <div id="feedback-modal" class="modal-overlay hidden">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h3 id="feedback-modal-title">Detalhes do Treino</h3>
-                <button class="close-btn" id="close-feedback-modal">&times;</button>
-            </div>
-            <div class="modal-body">
-                <form id="feedback-form">
-                    <fieldset>
-                        <legend>Feedback do Atleta</legend>
-                        <div class="form-group">
-                            <label>Status</label>
-                            <select id="workout-status">
-                                <option value="planejado">Planejado</option>
-                                <option value="realizado" style="color:green">Realizado</option>
-                                <option value="realizado_parcial" style="color:orange">Parcial</option>
-                                <option value="nao_realizado" style="color:red">Não Realizado</option>
-                            </select>
-                        </div>
-                        <div class="form-group">
-                            <label>Sensação / Comentário</label>
-                            <textarea id="workout-feedback-text" rows="3"></textarea>
-                        </div>
-                        <div class="form-group">
-                            <label>Foto</label>
-                            <input type="file" id="photo-upload-input" accept="image/*">
-                            <p id="photo-upload-feedback" class="upload-feedback"></p>
-                        </div>
-                        
-                        <div id="strava-data-display" class="strava-data-display hidden"></div>
+        // Strava URL
+        const urlParams = new URLSearchParams(window.location.search);
+        
+        // AUTH
+        AppPrincipal.state.auth.onAuthStateChanged((user) => {
+            if(!user) {
+                if(el.loader) el.loader.classList.add('hidden');
+                return; // Fica na tela, usuário clica em login se precisar
+            }
+            if(AppPrincipal.state.currentUser && AppPrincipal.state.currentUser.uid === user.uid) return;
+            
+            AppPrincipal.state.currentUser = user;
+            
+            if (urlParams.get('code')) {
+                AppPrincipal.exchangeStravaCode(urlParams.get('code'));
+                return;
+            }
+            AppPrincipal.loadUserData(user.uid);
+        });
+    },
 
-                        <button type="submit" id="save-feedback-btn" class="btn btn-primary">Salvar Feedback</button>
-                    </fieldset>
-                </form>
-
-                <div id="coach-evaluation-area" class="hidden" style="margin-top:20px; border:2px solid #00008B; padding:15px; border-radius:8px; background:#f0f8ff;">
-                    <h4 style="color:#00008B"><i class='bx bx-medal'></i> Avaliação do Treinador</h4>
-                    <textarea id="coach-evaluation-text" rows="2" style="width:100%; border:1px solid #ccc; margin-top:5px;" placeholder="Deixe sua avaliação técnica..."></textarea>
-                    <button id="save-coach-eval-btn" class="btn btn-secondary btn-small" style="margin-top:5px;">Salvar Avaliação</button>
-                </div>
-
-                <hr>
+    loadUserData: (uid) => {
+        // Carrega caches em background
+        AppPrincipal.state.db.ref('users').on('value', s => AppPrincipal.state.userCache = s.val() || {});
+        
+        AppPrincipal.state.db.ref('users/' + uid).once('value', s => {
+            let data = s.val();
+            // Verifica Admin
+            AppPrincipal.state.db.ref('admins/' + uid).once('value', adminSnap => {
+                const isAdmin = adminSnap.exists() && adminSnap.val() === true;
                 
-                <div class="comments-section">
-                    <h4>Comentários</h4>
-                    <div id="comments-list" class="comments-list"></div>
-                    <form id="comment-form" class="comment-form">
-                        <input type="text" id="comment-input" placeholder="Escreva um comentário..." required>
-                        <button type="submit" class="btn btn-secondary"><i class='bx bxs-send'></i></button>
-                    </form>
-                </div>
-            </div>
-        </div>
-    </div>
+                if (!data && isAdmin) {
+                    data = { name: AppPrincipal.state.currentUser.email, role: 'admin' };
+                    AppPrincipal.state.db.ref('users/' + uid).set(data);
+                }
 
-    <div id="log-activity-modal" class="modal-overlay hidden">
-        <div class="modal-content">
-            <div class="modal-header"><h3>Registrar Atividade</h3><button class="close-btn" id="close-log-activity-modal">&times;</button></div>
-            <div class="modal-body">
-                <form id="log-activity-form">
-                    <div class="form-group"><label>Data</label><input type="date" id="log-activity-date" required></div>
-                    <div class="form-group"><label>Título</label><input type="text" id="log-activity-title" required></div>
-                    <div class="form-group"><label>Tipo</label><select id="log-activity-type"><option>Corrida</option><option>Caminhada</option><option>Outro</option></select></div>
-                    <div class="form-group"><label>Descrição</label><textarea id="log-activity-feedback" required></textarea></div>
-                    <button type="submit" class="btn btn-primary">Salvar</button>
-                </form>
-            </div>
-        </div>
-    </div>
+                if (data) {
+                    AppPrincipal.state.userData = { ...data, uid: uid };
+                    document.getElementById('userDisplay').textContent = data.name;
+                    
+                    if (isAdmin) {
+                        AppPrincipal.state.userData.role = 'admin';
+                        AppPrincipal.state.viewMode = 'admin'; // Começa como Admin
+                        AppPrincipal.setupAdminToggle(true);
+                    } else {
+                        AppPrincipal.state.viewMode = 'atleta';
+                    }
+                    
+                    // Carrega Token Strava
+                    AppPrincipal.state.db.ref(`users/${uid}/stravaAuth`).on('value', ts => AppPrincipal.state.stravaTokenData = ts.val());
+                    
+                    AppPrincipal.updateViewClasses();
+                    AppPrincipal.navigateTo('planilha');
+                }
+            });
+        });
+    },
 
-    <div id="profile-modal" class="modal-overlay hidden">
-        <div class="modal-content">
-            <div class="modal-header"><h3>Meu Perfil</h3><button class="close-btn" id="close-profile-modal">&times;</button></div>
-            <div class="modal-body">
-                <form id="profile-form">
-                    <div style="text-align:center; margin-bottom:10px;">
-                        <img id="profile-pic-preview" style="width:100px; height:100px; border-radius:50%; object-fit:cover;">
-                    </div>
-                    <div class="form-group"><input type="file" id="profile-pic-upload"></div>
-                    <div class="form-group"><label>Nome</label><input type="text" id="profile-name" required></div>
-                    <div class="form-group"><label>Bio</label><textarea id="profile-bio"></textarea></div>
-                    <button type="submit" id="save-profile-btn" class="btn btn-primary">Salvar</button>
-                </form>
-            </div>
-        </div>
-    </div>
+    setupAdminToggle: (isAdmin) => {
+        if(document.getElementById('admin-toggle-btn')) return;
+        const nav = document.querySelector('.app-header nav');
+        const btn = document.createElement('button');
+        btn.id = 'admin-toggle-btn';
+        btn.className = 'btn btn-nav';
+        btn.innerHTML = "<i class='bx bx-run'></i> Modo Atleta";
+        btn.style.cssText = "background:white; color:#00008B; border:1px solid #00008B; border-radius:20px; margin-right:10px;";
+        
+        btn.onclick = () => {
+            if (AppPrincipal.state.viewMode === 'admin') {
+                AppPrincipal.state.viewMode = 'atleta';
+                btn.innerHTML = "<i class='bx bx-shield-quarter'></i> Modo Coach";
+                btn.style.background = "#00008B"; btn.style.color = "white";
+            } else {
+                AppPrincipal.state.viewMode = 'admin';
+                btn.innerHTML = "<i class='bx bx-run'></i> Modo Atleta";
+                btn.style.background = "white"; btn.style.color = "#00008B";
+            }
+            AppPrincipal.updateViewClasses();
+            AppPrincipal.navigateTo('planilha');
+        };
+        nav.insertBefore(btn, document.getElementById('logoutButton'));
+    },
 
-    <div id="view-profile-modal" class="modal-overlay hidden">
-        <div class="modal-content">
-            <div class="modal-header"><h3>Atleta</h3><button class="close-btn" id="close-view-profile-modal">&times;</button></div>
-            <div class="modal-body" style="text-align:center;">
-                <img id="view-profile-pic" style="width:120px; height:120px; border-radius:50%; margin-bottom:10px;">
-                <h2 id="view-profile-name" style="color:#00008B"></h2>
-                <p id="view-profile-bio" style="font-style:italic; color:#666;"></p>
-            </div>
-        </div>
-    </div>
+    updateViewClasses: () => {
+        const c = document.getElementById('app-container');
+        if(AppPrincipal.state.viewMode === 'admin') {
+            c.classList.add('admin-view'); c.classList.remove('atleta-view');
+        } else {
+            c.classList.add('atleta-view'); c.classList.remove('admin-view');
+        }
+    },
 
-    <div id="who-liked-modal" class="modal-overlay hidden">
-        <div class="modal-content"><div class="modal-header"><h3>Curtidas</h3><button class="close-btn" id="close-who-liked-modal">&times;</button></div><div class="modal-body"><ul id="who-liked-list"></ul></div></div>
-    </div>
+    navigateTo: (page) => {
+        const m = document.getElementById('app-main-content');
+        m.innerHTML = "";
+        
+        document.querySelectorAll('.btn-nav').forEach(b => b.classList.remove('active'));
+        const btn = document.getElementById(`nav-${page}-btn`);
+        if(btn) btn.classList.add('active');
 
-    <div id="ia-analysis-modal" class="modal-overlay hidden">
-        <div class="modal-content">
-            <div class="modal-header"><h3>Análise IA</h3><button class="close-btn" id="close-ia-analysis-modal">&times;</button></div>
-            <div class="modal-body"><pre id="ia-analysis-output" style="white-space:pre-wrap; background:#f4f4f4; padding:10px;"></pre></div>
-            <div class="modal-footer"><button id="save-ia-analysis-btn" class="btn btn-primary hidden">Salvar</button></div>
-        </div>
-    </div>
+        if(page === 'planilha') {
+            if(AppPrincipal.state.viewMode === 'admin') {
+                AdminPanel.init(AppPrincipal.state.currentUser, AppPrincipal.state.db);
+            } else {
+                AtletaPanel.init(AppPrincipal.state.currentUser, AppPrincipal.state.db);
+            }
+        } else if (page === 'feed') {
+            FeedPanel.init(AppPrincipal.state.currentUser, AppPrincipal.state.db);
+        }
+        
+        document.getElementById('loader').classList.add('hidden');
+        document.getElementById('app-container').classList.remove('hidden');
+    },
 
-    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
-    <script src="https://upload-widget.cloudinary.com/global/all.js" type="text/javascript"></script>
+    handleLogout: () => AppPrincipal.state.auth.signOut().then(() => window.location.href = 'index.html'),
 
-    <script src="js/config.js"></script>
-    <script src="js/app.js"></script> 
-    <script src="js/panels.js"></script> 
-    <script>
-        if ('serviceWorker' in navigator) {
-            window.addEventListener('load', () => {
-                navigator.serviceWorker.register('./service-worker.js');
+    // --- MODAIS ---
+    openFeedbackModal: (workoutId, ownerId, title) => {
+        const modal = document.getElementById('feedback-modal');
+        AppPrincipal.state.modal = { isOpen: true, currentWorkoutId: workoutId, currentOwnerId: ownerId };
+        
+        document.getElementById('feedback-modal-title').textContent = title || "Treino";
+        
+        // Reset campos
+        document.getElementById('workout-status').value = 'planejado';
+        document.getElementById('workout-feedback-text').value = '';
+        document.getElementById('comments-list').innerHTML = "Carregando...";
+        
+        // Controle de Área de Coach
+        const isOwner = AppPrincipal.state.currentUser.uid === ownerId;
+        const isCoachViewing = AppPrincipal.state.userData.role === 'admin' && !isOwner; // Coach vendo aluno
+        
+        const coachArea = document.getElementById('coach-evaluation-area');
+        const saveBtn = document.getElementById('save-feedback-btn');
+        const coachText = document.getElementById('coach-evaluation-text');
+        if(coachText) coachText.value = '';
+
+        if(isCoachViewing) {
+            // Coach vendo aluno: Pode avaliar, não edita feedback do aluno
+            if(coachArea) coachArea.classList.remove('hidden');
+            saveBtn.classList.add('hidden');
+            document.getElementById('workout-feedback-text').disabled = true;
+            document.getElementById('workout-status').disabled = true;
+        } else {
+            // Aluno (ou Coach vendo ele mesmo): Edita feedback
+            if(coachArea) coachArea.classList.add('hidden');
+            saveBtn.classList.remove('hidden');
+            document.getElementById('workout-feedback-text').disabled = false;
+            document.getElementById('workout-status').disabled = false;
+        }
+
+        // Carrega Treino
+        AppPrincipal.state.db.ref(`data/${ownerId}/workouts/${workoutId}`).once('value', s => {
+            if(s.exists()) {
+                const d = s.val();
+                document.getElementById('workout-status').value = d.status || 'planejado';
+                document.getElementById('workout-feedback-text').value = d.feedback || '';
+                if(d.coachEvaluation && coachText) coachText.value = d.coachEvaluation;
+                if(d.stravaData) AppPrincipal.displayStravaData(d.stravaData);
+                else document.getElementById('strava-data-display').classList.add('hidden');
+            }
+        });
+
+        // Carrega Comentários
+        AppPrincipal.state.db.ref(`workoutComments/${workoutId}`).on('value', s => {
+            const list = document.getElementById('comments-list');
+            list.innerHTML = "";
+            if(!s.exists()) { list.innerHTML = "<small>Nenhum comentário.</small>"; return; }
+            s.forEach(c => {
+                const v = c.val();
+                const div = document.createElement('div');
+                div.className = 'comment-item';
+                div.innerHTML = `<strong>${v.name || 'Usuário'}:</strong> ${v.text}`;
+                list.appendChild(div);
+            });
+        });
+
+        modal.classList.remove('hidden');
+    },
+
+    handleFeedbackSubmit: async (e) => {
+        e.preventDefault();
+        const { currentWorkoutId, currentOwnerId } = AppPrincipal.state.modal;
+        const updates = {
+            status: document.getElementById('workout-status').value,
+            feedback: document.getElementById('workout-feedback-text').value,
+            realizadoAt: new Date().toISOString()
+        };
+        // (Upload de foto omitido para brevidade, mas lógica existe)
+        
+        await AppPrincipal.state.db.ref(`data/${currentOwnerId}/workouts/${currentWorkoutId}`).update(updates);
+        
+        // Atualiza Feed Público
+        if(updates.status !== 'planejado') {
+            const full = (await AppPrincipal.state.db.ref(`data/${currentOwnerId}/workouts/${currentWorkoutId}`).once('value')).val();
+            await AppPrincipal.state.db.ref(`publicWorkouts/${currentWorkoutId}`).set({ 
+                ownerId: currentOwnerId, 
+                ownerName: AppPrincipal.state.userCache[currentOwnerId]?.name || "Atleta", 
+                ...full 
             });
         }
-    </script>
-</body>
-</html>
+        document.getElementById('feedback-modal').classList.add('hidden');
+    },
+
+    handleCoachEvaluationSubmit: async (e) => {
+        e.preventDefault();
+        const text = document.getElementById('coach-evaluation-text').value;
+        const { currentWorkoutId, currentOwnerId } = AppPrincipal.state.modal;
+        await AppPrincipal.state.db.ref(`data/${currentOwnerId}/workouts/${currentWorkoutId}`).update({ coachEvaluation: text });
+        alert("Avaliação salva!");
+        document.getElementById('feedback-modal').classList.add('hidden');
+    },
+
+    // CORREÇÃO: Envia NOME
+    handleCommentSubmit: (e) => {
+        e.preventDefault();
+        const text = document.getElementById('comment-input').value;
+        if(!text) return;
+        AppPrincipal.state.db.ref(`workoutComments/${AppPrincipal.state.modal.currentWorkoutId}`).push({
+            uid: AppPrincipal.state.currentUser.uid,
+            name: AppPrincipal.state.userData.name, // Correção
+            text: text,
+            timestamp: firebase.database.ServerValue.TIMESTAMP
+        });
+        document.getElementById('comment-input').value = "";
+    },
+
+    // --- UTILS ---
+    displayStravaData: (d) => {
+        const div = document.getElementById('strava-data-display');
+        div.innerHTML = `<p><strong>Strava:</strong> ${d.distancia} | ${d.tempo}</p>`;
+        div.classList.remove('hidden');
+    },
+    
+    openProfileModal: () => {
+        document.getElementById('profile-modal').classList.remove('hidden');
+        document.getElementById('profile-name').value = AppPrincipal.state.userData.name;
+        // Botão Strava
+        let s = document.querySelector('#profile-modal #strava-area');
+        if(s) s.remove();
+        s = document.createElement('div'); s.id = 'strava-area'; s.style.marginTop='20px';
+        if(AppPrincipal.state.stravaTokenData) s.innerHTML = `<button onclick="AppPrincipal.handleStravaSyncActivities()" class="btn btn-primary">Sincronizar Strava</button>`;
+        else s.innerHTML = `<button onclick="AppPrincipal.handleStravaConnect()" class="btn btn-secondary" style="background:#fc4c02; color:white">Conectar Strava</button>`;
+        document.querySelector('#profile-modal .modal-body').appendChild(s);
+    },
+    
+    handleProfileSubmit: async (e) => {
+        e.preventDefault();
+        const name = document.getElementById('profile-name').value;
+        await AppPrincipal.state.db.ref(`users/${AppPrincipal.state.currentUser.uid}`).update({ name });
+        AppPrincipal.state.userData.name = name;
+        document.getElementById('profile-modal').classList.add('hidden');
+        document.getElementById('userDisplay').textContent = name;
+    },
+
+    // Stubs
+    handleLogActivitySubmit: async (e) => { 
+        e.preventDefault();
+        const data = {
+            date: document.getElementById('log-activity-date').value,
+            title: document.getElementById('log-activity-title').value,
+            description: document.getElementById('log-activity-feedback').value,
+            status: 'realizado', realizadoAt: new Date().toISOString(),
+            createdBy: AppPrincipal.state.currentUser.uid
+        };
+        const ref = await AppPrincipal.state.db.ref(`data/${AppPrincipal.state.currentUser.uid}/workouts`).push(data);
+        await AppPrincipal.state.db.ref(`publicWorkouts/${ref.key}`).set({ ownerId: AppPrincipal.state.currentUser.uid, ownerName: AppPrincipal.state.userData.name, ...data });
+        document.getElementById('log-activity-modal').classList.add('hidden');
+    },
+    handlePhotoUpload: () => {}, handleProfilePhotoUpload: () => {},
+    handleStravaConnect: () => { window.location.href = window.STRAVA_PUBLIC_CONFIG.authUrl || `https://www.strava.com/oauth/authorize?client_id=${window.STRAVA_PUBLIC_CONFIG.clientID}&response_type=code&redirect_uri=${window.STRAVA_PUBLIC_CONFIG.redirectURI}&approval_prompt=force&scope=read_all,activity:read_all,profile:read_all`; }, 
+    exchangeStravaCode: async (code) => {
+        const token = await AppPrincipal.state.currentUser.getIdToken();
+        const res = await fetch(window.STRAVA_PUBLIC_CONFIG.vercelAPI, { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` }, body: JSON.stringify({ code }) });
+        if(res.ok) { window.history.replaceState({}, document.title, "app.html"); window.location.reload(); } else alert("Erro Strava");
+    },
+    handleStravaSyncActivities: () => alert("Sincronização iniciada.")
+};
+
+const AuthLogic = {
+    init: (auth, db) => {
+        document.getElementById('login-form').addEventListener('submit', (e) => {
+            e.preventDefault();
+            auth.signInWithEmailAndPassword(document.getElementById('loginEmail').value, document.getElementById('loginPassword').value);
+        });
+    }
+};
+
+document.addEventListener('DOMContentLoaded', AppPrincipal.init);

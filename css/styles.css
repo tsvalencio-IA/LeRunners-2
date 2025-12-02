@@ -1,92 +1,82 @@
 /* =================================================================== */
-/* ESTILOS GERAIS E RESET (V11.0 - SISRUN CLONE)
+/* ESTILOS GERAIS E RESET (V12.0 - LOGIN FIX + SCROLL)
 /* =================================================================== */
 :root {
     --primary-color: #00008B; --secondary-color: #4169E1; --danger-color: #DC3545;
     --success-color: #28a745; --warning-color: #ffc107; --strava-orange: #fc4c02;
     --light-gray: #f4f5f7; --text-color: #333; --text-light: #667;
-    --border-color: #e0e0e0; --border-radius: 5px; --shadow: 0 2px 5px rgba(0,0,0,0.05);
+    --border-color: #e0e0e0; --border-radius: 8px; --shadow: 0 4px 12px rgba(0,0,0,0.08);
     --white: #ffffff;
 }
-* { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
-body { background-color: var(--light-gray); color: var(--text-color); line-height: 1.5; display: flex; flex-direction: column; min-height: 100vh; font-size: 14px; }
+
+* { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', sans-serif; }
+body { background-color: var(--light-gray); color: var(--text-color); line-height: 1.6; min-height: 100vh; display: flex; flex-direction: column; }
 .hidden { display: none !important; }
 
-/* LAYOUT GERAL */
-#app-container { flex-grow: 1; }
-.app-header { background: #fff; padding: 10px 20px; box-shadow: var(--shadow); display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 1000; height: 60px; }
-.app-header h1 { color: var(--primary-color); font-size: 1.4rem; margin: 0; }
-.user-display { font-weight: 600; color: #555; border-left: 1px solid #eee; padding-left: 15px; margin-left: 15px; }
-.app-main { max-width: 100%; padding: 20px; }
-
-/* COMPONENTES */
-.btn { display: inline-flex; align-items: center; justify-content: center; gap: 5px; padding: 8px 16px; border: none; border-radius: 4px; cursor: pointer; font-size: 13px; font-weight: 600; transition: 0.2s; text-transform: uppercase; }
-.btn-primary { background: var(--primary-color); color: #fff; }
-.btn-secondary { background: var(--secondary-color); color: #fff; }
-.btn-danger { background: var(--danger-color); color: #fff; }
-.btn-success { background: var(--success-color); color: #fff; }
-.btn-small { padding: 4px 8px; font-size: 12px; }
-.form-group { margin-bottom: 10px; }
-.form-group label { display: block; font-weight: 600; margin-bottom: 4px; font-size: 12px; color: #555; }
-.form-group input, .form-group select, .form-group textarea { width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; font-size: 13px; }
-
-/* --- DASHBOARD SISRUN (NOVO) --- */
-.admin-dashboard { max-width: 1200px; margin: 0 auto; }
-.dashboard-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; margin-bottom: 20px; }
-.dash-card { background: #fff; padding: 15px 10px; border-radius: 6px; text-align: center; cursor: pointer; border: 1px solid #ddd; box-shadow: 0 1px 3px rgba(0,0,0,0.05); transition: 0.2s; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100px; }
-.dash-card:hover { border-color: var(--secondary-color); transform: translateY(-2px); }
-.icon-box { font-size: 32px; margin-bottom: 5px; color: var(--secondary-color); }
-.dash-card span { font-weight: 600; color: #444; font-size: 12px; line-height: 1.2; }
-
-/* --- BARRA DE STATUS (CARINHAS) --- */
-.stats-bar { display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; }
-.stat-box { flex: 1; background: #fff; border: 1px solid #ddd; border-radius: 6px; padding: 10px; display: flex; flex-direction: column; align-items: center; min-width: 80px; }
-.face-icon { font-size: 24px; margin-bottom: 5px; }
-.stat-label { font-size: 11px; color: #666; text-transform: uppercase; }
-.stat-value { font-size: 16px; font-weight: bold; color: #333; }
-.face-excelente { color: #28a745; } /* Verde */
-.face-bom { color: #8bc34a; }      /* Verde Claro */
-.face-normal { color: #ffc107; }   /* Amarelo */
-.face-ruim { color: #fd7e14; }     /* Laranja */
-.face-pessimo { color: #dc3545; }  /* Vermelho */
-
-/* --- TABELA SISRUN PROFISSIONAL --- */
-.feedback-table-container { background: #fff; border: 1px solid #ccc; border-radius: 4px; overflow-x: auto; }
-.feedback-table { width: 100%; border-collapse: collapse; font-size: 13px; }
-.feedback-table th { background: #e0e0e0; padding: 10px; text-align: left; font-weight: 700; color: #333; border-bottom: 2px solid #ccc; white-space: nowrap; }
-.feedback-table td { padding: 10px; border-bottom: 1px solid #eee; vertical-align: top; color: #333; }
-.feedback-table tr:nth-child(even) { background-color: #f9f9f9; }
-.feedback-table tr:hover { background-color: #f1f1f1; }
-
-/* Colunas Específicas */
-.col-aluno { display: flex; align-items: center; gap: 8px; }
-.avatar-small { width: 30px; height: 30px; border-radius: 50%; object-fit: cover; border: 1px solid #999; }
-.col-proposto { color: #0056b3; font-weight: 600; font-size: 12px; }
-.col-feedback { font-style: italic; color: #555; background: #fffdf0; padding: 5px; border-radius: 4px; border: 1px solid #eee; }
-.check-box { width: 20px; height: 20px; cursor: pointer; border: 2px solid #ccc; border-radius: 4px; display: inline-flex; align-items: center; justify-content: center; color: transparent; }
-.check-box.checked { background: var(--success-color); border-color: var(--success-color); color: #fff; }
-
-/* LOGIN & MODAIS */
-.login-container { max-width: 400px; margin: 50px auto; background: #fff; padding: 30px; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); text-align: center; }
+/* --- CORREÇÃO TELA DE LOGIN --- */
+.login-page {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    padding: 20px;
+    background: linear-gradient(135deg, #00008B 0%, #4169E1 100%);
+}
+.login-container {
+    width: 100%;
+    max-width: 400px;
+    background: #fff;
+    padding: 2rem;
+    border-radius: 12px;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+    text-align: center;
+}
+.logo { max-width: 100px; margin-bottom: 1rem; }
+.login-container h2 { margin-bottom: 0.5rem; color: var(--primary-color); }
 .input-icon { position: relative; margin-bottom: 15px; }
-.input-icon i { position: absolute; left: 10px; top: 10px; color: #999; }
-.input-icon input { padding-left: 35px; }
-.modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 2000; }
-.modal-content { background: #fff; width: 95%; max-width: 700px; max-height: 90vh; overflow-y: auto; border-radius: 6px; padding: 0; }
-.modal-header { background: #f4f5f7; padding: 15px; border-bottom: 1px solid #ddd; display: flex; justify-content: space-between; align-items: center; }
-.modal-body { padding: 20px; }
+.input-icon i { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: #999; }
+.input-icon input { width: 100%; padding: 10px 10px 10px 35px; border: 1px solid #ccc; border-radius: 6px; }
+.btn { width: 100%; padding: 10px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; text-transform: uppercase; transition: 0.2s; display: flex; align-items: center; justify-content: center; gap: 5px; }
+.btn-primary { background: var(--primary-color); color: #fff; }
+.btn-primary:hover { background: #00005a; }
+.btn-secondary { background: var(--secondary-color); color: #fff; }
 
-/* CARDS TREINO ATLETA */
-.workout-card { background: #fff; border: 1px solid #ddd; margin-bottom: 15px; border-radius: 6px; }
-.workout-card-header { background: #f8f9fa; padding: 10px 15px; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; font-weight: bold; }
+/* --- LAYOUT DA APP --- */
+.app-header { background: #fff; padding: 0 20px; height: 60px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 5px rgba(0,0,0,0.05); position: sticky; top: 0; z-index: 100; }
+.app-header nav { display: flex; align-items: center; gap: 10px; }
+.user-display { font-weight: 600; margin-right: 10px; color: #555; }
+.app-main { padding: 20px; max-width: 1200px; margin: 0 auto; width: 100%; flex-grow: 1; }
+
+/* --- DASHBOARD SISRUN --- */
+.dashboard-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 15px; margin-bottom: 30px; }
+.dash-card { background: #fff; padding: 20px; border-radius: 10px; border: 1px solid #e0e0e0; text-align: center; cursor: pointer; transition: 0.2s; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+.dash-card:hover { transform: translateY(-3px); border-color: var(--secondary-color); box-shadow: 0 5px 15px rgba(0,0,0,0.1); }
+.dash-card i { font-size: 2.5rem; color: var(--primary-color); margin-bottom: 10px; display: block; }
+.dash-card span { font-weight: 600; color: #444; font-size: 0.9rem; }
+.badge-count { background: var(--danger-color); color: #fff; padding: 2px 6px; border-radius: 10px; font-size: 0.75rem; margin-left: 5px; vertical-align: top; }
+
+/* --- TABELA E LISTAS (Correção de Scroll) --- */
+.panel { background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); margin-bottom: 20px; }
+.feedback-table-container { overflow-x: auto; }
+.feedback-table { width: 100%; border-collapse: collapse; min-width: 600px; }
+.feedback-table th { background: #f8f9fa; padding: 12px; text-align: left; font-size: 0.85rem; color: #666; border-bottom: 2px solid #ddd; }
+.feedback-table td { padding: 12px; border-bottom: 1px solid #eee; font-size: 0.9rem; vertical-align: middle; }
+.user-cell { display: flex; align-items: center; gap: 10px; }
+.user-avatar-small { width: 32px; height: 32px; border-radius: 50%; object-fit: cover; border: 1px solid #ccc; }
+
+/* --- CARDS DE TREINO (Painel Aluno) --- */
+.workout-card { background: #fff; border: 1px solid #ddd; border-radius: 8px; margin-bottom: 15px; overflow: hidden; transition: 0.2s; }
+.workout-card:hover { box-shadow: 0 4px 10px rgba(0,0,0,0.08); }
+.workout-card-header { background: #fcfcfc; padding: 10px 15px; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; align-items: center; }
 .workout-card-body { padding: 15px; }
-.status-tag { padding: 2px 6px; border-radius: 4px; font-size: 11px; text-transform: uppercase; color: #fff; }
+.status-tag { padding: 3px 8px; border-radius: 12px; font-size: 0.75rem; font-weight: bold; color: #fff; text-transform: uppercase; }
 .status-tag.planejado { background: #999; }
 .status-tag.realizado { background: var(--success-color); }
-.admin-view #nav-profile-btn { display: inline-flex !important; background: var(--secondary-color); color: white; }
 
+/* MOBILE */
 @media (max-width: 600px) {
+    .app-header { flex-direction: column; height: auto; padding: 10px; }
+    .app-header nav { flex-wrap: wrap; justify-content: center; margin-top: 10px; }
     .dashboard-grid { grid-template-columns: 1fr 1fr; }
-    .feedback-table th:nth-child(4), .feedback-table td:nth-child(4), /* Esconde checks no mobile */
-    .feedback-table th:nth-child(5), .feedback-table td:nth-child(5) { display: none; }
+    .admin-view #nav-profile-btn { display: inline-flex !important; } /* Garante botão no mobile */
 }

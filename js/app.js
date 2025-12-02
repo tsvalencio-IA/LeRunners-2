@@ -1,5 +1,5 @@
 /* =================================================================== */
-/* APP.JS V8.0 - LOGIN CORRIGIDO E SYNC ESTÁVEL
+/* APP.JS (RESTAURADO BASE V2 + DEEP SYNC CORRIGIDO)
 /* =================================================================== */
 
 const AppPrincipal = {
@@ -17,19 +17,14 @@ const AppPrincipal = {
         AppPrincipal.state.auth = firebase.auth();
         AppPrincipal.state.db = firebase.database();
 
-        // Verifica se é a página de login ou a aplicação principal
-        if (document.getElementById('login-form')) {
-            AuthLogic.init(AppPrincipal.state.auth, AppPrincipal.state.db);
-        } else if (document.getElementById('app-container')) {
-            AppPrincipal.initPlatform();
-        }
+        if (document.getElementById('login-form')) AuthLogic.init(AppPrincipal.state.auth, AppPrincipal.state.db);
+        else if (document.getElementById('app-container')) AppPrincipal.initPlatform();
     },
 
     initPlatform: () => {
         const el = AppPrincipal.elements;
         el.loader = document.getElementById('loader');
         
-        // Listeners Globais
         document.getElementById('logoutButton').onclick = AppPrincipal.handleLogout;
         document.getElementById('nav-planilha-btn').onclick = () => AppPrincipal.navigateTo('planilha');
         document.getElementById('nav-feed-btn').onclick = () => AppPrincipal.navigateTo('feed');
@@ -49,11 +44,8 @@ const AppPrincipal = {
         const urlParams = new URLSearchParams(window.location.search);
         
         AppPrincipal.state.auth.onAuthStateChanged((user) => {
-            if(!user) { 
-                if(el.loader) el.loader.classList.add('hidden'); 
-                window.location.href = 'index.html'; // Redireciona se não logado
-                return; 
-            }
+            if(!user) { if(el.loader) el.loader.classList.add('hidden'); window.location.href = 'index.html'; return; }
+            if(AppPrincipal.state.currentUser && AppPrincipal.state.currentUser.uid === user.uid) return;
             
             AppPrincipal.state.currentUser = user;
             if (urlParams.get('code')) { AppPrincipal.exchangeStravaCode(urlParams.get('code')); return; }
@@ -124,7 +116,7 @@ const AppPrincipal = {
 
     handleLogout: () => AppPrincipal.state.auth.signOut().then(() => window.location.href = 'index.html'),
 
-    // --- STRAVA DEEP SYNC ---
+    // --- STRAVA DEEP SYNC (VERSÃO SEGURA PARA EVITAR TRAVAMENTO) ---
     handleStravaConnect: () => { window.location.href = `https://www.strava.com/oauth/authorize?client_id=${window.STRAVA_PUBLIC_CONFIG.clientID}&response_type=code&redirect_uri=${window.STRAVA_PUBLIC_CONFIG.redirectURI}&approval_prompt=force&scope=read_all,activity:read_all,profile:read_all`; },
     
     exchangeStravaCode: async (code) => {
@@ -137,12 +129,19 @@ const AppPrincipal = {
         const { stravaTokenData, currentUser } = AppPrincipal.state;
         if (!stravaTokenData) return alert("Conecte o Strava primeiro.");
         
+        const btn = document.getElementById('btn-strava-action');
+        if(btn) { btn.disabled = true; btn.textContent = "Sincronizando... aguarde..."; }
+
         try {
-            const activities = await fetch(`https://www.strava.com/api/v3/athlete/activities?per_page=30`, { headers: { 'Authorization': `Bearer ${stravaTokenData.accessToken}` } }).then(r => r.json());
+            // Busca as últimas 50 atividades
+            const activities = await fetch(`https://www.strava.com/api/v3/athlete/activities?per_page=50`, { headers: { 'Authorization': `Bearer ${stravaTokenData.accessToken}` } }).then(r => r.json());
             const updates = {};
             let count = 0;
 
             for(const act of activities) {
+                // Loop profundo com atraso de 200ms para evitar erro 429
+                await new Promise(r => setTimeout(r, 200)); 
+                
                 const detail = await fetch(`https://www.strava.com/api/v3/activities/${act.id}`, { headers: { 'Authorization': `Bearer ${stravaTokenData.accessToken}` } }).then(r => r.json());
 
                 const newKey = AppPrincipal.state.db.ref().push().key;
@@ -156,14 +155,8 @@ const AppPrincipal = {
                 if(detail.splits_metric) {
                     splits = detail.splits_metric.map((s, i) => {
                         const sPace = (s.moving_time / 60) / (s.distance / 1000);
-                        const sMinCalc = Math.floor(sPace); 
-                        const sSecCalc = Math.round((sPace - sMinCalc) * 60);
-                        return {
-                            km: i + 1,
-                            pace: `${sMinCalc}'${sSecCalc.toString().padStart(2,'0')}"`,
-                            time: new Date(s.moving_time * 1000).toISOString().substr(14, 5),
-                            elev: s.elevation_difference || 0
-                        };
+                        const sMin = Math.floor(sPace); const sSec = Math.round((sPace - sMin) * 60);
+                        return { km: i + 1, pace: `${sMin}'${sSec < 10 ? '0' : ''}${sSec}"`, time: new Date(s.moving_time * 1000).toISOString().substr(14, 5), elev: s.elevation_difference || 0 };
                     });
                 }
 
@@ -173,105 +166,59 @@ const AppPrincipal = {
                     description: `[Importado Strava] ${act.type} - ${distanceKm}`,
                     status: 'realizado',
                     realizadoAt: new Date().toISOString(),
-                    feedback: `Sincronizado automaticamente.`,
+                    feedback: `Sincronizado via Strava. Dist: ${distanceKm}, Pace: ${paceStr}.`,
                     stravaActivityId: act.id,
                     stravaData: { 
-                        distancia: distanceKm, 
-                        tempo: timeStr, 
-                        ritmo: paceStr, 
-                        id: act.id,
-                        splits: splits,
-                        elevacao: act.total_elevation_gain + "m",
-                        calorias: act.calories || act.kilojoules
+                        distancia: distanceKm, tempo: timeStr, ritmo: paceStr, id: act.id,
+                        splits: splits, elevacao: (act.total_elevation_gain || 0) + "m", calorias: (act.calories || 0)
                     },
                     createdBy: currentUser.uid
                 };
 
                 updates[`/data/${currentUser.uid}/workouts/${newKey}`] = workoutData;
-                updates[`/publicWorkouts/${newKey}`] = { 
-                    ownerId: currentUser.uid, 
-                    ownerName: AppPrincipal.state.userData.name, 
-                    ...workoutData 
-                };
+                updates[`/publicWorkouts/${newKey}`] = { ownerId: currentUser.uid, ownerName: AppPrincipal.state.userData.name, ...workoutData };
                 count++;
             }
             await AppPrincipal.state.db.ref().update(updates);
-            alert(`${count} atividades importadas com sucesso!`);
+            alert(`${count} atividades sincronizadas com sucesso!`);
             document.getElementById('profile-modal').classList.add('hidden');
-        } catch(e) { 
-            alert("Erro na sincronização: " + e.message); 
-        }
+        } catch(e) { alert("Erro na sincronização: " + e.message); } finally { if(btn) { btn.disabled = false; btn.textContent = "Sincronizar Strava Agora"; } }
     },
 
+    // --- MODAL DETALHADO (RESTAURADO) ---
     openFeedbackModal: (workoutId, ownerId, title) => {
         const modal = document.getElementById('feedback-modal');
         AppPrincipal.state.modal = { isOpen: true, currentWorkoutId: workoutId, currentOwnerId: ownerId };
         document.getElementById('feedback-modal-title').textContent = title;
         
         const sd = document.getElementById('strava-data-display');
-        sd.innerHTML = "";
-        sd.classList.add('hidden');
+        if(sd) { sd.innerHTML = ""; sd.classList.add('hidden'); }
         document.getElementById('comments-list').innerHTML = "Carregando...";
         
-        const coachArea = document.getElementById('coach-evaluation-area');
-        const coachText = document.getElementById('coach-evaluation-text');
-        if(coachText) coachText.value = "";
-        
-        const isCoach = AppPrincipal.state.userData.role === 'admin';
-        if(coachArea) coachArea.classList.toggle('hidden', !isCoach);
-
         AppPrincipal.state.db.ref(`data/${ownerId}/workouts/${workoutId}`).once('value', s => {
             if(s.exists()) {
                 const d = s.val();
-                document.getElementById('workout-status').value = d.status || 'planejado';
-                document.getElementById('workout-feedback-text').value = d.feedback || '';
-                if(d.coachEvaluation && coachText) coachText.value = d.coachEvaluation;
+                if(document.getElementById('workout-status')) document.getElementById('workout-status').value = d.status || 'planejado';
+                if(document.getElementById('workout-feedback-text')) document.getElementById('workout-feedback-text').value = d.feedback || '';
                 
-                if(d.stravaData) {
+                // RENDERIZAÇÃO DO STRAVA COM TABELA
+                if(d.stravaData && sd) {
                     sd.classList.remove('hidden');
                     let tableHTML = "";
                     if(d.stravaData.splits && d.stravaData.splits.length > 0) {
                         tableHTML = `
                             <div style="margin-top:15px; border:1px solid #eee; border-radius:8px; overflow:hidden;">
                                 <table style="width:100%; font-size:0.85rem; border-collapse:collapse; text-align:center;">
-                                    <thead style="background:#f9f9f9; color:#666;">
-                                        <tr><th style="padding:8px;">Km</th><th>Pace</th><th>Tempo</th><th>Elev</th></tr>
-                                    </thead>
-                                    <tbody>
-                                        ${d.stravaData.splits.map(split => `
-                                            <tr style="border-top:1px solid #eee;">
-                                                <td style="padding:6px;">${split.km}</td>
-                                                <td><b>${split.pace}</b></td>
-                                                <td>${split.time}</td>
-                                                <td>${split.elev}m</td>
-                                            </tr>
-                                        `).join('')}
-                                    </tbody>
+                                    <thead style="background:#f9f9f9; color:#666;"><tr><th style="padding:8px;">Km</th><th>Pace</th><th>Tempo</th></tr></thead>
+                                    <tbody>${d.stravaData.splits.map(s => `<tr style="border-top:1px solid #eee;"><td style="padding:6px;">${s.km}</td><td><b>${s.pace}</b></td><td>${s.time}</td></tr>`).join('')}</tbody>
                                 </table>
                             </div>
                         `;
                     }
-
                     sd.innerHTML = `
                         <div style="padding:15px; background:#fff; border:1px solid #e0e0e0; border-radius:8px; margin-top:10px;">
-                            <div style="display:flex; justify-content:space-between; align-items:center;">
-                                <span style="color:#fc4c02; font-weight:bold;"><i class='bx bxl-strava'></i> Strava</span>
-                                <a href="https://www.strava.com/activities/${d.stravaData.id}" target="_blank" style="font-size:0.8rem; color:#007bff; text-decoration:none;">Ver no App <i class='bx bx-link-external'></i></a>
-                            </div>
-                            <div style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap:10px; margin-top:15px; text-align:center;">
-                                <div style="background:#f4f5f7; padding:8px; border-radius:5px;">
-                                    <div style="font-size:0.7rem; color:#666;">Distância</div>
-                                    <div style="font-weight:bold; color:#333;">${d.stravaData.distancia}</div>
-                                </div>
-                                <div style="background:#f4f5f7; padding:8px; border-radius:5px;">
-                                    <div style="font-size:0.7rem; color:#666;">Tempo</div>
-                                    <div style="font-weight:bold; color:#333;">${d.stravaData.tempo}</div>
-                                </div>
-                                <div style="background:#f4f5f7; padding:8px; border-radius:5px;">
-                                    <div style="font-size:0.7rem; color:#666;">Pace Médio</div>
-                                    <div style="font-weight:bold; color:#333;">${d.stravaData.ritmo}</div>
-                                </div>
-                            </div>
+                            <h4 style="color:#fc4c02; margin:0;"><i class='bx bxl-strava'></i> Dados Strava</h4>
+                            <p><b>Dist:</b> ${d.stravaData.distancia} | <b>Tempo:</b> ${d.stravaData.tempo} | <b>Pace:</b> ${d.stravaData.ritmo}</p>
                             ${tableHTML}
                         </div>
                     `;
@@ -282,46 +229,26 @@ const AppPrincipal = {
         AppPrincipal.state.db.ref(`workoutComments/${workoutId}`).on('value', s => {
             const list = document.getElementById('comments-list');
             list.innerHTML = "";
-            if(!s.exists()) { list.innerHTML = "<small style='color:#999'>Nenhum comentário ainda.</small>"; return; }
+            if(!s.exists()) { list.innerHTML = "<small>Nenhum comentário.</small>"; return; }
             s.forEach(c => {
                 const v = c.val();
-                const div = document.createElement('div');
-                div.className = 'comment-item';
+                const div = document.createElement('div'); div.className = 'comment-item';
                 div.innerHTML = `<strong>${v.name || 'Usuário'}:</strong> ${v.text}`;
                 list.appendChild(div);
             });
         });
-
-        modal.classList.remove('hidden');
+        if(modal) modal.classList.remove('hidden');
     },
 
     handleFeedbackSubmit: async (e) => {
         e.preventDefault();
         const { currentWorkoutId, currentOwnerId } = AppPrincipal.state.modal;
-        const updates = {
-            status: document.getElementById('workout-status').value,
-            feedback: document.getElementById('workout-feedback-text').value,
-            realizadoAt: new Date().toISOString()
-        };
+        const updates = { status: document.getElementById('workout-status').value, feedback: document.getElementById('workout-feedback-text').value, realizadoAt: new Date().toISOString() };
         await AppPrincipal.state.db.ref(`data/${currentOwnerId}/workouts/${currentWorkoutId}`).update(updates);
-        
         const fullData = (await AppPrincipal.state.db.ref(`data/${currentOwnerId}/workouts/${currentWorkoutId}`).once('value')).val();
         if(updates.status !== 'planejado') {
-            await AppPrincipal.state.db.ref(`publicWorkouts/${currentWorkoutId}`).set({
-                ownerId: currentOwnerId,
-                ownerName: AppPrincipal.state.userCache[currentOwnerId]?.name || "Atleta",
-                ...fullData
-            });
+            await AppPrincipal.state.db.ref(`publicWorkouts/${currentWorkoutId}`).set({ ownerId: currentOwnerId, ownerName: AppPrincipal.state.userCache[currentOwnerId]?.name || "Atleta", ...fullData });
         }
-        document.getElementById('feedback-modal').classList.add('hidden');
-    },
-
-    handleCoachEvaluationSubmit: async (e) => {
-        e.preventDefault();
-        const text = document.getElementById('coach-evaluation-text').value;
-        const { currentWorkoutId, currentOwnerId } = AppPrincipal.state.modal;
-        await AppPrincipal.state.db.ref(`data/${currentOwnerId}/workouts/${currentWorkoutId}`).update({ coachEvaluation: text });
-        alert("Avaliação salva!");
         document.getElementById('feedback-modal').classList.add('hidden');
     },
 
@@ -330,14 +257,13 @@ const AppPrincipal = {
         const text = document.getElementById('comment-input').value;
         if(!text) return;
         AppPrincipal.state.db.ref(`workoutComments/${AppPrincipal.state.modal.currentWorkoutId}`).push({
-            uid: AppPrincipal.state.currentUser.uid, name: AppPrincipal.state.userData.name, text: text, timestamp: firebase.database.ServerValue.TIMESTAMP
+            uid: AppPrincipal.state.currentUser.uid, name: AppPrincipal.state.userData.name || "Usuário", text: text, timestamp: firebase.database.ServerValue.TIMESTAMP
         });
         document.getElementById('comment-input').value = "";
     },
     
     handleLogActivitySubmit: async (e) => { e.preventDefault(); },
     handlePhotoUpload: () => {}, handleProfilePhotoUpload: () => {},
-    
     openProfileModal: () => { 
         document.getElementById('profile-modal').classList.remove('hidden'); 
         const form = document.getElementById('profile-form');
@@ -347,7 +273,7 @@ const AppPrincipal = {
             btn.className='btn btn-secondary'; btn.style.marginTop='15px'; btn.style.width='100%'; btn.style.background='#fc4c02'; btn.style.color='white'; btn.style.border='none';
             form.appendChild(btn);
         }
-        btn.textContent = AppPrincipal.state.stravaTokenData ? "Sincronizar Strava Agora" : "Conectar Strava";
+        btn.textContent = AppPrincipal.state.stravaTokenData ? "Sincronizar Strava" : "Conectar Strava";
         btn.onclick = AppPrincipal.state.stravaTokenData ? AppPrincipal.handleStravaSyncActivities : AppPrincipal.handleStravaConnect;
     },
     handleProfileSubmit: (e) => { e.preventDefault(); document.getElementById('profile-modal').classList.add('hidden'); },
@@ -364,13 +290,7 @@ const AuthLogic = {
     init: (auth, db) => {
         document.getElementById('login-form').addEventListener('submit', (e) => {
             e.preventDefault();
-            const email = document.getElementById('loginEmail').value;
-            const password = document.getElementById('loginPassword').value;
-            auth.signInWithEmailAndPassword(email, password)
-                .catch(err => {
-                    const errorMsg = document.getElementById('login-error');
-                    errorMsg.textContent = "Erro ao entrar: " + err.message;
-                });
+            auth.signInWithEmailAndPassword(document.getElementById('loginEmail').value, document.getElementById('loginPassword').value);
         });
     }
 };

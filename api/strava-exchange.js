@@ -1,116 +1,116 @@
 /* =================================================================== */
-/* VERCEL 2 SERVERLESS FUNCTION: /api/strava-exchange
-/* ARQUIVO COMPLETO E DEFINITIVO (Versão V2.0 - ESM/Import)
+/* VERCEL SERVERLESS FUNCTION: /api/strava-exchange
+/* ARQUIVO COMPLETO V3.0 (Com Suporte a Refresh Token)
 /* =================================================================== */
 
 import admin from "firebase-admin";
 import axios from "axios";
 
-// Função auxiliar para formatar a chave privada corretamente
-// (Corrige o problema das quebras de linha nas variáveis de ambiente da Vercel)
+// Formata chave privada
 const formatPrivateKey = (key) => {
     return key.replace(/\\n/g, '\n');
 };
 
 export default async function handler(req, res) {
-    // 1. APLICAÇÃO DE CABEÇALHOS CORS (Obrigatório para funcionar no navegador)
-    // Permite que o teu site (GitHub Pages) fale com este backend
+    // 1. CORS
     res.setHeader('Access-Control-Allow-Origin', '*'); 
     res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
 
-    // Se o navegador estiver apenas a testar a conexão (OPTIONS), responde OK imediatamente
     if (req.method === 'OPTIONS') {
         return res.status(200).end();
     }
 
     try {
-        // 2. INICIALIZAÇÃO DO FIREBASE ADMIN
-        // Verifica se o Firebase já foi iniciado para não iniciar duas vezes
+        // 2. INICIALIZAÇÃO FIREBASE
         if (admin.apps.length === 0) {
-            // Verifica se a chave mestra existe nas variáveis da Vercel
             if (!process.env.FIREBASE_SERVICE_ACCOUNT) {
-                throw new Error("ERRO CRÍTICO: A variável FIREBASE_SERVICE_ACCOUNT não foi encontrada nas configurações da Vercel.");
+                throw new Error("ERRO CRÍTICO: Variável FIREBASE_SERVICE_ACCOUNT ausente.");
             }
-            
-            // Lê e converte a chave de texto para objeto JSON
             const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
-            
-            // Corrige a formatação da chave privada se necessário
             if (serviceAccount.private_key) {
                 serviceAccount.private_key = formatPrivateKey(serviceAccount.private_key);
             }
-
-            // Inicia a conexão segura com o Banco de Dados
             admin.initializeApp({
                 credential: admin.credential.cert(serviceAccount),
                 databaseURL: "https://lerunners-a6de2-default-rtdb.firebaseio.com"
             });
         }
 
-        // 3. VALIDAÇÕES DE SEGURANÇA
-        // Garante que o método é POST
+        // 3. VALIDAÇÃO BÁSICA
         if (req.method !== 'POST') {
-            return res.status(405).json({ error: "Método não permitido. Use POST." });
+            return res.status(405).json({ error: "Método não permitido." });
         }
 
-        // Garante que enviaram o Token de Autenticação
         const authHeader = req.headers.authorization;
         if (!authHeader) {
             return res.status(401).json({ error: "Token de autorização ausente." });
         }
 
-        // 4. IDENTIFICAÇÃO DO USUÁRIO
-        // Pega o token, verifica no Firebase quem é a pessoa e pega o ID dela (uid)
+        // 4. VERIFICAÇÃO DO USUÁRIO
         const idToken = authHeader.split("Bearer ")[1];
         const decodedToken = await admin.auth().verifyIdToken(idToken);
         const userId = decodedToken.uid;
 
-        // 5. RECEBIMENTO DO CÓDIGO STRAVA
-        const { code } = req.body;
-        if (!code) {
-            return res.status(400).json({ error: "Código Strava não recebido." });
-        }
-
-        // Lê as chaves do Strava das variáveis de ambiente
+        // 5. LÓGICA DE TROCA (CODE ou REFRESH_TOKEN)
+        const { code, refresh_token } = req.body;
+        
         const clientID = process.env.STRAVA_CLIENT_ID;
         const clientSecret = process.env.STRAVA_CLIENT_SECRET;
 
         if (!clientID || !clientSecret) {
-            throw new Error("Configuração do Strava (ID/Secret) ausente na Vercel.");
+            throw new Error("Credenciais Strava ausentes na Vercel.");
         }
 
-        // 6. TROCA DE CÓDIGO POR TOKEN (Chamada à API do Strava)
-        const stravaResponse = await axios.post("https://www.strava.com/oauth/token", {
-            client_id: clientID,
-            client_secret: clientSecret,
-            code: code,
-            grant_type: "authorization_code",
-        });
+        let stravaResponse;
+        
+        // CENÁRIO A: Troca inicial (Authorization Code)
+        if (code) {
+            stravaResponse = await axios.post("https://www.strava.com/oauth/token", {
+                client_id: clientID,
+                client_secret: clientSecret,
+                code: code,
+                grant_type: "authorization_code",
+            });
+        } 
+        // CENÁRIO B: Renovação (Refresh Token)
+        else if (refresh_token) {
+            stravaResponse = await axios.post("https://www.strava.com/oauth/token", {
+                client_id: clientID,
+                client_secret: clientSecret,
+                refresh_token: refresh_token,
+                grant_type: "refresh_token",
+            });
+        } else {
+            return res.status(400).json({ error: "Nem 'code' nem 'refresh_token' fornecidos." });
+        }
 
         const stravaData = stravaResponse.data;
 
-        // 7. SALVAMENTO DOS DADOS NO FIREBASE
-        // Grava o token de acesso do Strava no perfil do usuário
+        // 6. SALVA NO BANCO
         await admin.database().ref(`/users/${userId}/stravaAuth`).set({
             accessToken: stravaData.access_token,
             refreshToken: stravaData.refresh_token,
-            expiresAt: stravaData.expires_at,
-            athleteId: stravaData.athlete.id,
+            expiresAt: stravaData.expires_at, // Timestamp Unix
+            athleteId: stravaData.athlete ? stravaData.athlete.id : null, // No refresh, athlete pode não vir
             connectedAt: new Date().toISOString()
         });
+        
+        // Se for refresh, mantém o ID do atleta antigo se não vier no novo
+        if (!stravaData.athlete && refresh_token) {
+             const oldDataSnapshot = await admin.database().ref(`/users/${userId}/stravaAuth/athleteId`).once('value');
+             if (oldDataSnapshot.exists()) {
+                 await admin.database().ref(`/users/${userId}/stravaAuth/athleteId`).set(oldDataSnapshot.val());
+             }
+        }
 
-        // 8. RESPOSTA DE SUCESSO
-        return res.status(200).json({ success: true, message: "Conectado com sucesso!" });
+        return res.status(200).json({ success: true, message: "Token atualizado com sucesso!", data: stravaData });
 
     } catch (error) {
-        console.error("ERRO NO BACKEND:", error);
-        
-        // Retorna o erro detalhado para facilitar o diagnóstico
+        console.error("ERRO BACKEND:", error.response ? error.response.data : error.message);
         return res.status(500).json({ 
-            error: "Erro interno no servidor Vercel", 
-            details: error.message,
-            stack: error.stack 
+            error: "Erro no processamento Strava", 
+            details: error.response ? error.response.data : error.message 
         });
     }
 }

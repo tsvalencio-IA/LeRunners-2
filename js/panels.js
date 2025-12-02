@@ -45,6 +45,10 @@ const AdminPanel = {
                         <i class='bx bxs-user-plus' style="color: #dc3545;"></i>
                         <span>Aprovações <span id="badge-aprovacoes" class="badge">0</span></span>
                     </div>
+                    <div class="action-card" onclick="AdminPanel.showSection('financeiro')">
+                        <i class='bx bxs-dollar-circle' style="color: #ffc107;"></i>
+                        <span>Financeiro</span>
+                    </div>
                     <div class="action-card" onclick="AdminPanel.showSection('ia')">
                         <i class='bx bxs-brain' style="color: #17a2b8;"></i>
                         <span>IA Analysis</span>
@@ -105,7 +109,6 @@ const AdminPanel = {
             AdminPanel.renderAthleteList();
         }
         else if (section === 'ia') {
-            // AQUI ESTÁ A CORREÇÃO DA IA
             area.innerHTML = `
                 <div class="section-header">
                     <h3><i class='bx bxs-brain'></i> Inteligência Artificial (KPIs)</h3>
@@ -254,7 +257,6 @@ const AdminPanel = {
     
     loadWorkspaceWorkouts: (uid) => {
         const div = document.getElementById('ws-timeline');
-        // AQUI ESTAVA O ERRO DE TRAVAMENTO: Agora com try/catch
         try {
             AdminPanel.state.db.ref(`data/${uid}/workouts`).orderByChild('date').limitToLast(50).on('value', snap => {
                 div.innerHTML = ""; if(!snap.exists()) { div.innerHTML = "Sem treinos."; return; }

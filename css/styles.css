@@ -1,36 +1,80 @@
 /* =================================================================== */
-/* ESTILO V8.0 - BASE V2 (QUE FUNCIONAVA) + CORREÇÕES
+/* ESTILO COMPLETO V13.0 (SISRUN + TABLES + LOGO FIX)
 /* =================================================================== */
-:root { --primary: #00008B; --bg: #f4f5f7; }
-body { background: var(--bg); font-family: sans-serif; margin: 0; }
+
+:root {
+    --primary-color: #00008B; --secondary-color: #4169E1; --danger-color: #DC3545;
+    --success-color: #28a745; --warning-color: #ffc107; --strava-orange: #fc4c02;
+    --light-gray: #f4f5f7; --text-color: #333; --border-color: #e0e0e0;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; font-family: sans-serif; }
+body { background: var(--light-gray); color: var(--text-color); display: flex; flex-direction: column; min-height: 100vh; }
 .hidden { display: none !important; }
 
-/* Login Fix */
-.login-container { max-width: 400px; margin: 50px auto; background: white; padding: 20px; border-radius: 8px; text-align: center; }
-.logo { max-width: 120px; margin-bottom: 20px; } /* Logo corrigido */
-input { width: 100%; padding: 10px; margin: 10px 0; border: 1px solid #ccc; border-radius: 4px; }
-button { width: 100%; padding: 10px; background: var(--primary); color: white; border: none; cursor: pointer; border-radius: 4px; }
+/* Components */
+.btn { display: inline-block; padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer; color: white; font-weight: bold; }
+.btn-primary { background: var(--primary-color); }
+.btn-secondary { background: var(--secondary-color); }
+.btn-success { background: var(--success-color); }
+.btn-danger { background: var(--danger-color); }
+.btn-small { padding: 5px 10px; font-size: 0.8rem; }
+.btn-icon { background: none; color: #666; font-size: 1.2rem; }
 
-/* App Layout */
-.app-header { background: white; padding: 10px 20px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
-.app-main { padding: 20px; max-width: 1000px; margin: 0 auto; }
+/* Layout */
+.app-header { background: white; padding: 15px; display: flex; justify-content: space-between; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+.app-main { flex: 1; padding: 20px; max-width: 1200px; margin: 0 auto; width: 100%; }
+.panel { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
 
-/* Dashboard SisRun Simplificado */
+/* Dashboard SisRun */
 .sisrun-dashboard { padding: 10px; }
-.actions-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 15px; margin-bottom: 20px; }
-.action-card { background: white; padding: 20px; text-align: center; border-radius: 8px; cursor: pointer; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
-.action-card:hover { background: #eee; }
-.action-card i { font-size: 2rem; color: var(--primary); display: block; margin-bottom: 5px; }
+.dashboard-header { display: flex; justify-content: space-between; margin-bottom: 20px; flex-wrap: wrap; }
+.feedback-stats { display: flex; gap: 15px; background: white; padding: 10px 20px; border-radius: 50px; }
+.stat-face i { font-size: 1.5rem; margin-right: 5px; }
+.stat-face.happy i { color: var(--success-color); }
+.stat-face.neutral i { color: var(--warning-color); }
+.stat-face.sad i { color: var(--danger-color); }
 
-/* Tables & Lists */
-.sisrun-table { width: 100%; background: white; border-collapse: collapse; }
-.sisrun-table td, .sisrun-table th { padding: 10px; border-bottom: 1px solid #eee; }
-.strava-pill { background: #fff5eb; color: #fc4c02; padding: 2px 5px; border-radius: 4px; font-size: 0.8rem; border: 1px solid #fc4c02; }
+.actions-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px; margin-bottom: 20px; }
+.action-card { background: white; padding: 20px; text-align: center; border-radius: 10px; cursor: pointer; border: 1px solid #eee; transition: 0.2s; position: relative; }
+.action-card:hover { transform: translateY(-3px); border-color: var(--secondary-color); }
+.action-card i { font-size: 2.5rem; display: block; margin-bottom: 10px; }
+.badge { background: red; color: white; padding: 2px 6px; border-radius: 10px; font-size: 0.7rem; position: absolute; top: 10px; right: 10px; }
 
-/* Cards */
-.workout-card { background: white; padding: 15px; margin-bottom: 10px; border-radius: 8px; cursor: pointer; border-left: 5px solid var(--primary); }
-.athlete-card-mini { background: white; padding: 10px; margin-bottom: 5px; cursor: pointer; border: 1px solid #eee; }
+/* Tables */
+.sisrun-table { width: 100%; border-collapse: collapse; background: white; border-radius: 8px; overflow: hidden; }
+.sisrun-table th { background: #f4f5f7; padding: 12px; text-align: left; color: #666; font-size: 0.9rem; }
+.sisrun-table td { padding: 12px; border-bottom: 1px solid #eee; }
+.strava-pill { background: #fff5eb; color: #fc4c02; padding: 5px; border-radius: 4px; font-size: 0.8rem; display: inline-block; border: 1px solid #fc4c02; }
+.user-info { display: flex; align-items: center; gap: 10px; }
+.user-info img { width: 35px; height: 35px; border-radius: 50%; }
 
-/* Modal */
-.modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); display: flex; justify-content: center; align-items: center; }
-.modal-content { background: white; padding: 20px; width: 90%; max-width: 500px; border-radius: 8px; max-height: 80vh; overflow-y: auto; }
+/* Workspace */
+.workspace { background: white; padding: 20px; border-radius: 8px; margin-top: 20px; }
+.workspace-tabs { display: flex; gap: 10px; margin-bottom: 20px; border-bottom: 1px solid #eee; padding-bottom: 10px; }
+.ws-tab { padding: 8px 15px; border: none; background: #eee; cursor: pointer; border-radius: 20px; }
+.ws-tab.active { background: var(--primary-color); color: white; }
+.timeline-item { display: flex; gap: 15px; margin-bottom: 15px; }
+.tl-date { text-align: center; background: #eee; padding: 10px; border-radius: 8px; min-width: 60px; height: fit-content; }
+.tl-content { flex: 1; background: white; border: 1px solid #eee; padding: 15px; border-radius: 8px; }
+.tl-content.done { border-left: 5px solid var(--success-color); }
+.tl-content.planned { border-left: 5px solid #ccc; }
+
+/* Login (Logo corrigido) */
+.login-container { max-width: 400px; margin: 50px auto; background: white; padding: 30px; border-radius: 10px; text-align: center; }
+.logo { max-width: 120px; margin-bottom: 20px; } /* <-- CORREÇÃO AQUI */
+.input-icon { position: relative; margin-bottom: 15px; }
+.input-icon i { position: absolute; left: 10px; top: 12px; color: #999; }
+.input-icon input { width: 100%; padding: 10px 10px 10px 35px; border: 1px solid #ddd; border-radius: 5px; }
+
+/* Modals */
+.modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 2000; }
+.modal-content { background: white; width: 100%; max-width: 600px; border-radius: 10px; overflow: hidden; max-height: 90vh; display: flex; flex-direction: column; }
+.modal-header { padding: 15px; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; }
+.modal-body { padding: 20px; overflow-y: auto; }
+
+/* Responsivo */
+@media (max-width: 768px) {
+    .actions-grid { grid-template-columns: 1fr 1fr; }
+    .sisrun-table th:nth-child(4), .sisrun-table td:nth-child(4) { display: none; }
+}

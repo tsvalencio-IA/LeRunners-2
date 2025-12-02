@@ -1,79 +1,130 @@
 /* =================================================================== */
-/* ESTILO COMPLETO V7.0 (SISRUN + TABLES)
+/* ESTILO CORRIGIDO (V8.0)
 /* =================================================================== */
 
 :root {
-    --primary-color: #00008B; --secondary-color: #4169E1; --danger-color: #DC3545;
-    --success-color: #28a745; --warning-color: #ffc107; --strava-orange: #fc4c02;
-    --light-gray: #f4f5f7; --text-color: #333; --border-color: #e0e0e0;
+    --primary-color: #00008B; /* Dark Blue */
+    --secondary-color: #4169E1; /* Royal Blue */
+    --danger-color: #DC3545;
+    --success-color: #28a745;
+    --warning-color: #ffc107;
+    --strava-orange: #fc4c02;
+    --light-gray: #f4f5f7;
+    --text-color: #333;
+    --text-light: #667;
+    --border-color: #e0e0e0;
+    --border-radius: 8px;
+    --shadow: 0 4px 12px rgba(0,0,0,0.08);
+    --white: #ffffff;
 }
 
-* { margin: 0; padding: 0; box-sizing: border-box; font-family: sans-serif; }
-body { background: var(--light-gray); color: var(--text-color); display: flex; flex-direction: column; min-height: 100vh; }
+* { margin: 0; padding: 0; box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+body { background-color: var(--light-gray); color: var(--text-color); line-height: 1.6; display: flex; flex-direction: column; min-height: 100vh; }
 .hidden { display: none !important; }
 
-/* Components */
-.btn { display: inline-block; padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer; color: white; font-weight: bold; }
-.btn-primary { background: var(--primary-color); }
-.btn-secondary { background: var(--secondary-color); }
-.btn-success { background: var(--success-color); }
-.btn-danger { background: var(--danger-color); }
-.btn-small { padding: 5px 10px; font-size: 0.8rem; }
-.btn-icon { background: none; color: #666; font-size: 1.2rem; }
+/* --- LOGIN E BASICS --- */
+.login-page { display: flex; justify-content: center; align-items: center; flex-grow: 1; padding: 20px; }
+.login-container { width: 100%; max-width: 450px; background: #fff; padding: 2.5rem; border-radius: var(--border-radius); box-shadow: 0 10px 30px rgba(0,0,0,0.1); }
 
-/* Layout */
-.app-header { background: white; padding: 15px; display: flex; justify-content: space-between; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
-.app-main { flex: 1; padding: 20px; max-width: 1200px; margin: 0 auto; width: 100%; }
-.panel { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
+/* CORREÇÃO DO LOGO: Mantém proporção e centraliza */
+.logo { display: block; margin: 0 auto 1.5rem auto; max-width: 150px; height: auto; object-fit: contain; }
 
-/* Dashboard SisRun */
-.sisrun-dashboard { padding: 10px; }
-.dashboard-header { display: flex; justify-content: space-between; margin-bottom: 20px; flex-wrap: wrap; }
-.feedback-stats { display: flex; gap: 15px; background: white; padding: 10px 20px; border-radius: 50px; }
-.stat-face i { font-size: 1.5rem; margin-right: 5px; }
-.stat-face.happy i { color: var(--success-color); }
-.stat-face.neutral i { color: var(--warning-color); }
-.stat-face.sad i { color: var(--danger-color); }
+.form-group { margin-bottom: 1rem; }
+.form-group label { display: block; font-weight: 600; margin-bottom: 0.5rem; font-size: 0.9rem; }
+.form-group input, .form-group textarea, .form-group select { width: 100%; padding: 0.75rem; border: 1px solid var(--border-color); border-radius: var(--border-radius); font-size: 1rem; background-color: #fff; }
+.btn { display: inline-flex; width: 100%; align-items: center; justify-content: center; gap: 0.5rem; padding: 0.85rem 1rem; border: none; border-radius: var(--border-radius); cursor: pointer; font-size: 1rem; font-weight: 700; text-transform: uppercase; transition: all 0.3s ease; color:white; }
+.btn-primary { background-color: var(--primary-color); }
+.btn-secondary { background-color: var(--secondary-color); }
+.btn-danger { background-color: var(--danger-color); }
+.btn-success { background-color: var(--success-color); }
+.btn-small { padding: 0.35rem 0.6rem; font-size: 0.8rem; width: auto; }
+.input-icon { position: relative; }
+.input-icon i { position: absolute; left: 15px; top: 50%; transform: translateY(-50%); color: #999; }
+.input-icon input { padding-left: 40px; }
+.toggle-link { text-align: center; margin-top: 1rem; font-size: 0.9rem; }
+.toggle-link a { color: var(--secondary-color); font-weight: 600; cursor: pointer; }
+.error-message { color: var(--danger-color); font-size: 0.9rem; text-align: center; margin-top: 1rem; min-height: 1.2em; }
 
-.actions-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px; margin-bottom: 20px; }
-.action-card { background: white; padding: 20px; text-align: center; border-radius: 10px; cursor: pointer; border: 1px solid #eee; transition: 0.2s; position: relative; }
-.action-card:hover { transform: translateY(-3px); border-color: var(--secondary-color); }
-.action-card i { font-size: 2.5rem; display: block; margin-bottom: 10px; }
-.badge { background: red; color: white; padding: 2px 6px; border-radius: 10px; font-size: 0.7rem; position: absolute; top: 10px; right: 10px; }
+/* --- HEADER --- */
+.app-header { background: #fff; padding: 1rem 2rem; box-shadow: var(--shadow); display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 1000; }
+.app-header h1 { color: var(--primary-color); font-size: 1.5rem; }
+.app-header nav { display: flex; align-items: center; gap: 0.5rem; }
+.btn-nav { background: transparent; color: var(--text-light); font-size: 0.9rem; padding: 0.5rem 1rem; width: auto; border:none; cursor: pointer; }
+.btn-nav.active { background-color: var(--light-gray); color: var(--primary-color); font-weight: bold; border-radius: 8px; }
+.user-display { font-weight: 600; font-size: 0.9rem; margin-left: 1rem; border-left: 1px solid #ccc; padding-left: 1rem; }
+.app-main { max-width: 1400px; margin: 2rem auto; padding: 0 2rem; width: 100%; }
+.app-footer { text-align: center; padding: 2rem; color: #666; font-size: 0.9rem; border-top: 1px solid #eee; margin-top: 2rem; }
 
-/* Tables */
-.sisrun-table { width: 100%; border-collapse: collapse; background: white; border-radius: 8px; overflow: hidden; }
-.sisrun-table th { background: #f4f5f7; padding: 12px; text-align: left; color: #666; font-size: 0.9rem; }
-.sisrun-table td { padding: 12px; border-bottom: 1px solid #eee; }
-.strava-pill { background: #fff5eb; color: #fc4c02; padding: 5px; border-radius: 4px; font-size: 0.8rem; display: inline-block; border: 1px solid #fc4c02; }
+/* --- PAINEL SISRUN (DASHBOARD) --- */
+.sisrun-dashboard { padding: 1rem; }
+.dashboard-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem; flex-wrap: wrap; gap:15px; }
+.coach-avatar { width: 50px; height: 50px; background: #eee; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 1.5rem; color: #555; }
+.feedback-stats { display: flex; gap: 15px; align-items: center; background: #fff; padding: 10px 20px; border-radius: 50px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
+.stat-face { display: flex; align-items: center; gap: 5px; font-weight: bold; font-size: 1.1rem; }
+.stat-face.happy i { color: #28a745; font-size: 1.4rem; }
+.stat-face.neutral i { color: #ffc107; font-size: 1.4rem; }
+.stat-face.sad i { color: #dc3545; font-size: 1.4rem; }
+.stat-label { font-size: 0.8rem; color: #777; margin-left: 10px; border-left: 1px solid #ddd; padding-left: 10px; }
+
+/* Grade de Ícones */
+.actions-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 1.5rem; margin-bottom: 2rem; }
+.action-card { background: #fff; padding: 1.5rem; border-radius: 12px; text-align: center; box-shadow: 0 4px 6px rgba(0,0,0,0.05); cursor: pointer; transition: transform 0.2s; border: 1px solid #eee; display: flex; flex-direction: column; align-items: center; gap: 10px; position: relative; }
+.action-card:hover { transform: translateY(-5px); border-color: var(--secondary-color); }
+.action-card i { font-size: 2.2rem; margin-bottom: 5px; }
+.action-card span { font-weight: 600; color: #555; font-size: 0.95rem; }
+.badge { background: #dc3545; color: white; padding: 2px 6px; border-radius: 10px; font-size: 0.7rem; position: absolute; top: 10px; right: 10px; }
+
+/* Tabelas (Estilo SisRun) */
+.sisrun-table { width: 100%; border-collapse: collapse; background: #fff; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
+.sisrun-table th { background: #f4f5f7; padding: 15px; text-align: left; color: #666; font-size: 0.85rem; text-transform: uppercase; font-weight: 700; }
+.sisrun-table td { padding: 12px 15px; border-bottom: 1px solid #eee; vertical-align: middle; font-size: 0.9rem; }
 .user-info { display: flex; align-items: center; gap: 10px; }
-.user-info img { width: 35px; height: 35px; border-radius: 50%; }
+.user-info img { width: 36px; height: 36px; border-radius: 50%; object-fit: cover; }
+.strava-pill { background: #fff5eb; border: 1px solid #fc4c02; color: #fc4c02; padding: 4px 8px; border-radius: 4px; font-size: 0.8rem; display: inline-block; line-height: 1.2; margin-top:5px; }
+.workout-title { font-weight: 600; color: var(--primary-color); }
+.btn-icon { background:none; border:none; cursor:pointer; font-size:1.2rem; color:var(--secondary-color); }
 
-/* Workspace */
-.workspace { background: white; padding: 20px; border-radius: 8px; margin-top: 20px; }
-.workspace-tabs { display: flex; gap: 10px; margin-bottom: 20px; border-bottom: 1px solid #eee; padding-bottom: 10px; }
-.ws-tab { padding: 8px 15px; border: none; background: #eee; cursor: pointer; border-radius: 20px; }
-.ws-tab.active { background: var(--primary-color); color: white; }
+/* Workspace & Planilha */
+.workspace { background: #fff; padding: 20px; border-radius: 12px; box-shadow: 0 5px 15px rgba(0,0,0,0.1); margin-top: 20px; }
+.workspace-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 1px solid #eee; padding-bottom: 15px; }
+.workspace-tabs { display: flex; gap: 10px; margin-bottom: 20px; }
+.ws-tab { padding: 8px 20px; border: none; background: #f4f5f7; border-radius: 20px; cursor: pointer; font-weight: 600; color: #666; }
+.ws-tab.active { background: var(--primary-color); color: #fff; }
+.prescription-box { background: #f8f9fa; padding: 20px; border-radius: 8px; border: 1px solid #ddd; margin-bottom: 25px; }
+.presc-form .row { display: flex; gap: 10px; margin-bottom: 10px; }
+
+/* Cards do Atleta */
+.athlete-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 15px; margin-top: 15px; }
+.athlete-card-mini { background: #fff; padding: 15px; border-radius: 8px; border: 1px solid #eee; display: flex; align-items: center; justify-content: space-between; cursor: pointer; transition: all 0.2s; }
+.athlete-card-mini:hover { border-color: var(--secondary-color); box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
+.athlete-card-mini img { width: 40px; height: 40px; border-radius: 50%; }
+
+/* Timeline e Modais */
 .timeline-item { display: flex; gap: 15px; margin-bottom: 15px; }
-.tl-date { text-align: center; background: #eee; padding: 10px; border-radius: 8px; min-width: 60px; height: fit-content; }
-.tl-content { flex: 1; background: white; border: 1px solid #eee; padding: 15px; border-radius: 8px; }
-.tl-content.done { border-left: 5px solid var(--success-color); }
-.tl-content.planned { border-left: 5px solid #ccc; }
+.tl-date { display: flex; flex-direction: column; align-items: center; background: #eee; padding: 10px; border-radius: 8px; min-width: 60px; height: fit-content; }
+.tl-date span { font-size: 1.2rem; font-weight: bold; color: var(--primary-color); }
+.tl-content { flex: 1; background: #fff; border: 1px solid #eee; padding: 15px; border-radius: 8px; }
+.tl-content.done { border-left: 5px solid #28a745; }
+.tl-content.planned { border-left: 5px solid #999; }
+.tl-strava { color: #fc4c02; font-weight: bold; font-size: 0.85rem; margin-top: 8px; border-top: 1px dashed #eee; padding-top: 5px; }
 
-/* Login */
-.login-container { max-width: 400px; margin: 50px auto; background: white; padding: 30px; border-radius: 10px; text-align: center; }
-.input-icon { position: relative; margin-bottom: 15px; }
-.input-icon i { position: absolute; left: 10px; top: 12px; color: #999; }
-.input-icon input { width: 100%; padding: 10px 10px 10px 35px; border: 1px solid #ddd; border-radius: 5px; }
+/* Modal */
+.modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); display: flex; align-items: center; justify-content: center; z-index: 2000; padding: 20px; }
+.modal-content { background: #fff; border-radius: 8px; width: 100%; max-width: 600px; max-height: 90vh; display: flex; flex-direction: column; }
+.modal-header { display: flex; justify-content: space-between; align-items: center; padding: 1rem 1.5rem; border-bottom: 1px solid #eee; }
+.modal-body { padding: 1.5rem; overflow-y: auto; }
+.close-btn { background: none; border: none; font-size: 1.5rem; cursor: pointer; }
 
-/* Modals */
-.modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 2000; }
-.modal-content { background: white; width: 100%; max-width: 600px; border-radius: 10px; overflow: hidden; max-height: 90vh; display: flex; flex-direction: column; }
-.modal-header { padding: 15px; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; }
-.modal-body { padding: 20px; overflow-y: auto; }
+/* Loader */
+.loader-container { display: flex; flex-direction: column; justify-content: center; align-items: center; height: 100vh; }
+.loader { border: 6px solid #f3f3f3; border-top: 6px solid var(--primary-color); border-radius: 50%; width: 50px; height: 50px; animation: spin 1s linear infinite; }
+@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
 
-/* Responsivo */
+/* Mobile */
 @media (max-width: 768px) {
+    .dashboard-header { flex-direction: column; align-items: flex-start; gap: 15px; }
     .actions-grid { grid-template-columns: 1fr 1fr; }
-    .sisrun-table th:nth-child(4), .sisrun-table td:nth-child(4) { display: none; }
+    .presc-form .row { flex-direction: column; }
+    .sisrun-table th:nth-child(4), .sisrun-table td:nth-child(4) { display: none; } /* Oculta detalhes strava na tabela mobile */
+    .app-main { padding: 0 10px; }
 }

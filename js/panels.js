@@ -26,7 +26,7 @@ const AdminPanel = {
         if(AdminPanel.elements.analyzeAthleteBtnIa) AdminPanel.elements.analyzeAthleteBtnIa.addEventListener('click', AdminPanel.handleAnalyzeAthleteIA);
         
         AdminPanel.loadAthletes();
-        // O restante das funções V2 (pendentes, tabs, etc) dependem da seleção de atleta
+        AdminPanel.loadPendingApprovals(); // Restaura aprovações V2
     },
 
     loadAthletes: () => {
@@ -90,7 +90,6 @@ const AdminPanel = {
         AdminPanel.state.db.ref(`data/${uid}/workouts`).push(data)
             .then(() => {
                 alert("Treino salvo!");
-                // Reseta apenas os campos mutáveis
                 form.querySelector('#workout-title').value = '';
                 form.querySelector('#workout-distancia').value = '';
                 form.querySelector('#workout-observacoes').value = '';
@@ -132,6 +131,7 @@ const AdminPanel = {
         return el;
     },
     
+    // IA (Função Ligada ao Botão do Template)
     handleAnalyzeAthleteIA: async () => {
         const uid = AdminPanel.state.selectedAthleteId;
         if(!uid) return alert("Selecione um aluno!");
@@ -203,7 +203,7 @@ const AdminPanel = {
 const AtletaPanel = {
     init: (user, db) => {
         const list = document.getElementById('atleta-workouts-list');
-        list.innerHTML = "Carregando...";
+        document.getElementById('log-manual-activity-btn').onclick = AppPrincipal.openLogActivityModal;
         db.ref(`data/${user.uid}/workouts`).orderByChild('date').on('value', s => {
             list.innerHTML = "";
             if(!s.exists()) { list.innerHTML = "Sem treinos."; return; }
@@ -220,7 +220,8 @@ const FeedPanel = {
     init: (user, db) => {
         const list = document.getElementById('feed-list');
         db.ref('publicWorkouts').limitToLast(20).on('value', s => {
-            list.innerHTML = ""; if(!s.exists()) return;
+            list.innerHTML = "";
+            if(!s.exists()) return;
             const l = []; s.forEach(c => l.push({k:c.key, ...c.val()})); l.reverse();
             l.forEach(w => {
                 list.innerHTML += `<div class="workout-card" onclick="AppPrincipal.openFeedbackModal('${w.k}','${w.ownerId}','${w.title}')"><b>${w.ownerName}</b>: ${w.title}</div>`;

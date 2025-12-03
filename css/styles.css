@@ -39,7 +39,6 @@ body { background-color: var(--light-gray); color: var(--text-color); display: f
 .sisrun-dashboard { padding: 10px; }
 .actions-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 15px; margin-bottom: 20px; }
 .action-card { background: white; padding: 20px; text-align: center; border-radius: 8px; cursor: pointer; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
-.athlete-list-item { display: flex; justify-content: space-between; align-items: center; padding: 1rem; border: 1px solid var(--border-color); border-radius: var(--border-radius); margin-bottom: 0.5rem; cursor: pointer; }
 
 /* TABELAS */
 .sisrun-table { width: 100%; background: white; border-collapse: collapse; }

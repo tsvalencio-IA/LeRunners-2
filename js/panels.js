@@ -20,7 +20,7 @@ const AdminPanel = {
             iaHistoryList: document.getElementById('ia-history-list')
         };
         
-        // Binds (Corrige o erro de 'onclick of null')
+        // Binds
         if(AdminPanel.elements.athleteSearch) AdminPanel.elements.athleteSearch.addEventListener('input', AdminPanel.renderAthleteList);
         if(AdminPanel.elements.addWorkoutForm) AdminPanel.elements.addWorkoutForm.addEventListener('submit', AdminPanel.handleAddWorkout);
         if(AdminPanel.elements.analyzeAthleteBtnIa) AdminPanel.elements.analyzeAthleteBtnIa.addEventListener('click', AdminPanel.handleAnalyzeAthleteIA);
@@ -209,7 +209,7 @@ const AtletaPanel = {
             const l = []; s.forEach(c => l.push({k:c.key, ...c.val()}));
             l.sort((a,b)=>new Date(b.date)-new Date(a.date));
             l.forEach(w => {
-                list.innerHTML += `<div class="workout-card" onclick="AppPrincipal.openFeedbackModal('${w.k}','${user.uid}','${w.title}')"><b>${w.date}</b> - ${w.title}<br>${w.status}</div>`;
+                list.innerHTML += `<div class=\"workout-card\" onclick=\"AppPrincipal.openFeedbackModal('${w.k}','${user.uid}','${w.title}')\"><b>${w.date}</b> - ${w.title}<br>${w.status}</div>`;
             });
         });
     }
@@ -223,7 +223,7 @@ const FeedPanel = {
             if(!s.exists()) return;
             const l = []; s.forEach(c => l.push({k:c.key, ...c.val()})); l.reverse();
             l.forEach(w => {
-                list.innerHTML += `<div class="workout-card" onclick="AppPrincipal.openFeedbackModal('${w.k}','${w.ownerId}','${w.title}')"><b>${w.ownerName}</b>: ${w.title}</div>`;
+                list.innerHTML += `<div class=\"workout-card\" onclick=\"AppPrincipal.openFeedbackModal('${w.k}','${w.ownerId}','${w.title}')\"><b>${w.ownerName}</b>: ${w.title}</div>`;
             });
         });
     }

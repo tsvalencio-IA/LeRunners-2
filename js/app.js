@@ -1,9 +1,14 @@
 /* =================================================================== */
-/* APP.JS V20.0 - BASE V2 COMPLETA (SEM OMISSÕES)
+/* APP.JS V20.0 - BASE V2 COM DEEP SYNC E LOGIN CORRIGIDO (COMPLETO)
 /* =================================================================== */
 
 const AppPrincipal = {
-    state: { currentUser: null, userData: null, db: null, auth: null, listeners: {}, currentView: 'planilha', adminUIDs: {}, userCache: {}, modal: { isOpen: false, currentWorkoutId: null, currentOwnerId: null }, stravaTokenData: null },
+    state: {
+        currentUser: null, userData: null, db: null, auth: null,
+        listeners: {}, currentView: 'planilha', viewMode: 'admin',
+        adminUIDs: {}, userCache: {}, modal: { isOpen: false, currentWorkoutId: null, currentOwnerId: null },
+        stravaTokenData: null
+    },
     elements: {},
 
     init: () => {
@@ -13,6 +18,7 @@ const AppPrincipal = {
         AppPrincipal.state.auth = firebase.auth();
         AppPrincipal.state.db = firebase.database();
 
+        // Roteamento V2 Original
         if (document.getElementById('login-form')) {
             AuthLogic.init(AppPrincipal.state.auth);
         } else if (document.getElementById('app-container')) {
@@ -80,7 +86,6 @@ const AppPrincipal = {
         document.querySelectorAll('.btn-nav').forEach(b => b.classList.remove('active'));
         const btn = document.getElementById(`nav-${page}-btn`); if(btn) btn.classList.add('active');
 
-        // CLONAGEM DE TEMPLATE (Fluxo V2 Seguro)
         const tplId = page === 'planilha' ? (AppPrincipal.state.userData.role === 'admin' ? 'admin-panel-template' : 'atleta-panel-template') : 'feed-panel-template';
         const tpl = document.getElementById(tplId);
 
@@ -97,7 +102,7 @@ const AppPrincipal = {
 
     handleLogout: () => AppPrincipal.state.auth.signOut().then(() => window.location.href = 'index.html'),
 
-    // --- STRAVA DEEP SYNC (COMPLETO) ---
+    // --- STRAVA DEEP SYNC (FUNÇÃO COMPLETA) ---
     handleStravaConnect: () => { 
         window.location.href = `https://www.strava.com/oauth/authorize?client_id=${window.STRAVA_PUBLIC_CONFIG.clientID}&response_type=code&redirect_uri=${window.STRAVA_PUBLIC_CONFIG.redirectURI}&approval_prompt=force&scope=read_all,activity:read_all,profile:read_all`; 
     },
@@ -156,7 +161,7 @@ const AppPrincipal = {
         } catch(e) { alert("Erro Sync: "+e.message); } finally { if(btn) { btn.disabled=false; btn.textContent="Sincronizar Strava"; } }
     },
 
-    // --- MODAL COMPLETO (COMPLETO) ---
+    // --- MODAL COMPLETO ---
     openFeedbackModal: (wid, oid, title) => {
         const modal = document.getElementById('feedback-modal');
         AppPrincipal.state.modal = { isOpen:true, currentWorkoutId:wid, currentOwnerId:oid };
@@ -201,7 +206,7 @@ const AppPrincipal = {
         const { currentWorkoutId, currentOwnerId } = AppPrincipal.state.modal;
         const updates = { status: document.getElementById('workout-status').value, feedback: document.getElementById('workout-feedback-text').value, realizadoAt: new Date().toISOString() };
         await AppPrincipal.state.db.ref(`data/${currentOwnerId}/workouts/${currentWorkoutId}`).update(updates);
-        const full = (await AppPrincipal.state.db.ref(`data/${currentOwnerId}/workouts/${currentWorkoutId}`).once('value')).val();
+        const full = (await AppPrincipal.state.db.ref(`data/${currentWorkoutId}/workouts/${currentWorkoutId}`).once('value')).val();
         if(updates.status !== 'planejado') await AppPrincipal.state.db.ref(`publicWorkouts/${currentWorkoutId}`).set({ownerId: currentOwnerId, ownerName: AppPrincipal.state.userCache[currentOwnerId]?.name, ...full});
         document.getElementById('feedback-modal').classList.add('hidden');
     },

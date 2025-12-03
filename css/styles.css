@@ -1,60 +1,1027 @@
 /* =================================================================== */
-/* ESTILO V19.0 - BASE V2 + SISRUN + LOGO FIX (COMPLETO)
+/* 1. RESET E VARIÁVEIS GLOBAIS
 /* =================================================================== */
 :root {
-    --primary-color: #00008B; --secondary-color: #4169E1; --danger-color: #DC3545;
-    --success-color: #28a745; --warning-color: #ffc107; --strava-orange: #e87a38;
-    --light-gray: #f4f5f7; --text-color: #333; --border-color: #e0e0e0;
-    --border-radius: 8px; --shadow: 0 4px 12px rgba(0,0,0,0.08); --white: #ffffff;
+    --primary-color: #00008B; /* Dark Blue */
+    --secondary-color: #4169E1; /* Royal Blue */
+    --danger-color: #DC3545;
+    --success-color: #28a745;
+    --warning-color: #ffc107;
+    --strava-orange: #e87a38;
+    --light-gray: #f4f5f7;
+    --text-color: #333;
+    --text-light: #667;
+    --border-color: #e0e0e0;
+    --border-radius: 8px;
+    --shadow: 0 4px 12px rgba(0,0,0,0.08);
+    --white: #ffffff;
 }
 
-* { margin: 0; padding: 0; box-sizing: border-box; font-family: sans-serif; }
-body { background-color: var(--light-gray); color: var(--text-color); display: flex; flex-direction: column; min-height: 100vh; }
-.hidden { display: none !important; }
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
 
-/* Components */
-.btn { display: inline-flex; width: 100%; align-items: center; justify-content: center; padding: 0.85rem 1rem; border: none; border-radius: var(--border-radius); cursor: pointer; font-size: 1rem; font-weight: 700; text-align: center; text-transform: uppercase; text-decoration: none; color: white; }
-.btn-primary { background-color: var(--primary-color); }
-.btn-secondary { background-color: var(--secondary-color); }
+body {
+    background-color: var(--light-gray);
+    color: var(--text-color);
+    line-height: 1.6;
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+}
+
+.hidden {
+    display: none !important;
+}
+
+h2 { color: var(--primary-color); }
+.subtitle {
+    color: var(--text-light);
+    margin-bottom: 1.5rem;
+    text-align: center;
+}
+hr { border: 0; height: 1px; background-color: var(--border-color); margin: 1.5rem 0; }
+fieldset {
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius);
+    padding: 1rem;
+    margin-bottom: 1rem;
+}
+legend {
+    font-weight: 600;
+    color: var(--primary-color);
+    padding: 0 0.5rem;
+    margin-left: 0.5rem;
+}
+
+/* =================================================================== */
+/* 2. COMPONENTES REUTILIZÁVEIS (Botões, Formulários, etc)
+/* =================================================================== */
+.btn {
+    display: inline-flex;
+    width: 100%;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    padding: 0.85rem 1rem;
+    border: none;
+    border-radius: var(--border-radius);
+    cursor: pointer;
+    font-size: 1rem;
+    font-weight: 700;
+    text-align: center;
+    transition: all 0.3s ease;
+    text-transform: uppercase;
+    text-decoration: none;
+}
+
+.btn-primary { background-color: var(--primary-color); color: #fff; }
+.btn-primary:hover:not(:disabled) { background-color: #00005a; transform: translateY(-2px); }
+
+.btn-secondary { background-color: var(--secondary-color); color: #fff; }
+.btn-secondary:hover:not(:disabled) { background-color: #2a4ac8; }
+
+.btn-danger { background-color: var(--danger-color); color: #fff; }
+.btn-danger:hover:not(:disabled) { background-color: #a71d2a; }
+
+.btn-success { background-color: var(--success-color); color: #fff; }
+.btn-success:hover:not(:disabled) { background-color: #1e7e34; }
+
 .btn-small { padding: 0.35rem 0.6rem; font-size: 0.8rem; width: auto; }
 
-/* Login & Logo Fix */
-.login-container { max-width: 450px; margin: 50px auto; background-color: #fff; padding: 2.5rem; border-radius: var(--border-radius); box-shadow: 0 10px 30px rgba(0,0,0,0.1); }
-/* CORREÇÃO LOGO: Trava o tamanho */
-.logo { max-width: 120px !important; height: auto; object-fit: contain; margin: 0 auto 1rem auto; display: block; } 
+.btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
 
-/* App Layout */
-.app-header { background-color: #fff; padding: 1rem 2rem; box-shadow: var(--shadow); display: flex; justify-content: space-between; align-items: center; }
-.app-main { max-width: 1400px; margin: 2rem auto; padding: 0 2rem; width: 100%; }
-.app-footer { text-align: center; padding: 2rem 1rem; color: var(--text-light); border-top: 1px solid var(--border-color); }
+/* Botões de Navegação (V2) */
+.btn-nav {
+    background-color: transparent;
+    color: var(--text-light);
+    text-transform: none;
+    font-size: 0.9rem;
+    width: auto;
+    padding: 0.5rem 1rem;
+}
+.btn-nav.active,
+.btn-nav:hover {
+    background-color: var(--light-gray);
+    color: var(--primary-color);
+}
+.btn-nav i {
+    font-size: 1.2rem;
+}
 
-/* Forms and Inputs */
-.form-group { margin-bottom: 1rem; }
-.form-group label { display: block; font-weight: 600; margin-bottom: 0.5rem; font-size: 0.9rem; }
-.form-group input, .form-group textarea, .form-group select, .search-input { width: 100%; padding: 0.75rem; border: 1px solid var(--border-color); border-radius: var(--border-radius); font-size: 1rem; }
-.form-grid-2col { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
-.form-minimal { background: var(--light-gray); padding: 1rem; border-radius: var(--border-radius); border: 1px solid var(--border-color); }
+.panel {
+    background: #fff;
+    border-radius: var(--border-radius);
+    padding: 1.5rem;
+    box-shadow: var(--shadow);
+    margin-top: 1.5rem;
+}
 
-/* SISRUN/ADMIN LAYOUT */
-.sisrun-dashboard { padding: 10px; }
-.actions-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 15px; margin-bottom: 20px; }
-.action-card { background: white; padding: 20px; text-align: center; border-radius: 8px; cursor: pointer; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
+.form-group {
+    margin-bottom: 1rem;
+}
+.form-group label {
+    display: block;
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+    font-size: 0.9rem;
+}
+.form-group input,
+.form-group textarea,
+.form-group select,
+.search-input {
+    width: 100%;
+    padding: 0.75rem;
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius);
+    font-size: 1rem;
+    background-color: #fff;
+}
+/* Estilo para input[type=file] (V2.3) */
+.form-group input[type="file"] {
+    padding: 0.5rem;
+    font-size: 0.9rem;
+    background: var(--light-gray);
+    cursor: pointer;
+}
+/* Feedback de Upload (V2.6) */
+.upload-feedback {
+    font-size: 0.85rem;
+    color: var(--strava-orange);
+    font-style: italic;
+    margin-top: 0.5rem;
+}
 
-/* TABELAS */
-.sisrun-table { width: 100%; background: white; border-collapse: collapse; }
-.sisrun-table td, .sisrun-table th { padding: 10px; border-bottom: 1px solid #eee; text-align:left; }
-.strava-pill { background: #fff5eb; border: 1px solid var(--strava-orange); color: var(--strava-orange); padding: 2px 5px; border-radius: 4px; font-size: 0.8rem; }
+.form-group textarea {
+    resize: vertical;
+}
 
-/* Cards V2 */
-.workout-card { background: #fff; border: 1px solid var(--border-color); border-radius: var(--border-radius); margin-bottom: 1rem; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
-.workout-card-header { display: flex; justify-content: space-between; align-items: center; padding: 1rem 1rem 0.5rem 1rem; gap: 0.5rem; }
-.workout-card-body { padding: 0.5rem 1rem 1rem 1rem; }
+/* =================================================================== */
+/* 3. TELA DE LOGIN (index.html)
+/* =================================================================== */
+.login-page {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    flex-grow: 1; /* Para centralizar verticalmente com o footer */
+    padding: 20px;
+}
 
-/* MODAIS */
-.modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); display: flex; align-items: center; justify-content: center; z-index: 2000; padding: 20px; }
-.modal-content { background: var(--white); border-radius: var(--border-radius); max-width: 600px; max-height: 90vh; overflow-y: auto; }
+.login-container {
+    width: 100%;
+    max-width: 450px;
+    background-color: #fff;
+    padding: 2.5rem;
+    border-radius: var(--border-radius);
+    box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+}
 
-/* Responsivo */
-@media (max-width: 768px) {
-    .form-grid-2col { grid-template-columns: 1fr; }
+.logo {
+    display: block;
+    margin: 0 auto 1rem auto;
+    width: 120px;
+    height: 120px;
+    /* (V3.0) */
+    border-radius: 0; 
+    object-fit: contain; 
+}
+
+.login-container h2 {
+    text-align: center;
+    margin-bottom: 0.25rem;
+}
+
+.input-icon {
+    position: relative;
+}
+.input-icon i {
+    position: absolute;
+    left: 15px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #999;
+}
+.input-icon input {
+    padding-left: 40px;
+}
+
+.error-message {
+    color: var(--danger-color);
+    font-size: 0.9rem;
+    text-align: center;
+    margin-top: 1rem;
+    min-height: 1.2em;
+}
+
+.toggle-link {
+    text-align: center;
+    margin-top: 1rem;
+    font-size: 0.9rem;
+}
+.toggle-link a {
+    color: var(--secondary-color);
+    font-weight: 600;
+    text-decoration: none;
+    cursor: pointer;
+}
+
+/* Mensagem de Pendente */
+#pending-view {
+    text-align: center;
+    border-top: 4px solid var(--warning-color);
+}
+#pending-view h3 {
+    color: var(--warning-color);
+    margin-bottom: 1rem;
+}
+#pending-view button {
+    width: auto;
+    margin-top: 1rem;
+}
+
+/* =================================================================== */
+/* 4. TELA DA PLATAFORMA (app.html)
+/* =================================================================== */
+#app-container {
+    flex-grow: 1; /* Empurra o footer para baixo */
+}
+
+.loader-container {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+}
+.loader {
+    border: 6px solid var(--light-gray);
+    border-top: 6px solid var(--primary-color);
+    border-radius: 50%;
+    width: 60px;
+    height: 60px;
+    animation: spin 1s linear infinite;
+    margin-bottom: 1rem;
+}
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+.app-header {
+    background-color: #fff;
+    padding: 1rem 2rem;
+    box-shadow: var(--shadow);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    position: sticky;
+    top: 0;
+    z-index: 1000;
+}
+.app-header h1 {
+    color: var(--primary-color);
+    font-size: 1.5rem;
+}
+.app-header nav {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem; /* Reduzido */
+}
+.user-display {
+    font-weight: 600;
+    font-size: 0.9rem;
+    color: var(--text-light);
+    text-transform: capitalize;
+    margin-left: 1rem;
+    border-left: 1px solid var(--border-color);
+    padding-left: 1rem;
+}
+.app-header #logoutButton {
+    width: auto;
+    padding: 0.5rem 1rem;
+}
+
+/* (V3.0): Controle de View (Admin vs Atleta) */
+.admin-view #nav-profile-btn {
+    display: none;
+}
+.atleta-view #nav-profile-btn {
+    display: inline-flex;
+}
+
+
+.app-main {
+    max-width: 1400px;
+    margin: 2rem auto;
+    padding: 0 2rem;
+    width: 100%;
+}
+
+/* Rodapé (V2.6) */
+.app-footer {
+    text-align: center;
+    padding: 2rem 1rem 1.5rem 1rem;
+    color: var(--text-light);
+    font-size: 0.9rem;
+    margin-top: 2rem;
+    width: 100%;
+    border-top: 1px solid var(--border-color);
+}
+
+
+/* =================================================================== */
+/* 5. PAINEL ADMIN (V3.5)
+/* =================================================================== */
+.admin-dashboard h2,
+.atleta-dashboard h2,
+.feed-dashboard h2 {
+    border-bottom: 2px solid var(--border-color);
+    padding-bottom: 0.5rem;
+    margin-bottom: 1rem;
+}
+.admin-dashboard h2 i,
+.atleta-dashboard h2 i,
+.feed-dashboard h2 i {
+    margin-right: 0.5rem;
+}
+
+/* Painel de Aprovação */
+.approval-panel {
+    border-left: 4px solid var(--warning-color);
+}
+.approval-panel h3 {
+    color: var(--warning-color);
+}
+.pending-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.75rem;
+    border-bottom: 1px solid var(--border-color);
+}
+.pending-item:last-child {
+    border-bottom: none;
+}
+.pending-item-info {
+    font-size: 0.9rem;
+}
+.pending-item-info strong {
+    color: var(--primary-color);
+}
+.pending-item-actions {
+    display: flex;
+    gap: 0.5rem;
+}
+
+/* Layout Admin */
+.admin-layout {
+    display: grid;
+    grid-template-columns: 350px 1fr;
+    gap: 1.5rem;
+    align-items: flex-start;
+}
+
+.athlete-list-container {
+    max-height: 80vh;
+    overflow-y: auto;
+}
+.athlete-list-container h3 { margin-bottom: 1rem; }
+
+.search-input {
+    margin-bottom: 1rem;
+    padding-left: 1rem;
+}
+
+.athlete-list-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1rem;
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius);
+    margin-bottom: 0.5rem;
+    cursor: pointer;
+    transition: all 0.2s ease-in-out;
+    border-left: 4px solid transparent;
+}
+.athlete-list-item:hover {
+    background-color: #fcfcfc;
+    border-left-color: var(--secondary-color);
+}
+.athlete-list-item.selected {
+    background-color: var(--light-gray);
+    color: var(--primary-color);
+    border-color: var(--secondary-color);
+    border-left-width: 4px;
+}
+.athlete-list-item span {
+    font-weight: 600;
+}
+
+.form-minimal {
+    background: var(--light-gray);
+    padding: 1rem;
+    border-radius: var(--border-radius);
+    border: 1px solid var(--border-color);
+}
+
+/* Abas do Admin (V2.6) */
+.admin-tabs {
+    display: flex;
+    border-bottom: 2px solid var(--border-color);
+    margin-bottom: 1rem;
+    margin-top: 1rem;
+}
+.admin-tabs .tab-btn {
+    padding: 0.5rem 1rem;
+    cursor: pointer;
+    border: none;
+    background: none;
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--text-light);
+    border-bottom: 3px solid transparent;
+}
+.admin-tabs .tab-btn.active {
+    color: var(--primary-color);
+    border-bottom-color: var(--primary-color);
+}
+.admin-tab-content {
+    display: none;
+}
+.admin-tab-content.active {
+    display: block;
+}
+
+/* ===================================================================
+  NOVO (V3.5): Estilos do Formulário Estruturado
+  ===================================================================
+*/
+.form-grid-2col {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+}
+.form-grid-4col {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr 1fr;
+    gap: 1rem;
+}
+.form-minimal .form-group {
+    margin-bottom: 0; /* Remove margem dupla dentro do fieldset */
+}
+.form-minimal .form-grid-4col .form-group input,
+.form-minimal .form-grid-2col .form-group input {
+    font-size: 0.9rem;
+    padding: 0.6rem;
+}
+.form-minimal .form-group select {
+    font-size: 0.9rem;
+    padding: 0.6rem 0.4rem;
+}
+.workout-fieldset {
+    padding: 0.75rem 1rem 1rem 1rem;
+    background: #fdfdfd;
+}
+.workout-fieldset legend {
+    font-size: 0.9rem;
+    color: var(--secondary-color);
+}
+/* =================================================================== */
+
+
+/* Lista de Histórico de IA */
+.ia-history-list .workout-card { /* Reutilizando o card */
+    cursor: pointer;
+}
+.ia-history-list .workout-card-header {
+    display: block;
+}
+.ia-history-list .date {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--text-light);
+}
+.ia-history-list .title {
+    font-size: 1.1rem;
+    color: var(--primary-color);
+}
+.ia-history-list .workout-card-body p {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    white-space: pre-wrap;
+    font-style: italic;
+    background: #fdfdfd;
+}
+
+
+/* =================================================================== */
+/* 6. PAINEL ATLETA (V2.6)
+/* =================================================================== */
+/* Header do Atleta com botão (V2.6) */
+.atleta-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap; /* Para mobile */
+    gap: 1rem;
+}
+.atleta-header h2 {
+    margin-bottom: 0;
+    border-bottom: none;
+}
+.atleta-header .btn {
+    width: auto; /* Botão não ocupa 100% */
+}
+
+.atleta-dashboard #atleta-workouts-container {
+    max-width: 800px;
+    margin: 1.5rem 0;
+}
+.atleta-dashboard .subtitle {
+    text-align: left;
+    margin-bottom: 0.5rem;
+}
+
+/* =================================================================== */
+/* 7. CARD DE TREINO (V2.6)
+/* =================================================================== */
+.workout-card {
+    background: #fff;
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius);
+    margin-bottom: 1rem;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+}
+/* Deixa o card do atleta clicável */
+.atleta-dashboard .workout-card {
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+.atleta-dashboard .workout-card:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow);
+}
+
+.workout-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1rem 1rem 0.5rem 1rem;
+    gap: 0.5rem;
+}
+.workout-card-header .date {
+    font-weight: 700;
+    color: var(--primary-color);
+    font-size: 1.1rem;
+    flex-shrink: 0; /* Não encolhe a data */
+}
+.workout-card-header .title {
+    font-weight: 600;
+    font-size: 1.1rem;
+    text-align: left;
+    flex-grow: 1; /* Ocupa o espaço */
+}
+.workout-card-body {
+    padding: 0.5rem 1rem 1rem 1rem;
+}
+.workout-card-body p {
+    white-space: pre-wrap;
+    font-family: monospace;
+    background: var(--light-gray);
+    padding: 0.75rem;
+    border-radius: 4px;
+    color: #333;
+}
+.workout-card-body .feedback-text {
+    border-left: 3px solid var(--secondary-color);
+    background: #f0f5ff;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    white-space: pre-wrap;
+    font-style: italic;
+    padding: 0.5rem 0.75rem;
+    margin-top: 0.5rem;
+}
+.workout-card-body .workout-image {
+    width: 100%;
+    max-height: 400px;
+    object-fit: cover;
+    border-radius: var(--border-radius);
+    margin-top: 1rem;
+    border: 1px solid var(--border-color);
+}
+
+/* Display de dados do Strava (V2.6) */
+.strava-data-display {
+    background: #fcf4e8; /* Laranja claro do Strava */
+    border: 1px solid var(--strava-orange);
+    border-radius: var(--border-radius);
+    padding: 0.75rem;
+    margin-top: 1rem;
+}
+.strava-data-display legend {
+    color: var(--strava-orange);
+    font-weight: bold;
+    font-size: 0.9rem;
+}
+.strava-data-display p {
+    font-family: monospace;
+    font-size: 0.9rem;
+    background: none;
+    padding: 0.2rem 0;
+    white-space: pre;
+}
+
+
+.status-tag {
+    font-size: 0.75rem;
+    padding: 0.2rem 0.4rem;
+    border-radius: 4px;
+    color: #fff;
+    text-transform: capitalize;
+    font-weight: 600;
+    flex-shrink: 0;
+}
+.status-tag.planejado { background-color: var(--text-light); }
+.status-tag.realizado { background-color: var(--success-color); }
+.status-tag.realizado_parcial { background-color: var(--warning-color); color: #333; }
+.status-tag.nao_realizado { background-color: var(--danger-color); }
+
+
+.workout-card-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.5rem 1rem 0.75rem 1rem;
+    border-top: 1px solid var(--border-color);
+    background-color: #fdfdfd;
+}
+.workout-actions {
+    display: flex;
+    gap: 1rem;
+}
+.action-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--text-light);
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+    font-size: 0.9rem;
+    font-weight: 600;
+}
+.action-btn:hover:not(:disabled) {
+    color: var(--primary-color);
+}
+.action-btn.liked {
+    color: var(--danger-color);
+}
+/* Dono do treino não pode curtir (V2.6) */
+.action-btn.btn-like:disabled {
+    opacity: 1; /* Nao ficar cinza */
+    color: var(--danger-color); /* Mantem vermelho */
+    cursor: default;
+}
+
+.like-count-btn {
+    cursor: pointer;
+}
+.like-count-btn:hover {
+    text-decoration: underline;
+}
+
+/* =================================================================== */
+/* 8. FEED SOCIAL (V3.2)
+/* =================================================================== */
+.feed-dashboard {
+    max-width: 800px;
+    margin: 0 auto;
+}
+.feed-list .workout-card {
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+.feed-list .workout-card:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow);
+}
+.feed-list .workout-card-header {
+    display: block;
+    position: relative; /* Para o avatar */
+}
+
+/* Avatar no Feed (V3.0) */
+.feed-list .athlete-avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 2px solid var(--border-color);
+    position: absolute;
+    top: 1rem;
+    left: 1rem;
+    /* (V3.2): Deixa o avatar clicável */
+    cursor: pointer;
+    transition: transform 0.2s ease;
+}
+.feed-list .athlete-avatar:hover {
+    transform: scale(1.1);
+}
+
+.feed-list .athlete-name {
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--secondary-color);
+    /* Ajuste para dar espaço ao avatar */
+    margin-left: 55px;
+    display: block;
+    padding-top: 0.25rem;
+    /* (V3.2): Deixa o nome clicável */
+    cursor: pointer;
+    text-decoration: none;
+    display: inline-block; /* Para o hover funcionar bem */
+}
+.feed-list .athlete-name:hover {
+    text-decoration: underline;
+}
+
+.feed-list .workout-card-header .date {
+    margin-left: 55px;
+    font-size: 0.9rem;
+}
+.feed-list .workout-card-header .title {
+    margin-left: 55px;
+    font-size: 0.9rem;
+}
+.feed-list .workout-card-header .status-tag {
+    position: absolute;
+    top: 1rem;
+    right: 1rem;
+}
+
+
+/* =================================================================== */
+/* 9. MODAIS (V3.2)
+/* =================================================================== */
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0,0,0,0.6);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 2000;
+    padding: 20px;
+}
+.modal-content {
+    background: var(--white);
+    border-radius: var(--border-radius);
+    width: 100%;
+    max-width: 600px;
+    max-height: 90vh;
+    display: flex;
+    flex-direction: column;
+}
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1rem 1.5rem;
+    border-bottom: 1px solid var(--border-color);
+}
+.modal-header h3 {
+    color: var(--primary-color);
+}
+.close-btn {
+    background: none;
+    border: none;
+    font-size: 2rem;
+    cursor: pointer;
+    color: var(--text-light);
+}
+.close-btn:hover {
+    color: var(--danger-color);
+}
+.modal-body {
+    padding: 1.5rem;
+    overflow-y: auto;
+}
+
+/* Comentários (V2) */
+.comments-list {
+    max-height: 200px;
+    overflow-y: auto;
+    margin-bottom: 1rem;
+    padding: 0.5rem;
+    background: var(--light-gray);
+    border-radius: 4px;
+}
+.comment-item {
+    font-size: 0.9rem;
+    border-bottom: 1px solid var(--border-color);
+    padding: 0.5rem 0;
+}
+.comment-item:last-child {
+    border-bottom: none;
+}
+.comment-item strong {
+    color: var(--primary-color);
+}
+.comment-item span {
+    font-size: 0.75rem;
+    color: var(--text-light);
+    margin-left: 0.5rem;
+}
+.comment-form {
+    display: flex;
+    gap: 0.5rem;
+}
+.comment-form input {
+    flex: 1;
+}
+.comment-form button {
+    width: auto;
+}
+
+/* Modal "Quem Curtiu" */
+#who-liked-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    max-height: 300px;
+    overflow-y: auto;
+}
+#who-liked-list li {
+    padding: 0.5rem;
+    font-weight: 600;
+    border-bottom: 1px solid var(--border-color);
+}
+#who-liked-list li:last-child {
+    border-bottom: none;
+}
+
+/* Modal Análise IA */
+#ia-analysis-output {
+    white-space: pre-wrap;  /* CORREÇÃO V2.6 */
+    word-wrap: break-word;
+    background-color: var(--light-gray);
+    border: 1px solid var(--border-color);
+    padding: 1rem;
+    border-radius: var(--border-radius);
+    max-height: 50vh;
+    overflow-y: auto;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    font-size: 0.9rem;
+}
+/* Footer do modal de IA (V2.6) */
+.modal-footer {
+    padding: 1rem 1.5rem;
+    border-top: 1px solid var(--border-color);
+    background-color: #fdfdfd;
+    display: flex;
+    justify-content: flex-end; /* Alinha o botão à direita */
+}
+.modal-footer .btn {
+    width: auto; /* Botão não ocupa 100% */
+}
+
+/* Estilos do Modal de Perfil (V3.0) */
+.profile-pic-container {
+    display: flex;
+    justify-content: center;
+    margin-bottom: 1rem;
+}
+.profile-pic-preview {
+    width: 150px;
+    height: 150px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 4px solid var(--border-color);
+    background-color: var(--light-gray);
+}
+#profile-upload-feedback {
+    color: var(--success-color); /* Feedback de upload de perfil */
+}
+
+/* Estilos do Modal de Visualização de Perfil (V3.2) */
+#view-profile-modal .modal-content {
+    max-width: 500px; /* Um pouco menor */
+}
+.view-profile-name {
+    text-align: center;
+    color: var(--primary-color);
+    margin-bottom: 0.5rem;
+    font-size: 1.8rem;
+}
+.view-profile-bio {
+    text-align: center;
+    color: var(--text-light);
+    font-style: italic;
+    white-space: pre-wrap; /* Respeita quebras de linha da bio */
+    background: var(--light-gray);
+    padding: 1rem;
+    border-radius: var(--border-radius);
+    min-height: 50px;
+}
+/* =================================================================== */
+
+
+/* =================================================================== */
+/* 10. RESPONSIVIDADE
+/* =================================================================== */
+@media (max-width: 900px) {
+    .admin-layout {
+        grid-template-columns: 1fr;
+    }
+    .athlete-list-container {
+        max-height: 300px; /* Limita altura em telas pequenas */
+    }
+    
+    /* V3.5: Formulário estruturado em 1 coluna */
+    .form-grid-2col,
+    .form-grid-4col {
+        grid-template-columns: 1fr;
+    }
+    .form-minimal .form-group {
+        margin-bottom: 0.5rem; /* Adiciona espaço no mobile */
+    }
+}
+
+@media (max-width: 600px) {
+    .app-header {
+        flex-direction: column;
+        gap: 0.5rem;
+        padding: 1rem;
+    }
+    .app-header nav {
+        flex-wrap: wrap;
+        justify-content: center;
+    }
+    .user-display {
+        border-left: none;
+        padding-left: 0;
+        margin-left: 0;
+        width: 100%;
+        text-align: center;
+        border-top: 1px solid var(--border-color);
+        padding-top: 0.5rem;
+    }
+    .app-main {
+        padding: 0 1rem; /* Reduz padding horizontal no mobile */
+        margin-top: 1rem;
+    }
+    .login-container {
+        padding: 1.5rem;
+    }
+    .panel {
+        padding: 1rem;
+    }
+    .pending-item {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.5rem;
+    }
+    .pending-item-actions {
+        width: 100%;
+        gap: 1rem;
+    }
+    .pending-item-actions .btn {
+        flex: 1;
+    }
+    /* Nav Botões Mobile */
+    .btn-nav span {
+        display: none; /* Esconde o texto, mostra só ícone */
+    }
+    .atleta-header {
+        justify-content: center; /* Centraliza o h2 e o botão */
+    }
+
+    /* Ajuste do avatar do feed no mobile (V3.0) */
+    .feed-list .athlete-name {
+        margin-left: 50px;
+    }
+    .feed-list .workout-card-header .date,
+    .feed-list .workout-card-header .title {
+        margin-left: 50px;
+        margin-right: 50px; /* Espaço para o status tag */
+    }
+    .feed-list .athlete-avatar {
+        width: 35px;
+        height: 35px;
+    }
+    
+    /* V3.5: Garante que 4 colunas virem 2 no mobile */
+    .form-grid-4col {
+        grid-template-columns: 1fr 1fr;
+    }
+
 }

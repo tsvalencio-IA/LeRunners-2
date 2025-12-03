@@ -1,5 +1,5 @@
 /* =================================================================== */
-/* NOVO (V3.8): Service Worker Básico para PWA - CORREÇÃO CRÍTICA DE FETCH
+/* NOVO (V3.7): Service Worker Básico para PWA - CORREÇÃO CRÍTICA DE FETCH
 /* GARANTIA: NUNCA CACHEIA APIS EXTERNAS OU ENDPOINTS DO VERCEL
 /* =================================================================== */
 

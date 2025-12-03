@@ -1,5 +1,5 @@
 /* =================================================================== */
-/* VERCEL 2 SERVERLESS FUNCTION: /api/strava-exchange
+/* VERCEL 2  SERVERLESS FUNCTION: /api/strava-exchange
 /* ARQUIVO COMPLETO E DEFINITIVO (Versão V2.0 - ESM/Import)
 /* =================================================================== */
 

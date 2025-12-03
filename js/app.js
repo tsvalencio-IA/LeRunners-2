@@ -1,5 +1,5 @@
 /* =================================================================== */
-/* APP.JS V20.0 - BASE V2 COM DEEP SYNC E LOGIN CORRIGIDO (COMPLETO)
+/* APP.JS V20.0 - BASE V2 COMPLETA (SEM OMISSÕES)
 /* =================================================================== */
 
 const AppPrincipal = {
@@ -13,7 +13,6 @@ const AppPrincipal = {
         AppPrincipal.state.auth = firebase.auth();
         AppPrincipal.state.db = firebase.database();
 
-        // Roteamento V2 Original
         if (document.getElementById('login-form')) {
             AuthLogic.init(AppPrincipal.state.auth);
         } else if (document.getElementById('app-container')) {
@@ -27,7 +26,6 @@ const AppPrincipal = {
         el.appContainer = document.getElementById('app-container');
         el.mainContent = document.getElementById('app-main-content');
 
-        // Binds de Navegação V2
         document.getElementById('logoutButton').onclick = () => AppPrincipal.state.auth.signOut().then(()=>window.location.href='index.html');
         document.getElementById('nav-planilha-btn').onclick = () => AppPrincipal.navigateTo('planilha');
         document.getElementById('nav-feed-btn').onclick = () => AppPrincipal.navigateTo('feed');
@@ -35,7 +33,6 @@ const AppPrincipal = {
         
         document.querySelectorAll('.close-btn').forEach(b => b.onclick = (e) => e.target.closest('.modal-overlay').classList.add('hidden'));
         
-        // Form Binds Seguros
         if(document.getElementById('feedback-form')) document.getElementById('feedback-form').onsubmit = AppPrincipal.handleFeedbackSubmit;
         if(document.getElementById('comment-form')) document.getElementById('comment-form').onsubmit = AppPrincipal.handleCommentSubmit;
         if(document.getElementById('profile-form')) document.getElementById('profile-form').onsubmit = AppPrincipal.handleProfileSubmit;
@@ -156,7 +153,7 @@ const AppPrincipal = {
         } catch(e) { alert("Erro Sync: "+e.message); } finally { if(btn) { btn.disabled=false; btn.textContent="Sincronizar Strava"; } }
     },
 
-    // --- MODAL COMPLETO (COMPLETO) ---
+    // --- MODAL COMPLETO ---
     openFeedbackModal: (wid, oid, title) => {
         const modal = document.getElementById('feedback-modal');
         AppPrincipal.state.modal = { isOpen:true, currentWorkoutId:wid, currentOwnerId:oid };

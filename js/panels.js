@@ -449,14 +449,23 @@ const AdminPanel = {
         return el;
     },
 
-    // Helper p/ Strava (V2.6)
+    // ===================================================================
+    // HELPER DO STRAVA - ADMIN (Inserção do Link do Mapa)
+    // ===================================================================
     createStravaDataDisplay: (stravaData) => {
+        // Verifica se existe link de mapa
+        let mapLinkHtml = '';
+        if (stravaData.mapLink) {
+            mapLinkHtml = `<p style="margin-top:5px;"><a href="${stravaData.mapLink}" target="_blank" style="color: #fc4c02; font-weight: bold; text-decoration: none;">🗺️ Ver Mapa no Strava</a></p>`;
+        }
+
         return `
             <fieldset class="strava-data-display">
                 <legend><i class='bx bxl-strava'></i> Dados Extraídos (Gemini Vision)</legend>
                 <p>Distância: ${stravaData.distancia || "N/A"}</p>
                 <p>Tempo:     ${stravaData.tempo || "N/A"}</p>
                 <p>Ritmo:     ${stravaData.ritmo || "N/A"}</p>
+                ${mapLinkHtml}
             </fieldset>
         `;
     },
@@ -667,9 +676,9 @@ const AtletaPanel = {
             e.stopPropagation(); // Impede o clique duplo
             AppPrincipal.openFeedbackModal(id, athleteId, data.title);
         });
-        // Clicar no card todo (exceto botões) também abre o modal
+        // Clicar no card todo (exceto botões e links) também abre o modal
         el.addEventListener('click', (e) => {
-             if (!e.target.closest('button')) {
+             if (!e.target.closest('button') && !e.target.closest('a')) {
                  AppPrincipal.openFeedbackModal(id, athleteId, data.title);
              }
         });
@@ -680,14 +689,23 @@ const AtletaPanel = {
         return el;
     },
     
-    // (V3.3): Helper de Strava
+    // ===================================================================
+    // HELPER DO STRAVA - ATLETA (Inserção do Link do Mapa)
+    // ===================================================================
     createStravaDataDisplay: (stravaData) => {
+        // Verifica se existe link de mapa
+        let mapLinkHtml = '';
+        if (stravaData.mapLink) {
+            mapLinkHtml = `<p style="margin-top:5px;"><a href="${stravaData.mapLink}" target="_blank" style="color: #fc4c02; font-weight: bold; text-decoration: none;">🗺️ Ver Mapa no Strava</a></p>`;
+        }
+
         return `
             <fieldset class="strava-data-display">
                 <legend><i class='bx bxl-strava'></i> Dados Extraídos (Gemini Vision)</legend>
                 <p>Distância: ${stravaData.distancia || "N/A"}</p>
                 <p>Tempo:     ${stravaData.tempo || "N/A"}</p>
                 <p>Ritmo:     ${stravaData.ritmo || "N/A"}</p>
+                ${mapLinkHtml}
             </fieldset>
         `;
     },
@@ -860,7 +878,8 @@ const FeedPanel = {
         // Abre o Modal de Feedback (clique no card)
         el.addEventListener('click', (e) => {
              // Não abre se clicar no like (botões são tratados) ou nos elementos de perfil (tratados por stopPropagation)
-             if (!e.target.closest('button')) { 
+             // TAmbém evita clicar no link do mapa
+             if (!e.target.closest('button') && !e.target.closest('a')) { 
                 AppPrincipal.openFeedbackModal(id, ownerId, data.title);
              }
         });

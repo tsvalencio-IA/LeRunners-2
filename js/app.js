@@ -3,12 +3,7 @@
 /* =================================================================== */
 
 const AppPrincipal = {
-    state: {
-        currentUser: null, userData: null, db: null, auth: null,
-        listeners: {}, currentView: 'planilha', viewMode: 'admin',
-        adminUIDs: {}, userCache: {}, modal: { isOpen: false, currentWorkoutId: null, currentOwnerId: null },
-        stravaTokenData: null
-    },
+    state: { currentUser: null, userData: null, db: null, auth: null, listeners: {}, currentView: 'planilha', viewMode: 'admin', adminUIDs: {}, userCache: {}, modal: { isOpen: false, currentWorkoutId: null, currentOwnerId: null }, stravaTokenData: null },
     elements: {},
 
     init: () => {
@@ -32,7 +27,6 @@ const AppPrincipal = {
         el.appContainer = document.getElementById('app-container');
         el.mainContent = document.getElementById('app-main-content');
 
-        // Binds de Navegação V2
         document.getElementById('logoutButton').onclick = () => AppPrincipal.state.auth.signOut().then(()=>window.location.href='index.html');
         document.getElementById('nav-planilha-btn').onclick = () => AppPrincipal.navigateTo('planilha');
         document.getElementById('nav-feed-btn').onclick = () => AppPrincipal.navigateTo('feed');
@@ -40,7 +34,6 @@ const AppPrincipal = {
         
         document.querySelectorAll('.close-btn').forEach(b => b.onclick = (e) => e.target.closest('.modal-overlay').classList.add('hidden'));
         
-        // Form Binds Seguros
         if(document.getElementById('feedback-form')) document.getElementById('feedback-form').onsubmit = AppPrincipal.handleFeedbackSubmit;
         if(document.getElementById('comment-form')) document.getElementById('comment-form').onsubmit = AppPrincipal.handleCommentSubmit;
         if(document.getElementById('profile-form')) document.getElementById('profile-form').onsubmit = AppPrincipal.handleProfileSubmit;
@@ -102,7 +95,7 @@ const AppPrincipal = {
 
     handleLogout: () => AppPrincipal.state.auth.signOut().then(() => window.location.href = 'index.html'),
 
-    // --- STRAVA DEEP SYNC (FUNÇÃO COMPLETA E DETALHADA) ---
+    // --- STRAVA DEEP SYNC (FUNÇÃO COMPLETA) ---
     handleStravaConnect: () => { 
         window.location.href = `https://www.strava.com/oauth/authorize?client_id=${window.STRAVA_PUBLIC_CONFIG.clientID}&response_type=code&redirect_uri=${window.STRAVA_PUBLIC_CONFIG.redirectURI}&approval_prompt=force&scope=read_all,activity:read_all,profile:read_all`; 
     },
@@ -135,7 +128,7 @@ const AppPrincipal = {
                 const timeStr = new Date(act.moving_time * 1000).toISOString().substr(11, 8);
                 const paceMin = Math.floor((act.moving_time / 60) / (act.distance / 1000));
                 const paceSec = Math.round(((act.moving_time / 60) / (act.distance / 1000) - paceMin) * 60);
-                const paceStr = `${paceMin}:${paceSec.toString().padStart(2,'0')} /km`;
+                const paceStr = `${paceMin}:${paceSec.toString().padStart(2, '0')} /km`;
 
                 let splits = [];
                 if(detail.splits_metric) {
@@ -161,7 +154,7 @@ const AppPrincipal = {
         } catch(e) { alert("Erro Sync: "+e.message); } finally { if(btn) { btn.disabled=false; btn.textContent="Sincronizar Strava"; } }
     },
 
-    // --- MODAL COMPLETO ---
+    // --- MODAL COMPLETO (COMPLETO) ---
     openFeedbackModal: (wid, oid, title) => {
         const modal = document.getElementById('feedback-modal');
         AppPrincipal.state.modal = { isOpen:true, currentWorkoutId:wid, currentOwnerId:oid };
@@ -188,7 +181,7 @@ const AppPrincipal = {
                 }
                 sd.innerHTML = `
                     <div style="background:#f9f9f9; padding:10px; border:1px solid #ccc; margin-top:10px;">
-                        <b>Strava:</b> ${d.stravaData.distancia} | ${d.stravaData.tempo} | ${d.stravaData.ritmo}
+                        <b>Dados Strava:</b> ${d.stravaData.distancia} | ${d.stravaData.tempo} | ${d.stravaData.ritmo}
                         <table style="width:100%; font-size:0.8rem; margin-top:5px; text-align:center;">
                             <thead><tr><th>Km</th><th>Pace</th><th>Elev</th></tr></thead>
                             <tbody>${rows}</tbody>
@@ -221,10 +214,11 @@ const AppPrincipal = {
     
     handleLogActivitySubmit: async (e) => { 
         e.preventDefault(); 
+        const form = document.getElementById('log-activity-form');
         const workoutData = {
-            date: document.getElementById('log-activity-date').value,
-            title: document.getElementById('log-activity-title').value,
-            description: document.getElementById('log-activity-feedback').value,
+            date: form.querySelector('#log-activity-date').value,
+            title: form.querySelector('#log-activity-title').value,
+            description: form.querySelector('#log-activity-feedback').value,
             status: 'realizado', realizadoAt: new Date().toISOString(),
             createdBy: AppPrincipal.state.currentUser.uid
         };
@@ -239,14 +233,12 @@ const AppPrincipal = {
         const form = document.getElementById('profile-form');
         let btn = document.getElementById('btn-strava-action');
         if(!btn) {
-            btn = document.createElement('button'); btn.id='btn-strava-action'; btn.type='button'; btn.className='btn btn-secondary'; btn.style.marginTop='10px'; btn.style.width='100%';
-            form.appendChild(btn);
+            btn = document.createElement('button'); btn.id='btn-strava-action'; btn.type='button'; btn.className='btn btn-secondary'; form.appendChild(btn);
         }
         btn.textContent = AppPrincipal.state.stravaTokenData ? "Sincronizar Strava" : "Conectar Strava";
         btn.onclick = AppPrincipal.state.stravaTokenData ? AppPrincipal.handleStravaSyncActivities : AppPrincipal.handleStravaConnect;
     },
     handleProfileSubmit: (e) => { e.preventDefault(); document.getElementById('profile-modal').classList.add('hidden'); },
-    handleCoachEvaluationSubmit: (e) => { e.preventDefault(); /* Lógica avaliação */ },
     
     callGeminiTextAPI: async (prompt) => {
         if(!window.GEMINI_API_KEY) throw new Error("Sem Chave API");

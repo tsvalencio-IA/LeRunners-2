@@ -1,13 +1,14 @@
 /* =================================================================== */
-/* APP.JS V16 - BASE V2 + SYNC INTELIGENTE (MATCH DE DATAS)
+/* APP.JS - LÓGICA CENTRAL (V2 RESTAURADA + STRAVA DEEP SYNC)
 /* =================================================================== */
 
 const AppPrincipal = {
     state: {
         currentUser: null, userData: null, db: null, auth: null,
         listeners: {}, currentView: 'planilha', viewMode: 'admin',
-        adminUIDs: {}, userCache: {}, modal: { isOpen: false, currentWorkoutId: null, currentOwnerId: null },
-        stravaTokenData: null
+        adminUIDs: {}, userCache: {}, 
+        modal: { isOpen: false, currentWorkoutId: null, currentOwnerId: null, newPhotoUrl: null },
+        stravaTokenData: null, currentAnalysisData: null
     },
     elements: {},
 
@@ -17,7 +18,7 @@ const AppPrincipal = {
         AppPrincipal.state.auth = firebase.auth();
         AppPrincipal.state.db = firebase.database();
 
-        // Roteamento Seguro V2
+        // Se estiver na tela de login
         if (document.getElementById('login-form')) {
             AuthLogic.init(AppPrincipal.state.auth, AppPrincipal.state.db);
         } else if (document.getElementById('app-container')) {
@@ -31,59 +32,88 @@ const AppPrincipal = {
         el.appContainer = document.getElementById('app-container');
         el.mainContent = document.getElementById('app-main-content');
 
+        // Binds Globais
         document.getElementById('logoutButton').onclick = AppPrincipal.handleLogout;
         document.getElementById('nav-planilha-btn').onclick = () => AppPrincipal.navigateTo('planilha');
         document.getElementById('nav-feed-btn').onclick = () => AppPrincipal.navigateTo('feed');
         document.getElementById('nav-profile-btn').onclick = AppPrincipal.openProfileModal;
         
+        // Binds Modais (Generic Closure)
         document.querySelectorAll('.close-btn').forEach(b => b.onclick = (e) => e.target.closest('.modal-overlay').classList.add('hidden'));
         
+        // Forms de Modal
         if(document.getElementById('feedback-form')) document.getElementById('feedback-form').onsubmit = AppPrincipal.handleFeedbackSubmit;
         if(document.getElementById('comment-form')) document.getElementById('comment-form').onsubmit = AppPrincipal.handleCommentSubmit;
         if(document.getElementById('profile-form')) document.getElementById('profile-form').onsubmit = AppPrincipal.handleProfileSubmit;
+        if(document.getElementById('log-activity-form')) document.getElementById('log-activity-form').onsubmit = AppPrincipal.handleLogActivitySubmit;
         if(document.getElementById('photo-upload-input')) document.getElementById('photo-upload-input').onchange = AppPrincipal.handlePhotoUpload;
         
-        // Botão Log Manual V2
-        if(document.getElementById('log-activity-form')) document.getElementById('log-activity-form').onsubmit = AppPrincipal.handleLogActivitySubmit;
+        // IA Save Button
+        const btnSaveIa = document.getElementById('save-ia-analysis-btn');
+        if(btnSaveIa) btnSaveIa.onclick = AppPrincipal.handleSaveIaAnalysis;
 
+        // Strava Code Check
         const urlParams = new URLSearchParams(window.location.search);
         
         AppPrincipal.state.auth.onAuthStateChanged((user) => {
             if(!user) { window.location.href = 'index.html'; return; }
             AppPrincipal.state.currentUser = user;
-            if (urlParams.get('code')) { AppPrincipal.exchangeStravaCode(urlParams.get('code')); return; }
+            
+            // Strava Callback
+            if (urlParams.get('code')) { 
+                AppPrincipal.exchangeStravaCode(urlParams.get('code')); 
+                return; 
+            }
+            
             AppPrincipal.loadUserData(user.uid);
         });
     },
 
     loadUserData: (uid) => {
+        // Cache Global de Usuários (para nomes no feed/comentários)
         AppPrincipal.state.db.ref('users').on('value', s => AppPrincipal.state.userCache = s.val() || {});
+        
+        // Dados do Usuário Logado
         AppPrincipal.state.db.ref('users/' + uid).once('value', s => {
             let data = s.val();
+            
+            // Check Admin
             AppPrincipal.state.db.ref('admins/' + uid).once('value', adminSnap => {
                 const isAdmin = adminSnap.exists() && adminSnap.val() === true;
-                if (!data && isAdmin) { data = { name: AppPrincipal.state.currentUser.email, role: 'admin' }; AppPrincipal.state.db.ref('users/' + uid).set(data); }
+                
+                // Auto-create profile if admin missing
+                if (!data && isAdmin) { 
+                    data = { name: AppPrincipal.state.currentUser.email, role: 'admin' }; 
+                    AppPrincipal.state.db.ref('users/' + uid).set(data); 
+                }
+                
                 if (data) {
                     AppPrincipal.state.userData = { ...data, uid: uid };
                     document.getElementById('userDisplay').textContent = data.name;
                     
                     if (isAdmin) {
                         AppPrincipal.state.userData.role = 'admin'; 
-                        // Toggle V2
+                        // Toggle Coach/Atleta (V2 Feature)
                         const nav = document.querySelector('.app-header nav');
                         if(!document.getElementById('admin-toggle')) {
                             const btn = document.createElement('button');
-                            btn.id = 'admin-toggle'; btn.className = 'btn btn-nav'; 
-                            btn.innerHTML = "Modo Atleta"; btn.style.border = "1px solid white";
+                            btn.id = 'admin-toggle'; 
+                            btn.className = 'btn btn-nav'; 
+                            btn.innerHTML = "Modo Atleta"; 
+                            btn.style.border = "1px solid white";
                             btn.onclick = () => {
                                 AppPrincipal.state.viewMode = AppPrincipal.state.viewMode === 'admin' ? 'atleta' : 'admin';
                                 btn.innerHTML = AppPrincipal.state.viewMode === 'admin' ? "Modo Atleta" : "Modo Coach";
-                                AppPrincipal.updateClasses(); AppPrincipal.navigateTo('planilha');
+                                AppPrincipal.updateClasses(); 
+                                AppPrincipal.navigateTo('planilha');
                             };
                             nav.insertBefore(btn, document.getElementById('logoutButton'));
                         }
                     }
+                    
+                    // Listener Strava Token
                     AppPrincipal.state.db.ref(`users/${uid}/stravaAuth`).on('value', ts => AppPrincipal.state.stravaTokenData = ts.val());
+                    
                     AppPrincipal.updateClasses();
                     AppPrincipal.navigateTo('planilha');
                 }
@@ -97,21 +127,47 @@ const AppPrincipal = {
         else { c.classList.add('atleta-view'); c.classList.remove('admin-view'); }
     },
 
+    // --- CORREÇÃO CRÍTICA V2: ROTEAMENTO VIA TEMPLATE ---
     navigateTo: (page) => {
         const { mainContent, loader, appContainer } = AppPrincipal.elements;
-        mainContent.innerHTML = "";
         
+        // 1. UI Feedback
         document.querySelectorAll('.btn-nav').forEach(b => b.classList.remove('active'));
-        const btn = document.getElementById(`nav-${page}-btn`); if(btn) btn.classList.add('active');
+        const btn = document.getElementById(`nav-${page}-btn`); 
+        if(btn) btn.classList.add('active');
 
+        // 2. Limpar Listeners Antigos (Evita Memory Leak)
+        if(window.panels && window.panels.cleanup) window.panels.cleanup();
+
+        // 3. Renderizar Template
+        mainContent.innerHTML = ""; // Limpa o DOM anterior
+        
+        let templateId = "";
         if (page === 'planilha') {
             if (AppPrincipal.state.userData.role === 'admin' && AppPrincipal.state.viewMode === 'admin') {
-                AdminPanel.init(AppPrincipal.state.currentUser, AppPrincipal.state.db);
+                templateId = "admin-panel-template";
             } else {
-                AtletaPanel.init(AppPrincipal.state.currentUser, AppPrincipal.state.db);
+                templateId = "atleta-panel-template";
             }
         } else if (page === 'feed') {
-            FeedPanel.init(AppPrincipal.state.currentUser, AppPrincipal.state.db);
+            templateId = "feed-panel-template";
+        }
+
+        const template = document.getElementById(templateId);
+        if (template) {
+            const clone = template.content.cloneNode(true);
+            mainContent.appendChild(clone);
+            
+            // 4. Inicializar Lógica do Painel (SÓ DEPOIS DO DOM EXISTIR)
+            if (page === 'planilha') {
+                if (AppPrincipal.state.userData.role === 'admin' && AppPrincipal.state.viewMode === 'admin') {
+                    AdminPanel.init(AppPrincipal.state.currentUser, AppPrincipal.state.db);
+                } else {
+                    AtletaPanel.init(AppPrincipal.state.currentUser, AppPrincipal.state.db);
+                }
+            } else if (page === 'feed') {
+                FeedPanel.init(AppPrincipal.state.currentUser, AppPrincipal.state.db);
+            }
         }
 
         loader.classList.add('hidden');
@@ -120,7 +176,9 @@ const AppPrincipal = {
 
     handleLogout: () => AppPrincipal.state.auth.signOut().then(() => window.location.href = 'index.html'),
 
-    // --- STRAVA INTELIGENTE (MATCH DE DATAS) ---
+    // ===================================================================
+    // ORÁCULO: LÓGICA DE STRAVA DEEP SYNC & MATCH (PAGINAÇÃO COMPLETA)
+    // ===================================================================
     handleStravaConnect: () => { window.location.href = `https://www.strava.com/oauth/authorize?client_id=${window.STRAVA_PUBLIC_CONFIG.clientID}&response_type=code&redirect_uri=${window.STRAVA_PUBLIC_CONFIG.redirectURI}&approval_prompt=force&scope=read_all,activity:read_all,profile:read_all`; },
     
     exchangeStravaCode: async (code) => {
@@ -132,187 +190,329 @@ const AppPrincipal = {
     handleStravaSyncActivities: async () => {
         const { stravaTokenData, currentUser } = AppPrincipal.state;
         if (!stravaTokenData) return alert("Conecte o Strava primeiro.");
+        
         const btn = document.getElementById('btn-strava-action');
+        const statusMsg = document.getElementById('strava-sync-status');
         if(btn) { btn.disabled=true; btn.textContent="Sincronizando..."; }
+        if(statusMsg) statusMsg.textContent = "Iniciando Loop de Busca...";
 
         try {
-            // 1. Busca Treinos EXISTENTES no Firebase (para fazer o Match)
+            // 1. Busca Treinos EXISTENTES (Para Match)
             const existingSnap = await AppPrincipal.state.db.ref(`data/${currentUser.uid}/workouts`).once('value');
             const existingWorkouts = existingSnap.val() || {};
 
-            // 2. Busca Atividades no Strava
-            const activities = await fetch(`https://www.strava.com/api/v3/athlete/activities?per_page=50`, { headers: { 'Authorization': `Bearer ${stravaTokenData.accessToken}` } }).then(r => r.json());
             const updates = {};
-            let count = 0;
+            let totalImported = 0;
+            let page = 1;
+            let keepFetching = true;
+            const perPage = 50; // Strava permite até 200, mas 50 é seguro
 
-            for(const act of activities) {
-                // Detalhes (Splits)
-                const detail = await fetch(`https://www.strava.com/api/v3/activities/${act.id}`, { headers: { 'Authorization': `Bearer ${stravaTokenData.accessToken}` } }).then(r => r.json());
+            // LOOP DE PAGINAÇÃO (Deep Sync)
+            while (keepFetching) {
+                if(statusMsg) statusMsg.textContent = `Buscando página ${page}...`;
                 
-                // Formatação de Dados
-                let splits = [];
-                if(detail.splits_metric) {
-                    splits = detail.splits_metric.map((s, i) => {
-                        const pMin = Math.floor((s.moving_time/60)/(s.distance/1000)); 
-                        const pSec = Math.round(((s.moving_time/60)/(s.distance/1000)-pMin)*60);
-                        return { km: i+1, pace: `${pMin}'${pSec.toString().padStart(2,'0')}"`, time: new Date(s.moving_time*1000).toISOString().substr(14,5), elev: (s.elevation_difference||0).toFixed(0) };
-                    });
-                }
-                const distKm = (act.distance/1000).toFixed(2)+" km";
-                const paceMin = Math.floor((act.moving_time/60)/(act.distance/1000));
-                const paceSec = Math.round(((act.moving_time/60)/(act.distance/1000)-paceMin)*60);
-                const stravaPayload = { 
-                    distancia: distKm, tempo: new Date(act.moving_time*1000).toISOString().substr(11,8), 
-                    ritmo: `${paceMin}:${paceSec.toString().padStart(2,'0')}`, id: act.id,
-                    splits: splits, elevacao: (act.total_elevation_gain||0)+"m"
-                };
-
-                // --- LÓGICA DE MATCH (IMPORTANTE) ---
-                const actDate = act.start_date.split('T')[0]; // Data do Strava (YYYY-MM-DD)
-                let matchKey = null;
-
-                // Procura um treino PLANEJADO na mesma data
-                for (const [key, val] of Object.entries(existingWorkouts)) {
-                    if (val.date === actDate && val.status !== 'realizado') {
-                        matchKey = key;
-                        break; 
-                    }
+                const response = await fetch(`https://www.strava.com/api/v3/athlete/activities?per_page=${perPage}&page=${page}`, { 
+                    headers: { 'Authorization': `Bearer ${stravaTokenData.accessToken}` } 
+                });
+                
+                if (!response.ok) throw new Error("Erro Strava API: " + response.status);
+                
+                const activities = await response.json();
+                
+                if (activities.length === 0) {
+                    keepFetching = false;
+                    break;
                 }
 
-                if (matchKey) {
-                    // CENÁRIO 1: Encontrou treino proposto -> Preenche ele
-                    updates[`/data/${currentUser.uid}/workouts/${matchKey}/status`] = 'realizado';
-                    updates[`/data/${currentUser.uid}/workouts/${matchKey}/realizadoAt`] = new Date().toISOString();
-                    updates[`/data/${currentUser.uid}/workouts/${matchKey}/stravaData`] = stravaPayload;
-                    updates[`/data/${currentUser.uid}/workouts/${matchKey}/stravaActivityId`] = act.id;
-                    updates[`/data/${currentUser.uid}/workouts/${matchKey}/feedback`] = `Treino realizado (Sincronizado). ${distKm}`;
-                    
-                    // Atualiza Public
-                    const fullData = { ...existingWorkouts[matchKey], status: 'realizado', stravaData: stravaPayload };
-                    updates[`/publicWorkouts/${matchKey}`] = { ownerId: currentUser.uid, ownerName: AppPrincipal.state.userData.name, ...fullData };
-                    
-                } else {
-                    // CENÁRIO 2: Não tem treino -> Cria Avulso
-                    // Verifica se já importou esse ID pra não duplicar avulsos
-                    let alreadyImported = false;
+                for(const act of activities) {
+                    // Verifica duplicidade pelo ID do Strava (evita re-processar o mesmo ID em avulsos)
+                    let alreadyExists = false;
                     for (const [key, val] of Object.entries(existingWorkouts)) {
-                        if (val.stravaActivityId === act.id) alreadyImported = true;
+                        if (String(val.stravaActivityId) === String(act.id)) alreadyExists = true;
                     }
 
-                    if (!alreadyImported) {
+                    // Se não existe, ou se existe mas queremos atualizar os detalhes, processamos.
+                    // Aqui, vamos processar se não existir OU se for um treino planejado que precisa de match.
+                    
+                    // Detalhes Profundos (Splits, Elevation)
+                    // Nota: Fetch individual pode atingir Rate Limit. O ideal é importar o resumo e, se o usuário clicar em "Ver", buscar detalhes.
+                    // Mas como o Coach pediu "Deep Sync", vamos buscar detalhes.
+                    // Pequeno delay para não estourar a API
+                    await new Promise(r => setTimeout(r, 100)); 
+
+                    const detail = await fetch(`https://www.strava.com/api/v3/activities/${act.id}`, { headers: { 'Authorization': `Bearer ${stravaTokenData.accessToken}` } }).then(r => r.json());
+                    
+                    // Formatação de Dados
+                    let splits = [];
+                    if(detail.splits_metric) {
+                        splits = detail.splits_metric.map((s, i) => {
+                            const pMin = Math.floor((s.moving_time/60)/(s.distance/1000)); 
+                            const pSec = Math.round(((s.moving_time/60)/(s.distance/1000)-pMin)*60);
+                            return { km: i+1, pace: `${pMin}'${pSec.toString().padStart(2,'0')}"`, time: new Date(s.moving_time*1000).toISOString().substr(14,5), elev: (s.elevation_difference||0).toFixed(0) };
+                        });
+                    }
+                    
+                    const distKm = (act.distance/1000).toFixed(2)+" km";
+                    const paceMin = Math.floor((act.moving_time/60)/(act.distance/1000));
+                    const paceSec = Math.round(((act.moving_time/60)/(act.distance/1000)-paceMin)*60);
+                    const stravaPayload = { 
+                        distancia: distKm, 
+                        tempo: new Date(act.moving_time*1000).toISOString().substr(11,8), 
+                        ritmo: `${paceMin}:${paceSec.toString().padStart(2,'0')}`, 
+                        id: act.id,
+                        splits: splits, 
+                        elevacao: (act.total_elevation_gain||0)+"m",
+                        calorias: (detail.calories || 0) + " kcal",
+                        mapLink: detail.map?.summary_polyline ? `https://www.strava.com/activities/${act.id}` : null
+                    };
+
+                    // --- MATCH LOGIC (DATA EXATA) ---
+                    // Strava Date: "2023-10-25T10:00:00Z" -> "2023-10-25"
+                    const actDate = act.start_date.split('T')[0]; 
+                    let matchKey = null;
+
+                    // Procura treino PLANEJADO na mesma data
+                    for (const [key, val] of Object.entries(existingWorkouts)) {
+                        if (val.date === actDate && val.status !== 'realizado') {
+                            matchKey = key;
+                            break; 
+                        }
+                    }
+
+                    if (matchKey) {
+                        // CENÁRIO 1: Match Encontrado -> Atualiza Treino Existente
+                        updates[`/data/${currentUser.uid}/workouts/${matchKey}/status`] = 'realizado';
+                        updates[`/data/${currentUser.uid}/workouts/${matchKey}/realizadoAt`] = new Date().toISOString();
+                        updates[`/data/${currentUser.uid}/workouts/${matchKey}/stravaData`] = stravaPayload;
+                        updates[`/data/${currentUser.uid}/workouts/${matchKey}/stravaActivityId`] = act.id;
+                        updates[`/data/${currentUser.uid}/workouts/${matchKey}/feedback`] = `Sincronizado. ${distKm} em ${stravaPayload.tempo}.`;
+                        
+                        // Atualiza Public (Feed)
+                        const fullData = { ...existingWorkouts[matchKey], status: 'realizado', stravaData: stravaPayload };
+                        updates[`/publicWorkouts/${matchKey}`] = { ownerId: currentUser.uid, ownerName: AppPrincipal.state.userData.name, ...fullData };
+                        totalImported++;
+                        
+                    } else if (!alreadyExists) {
+                        // CENÁRIO 2: Novo Treino Avulso
                         const newKey = AppPrincipal.state.db.ref().push().key;
                         const workoutData = {
                             title: act.name,
                             date: actDate,
-                            description: `[Treino Avulso] ${act.type}`,
+                            description: `[Importado]: ${act.type}`,
                             status: 'realizado',
                             realizadoAt: new Date().toISOString(),
-                            feedback: "Treino complementar do Strava.",
+                            feedback: `Sincronizado. ${distKm} em ${stravaPayload.tempo}.`,
                             stravaActivityId: act.id,
                             stravaData: stravaPayload,
                             createdBy: currentUser.uid
                         };
                         updates[`/data/${currentUser.uid}/workouts/${newKey}`] = workoutData;
                         updates[`/publicWorkouts/${newKey}`] = { ownerId: currentUser.uid, ownerName: AppPrincipal.state.userData.name, ...workoutData };
+                        totalImported++;
                     }
-                }
-                count++;
-            }
-            
+                } // Fim For Activities
+
+                page++; // Próxima página do Strava
+            } // Fim While Loop
+
             if(Object.keys(updates).length > 0) {
                 await AppPrincipal.state.db.ref().update(updates);
-                alert("Sincronização concluída! Treinos vinculados à planilha.");
+                alert(`Sincronização concluída! ${totalImported} atividades processadas.`);
             } else {
-                alert("Nenhum treino novo encontrado no Strava.");
+                alert("Tudo atualizado. Nenhuma nova atividade encontrada.");
             }
+            
             document.getElementById('profile-modal').classList.add('hidden');
 
-        } catch(e) { alert("Erro Sync: "+e.message); } finally { if(btn) { btn.disabled=false; btn.textContent="Sincronizar Strava"; } }
+        } catch(e) { 
+            console.error(e);
+            alert("Erro Sync: "+e.message); 
+        } finally { 
+            if(btn) { btn.disabled=false; btn.textContent="Sincronizar Strava"; }
+            if(statusMsg) statusMsg.textContent = "";
+        }
     },
 
-    // --- MODAL FEEDBACK ---
+    // --- MODAL DE FEEDBACK E VISUALIZAÇÃO ---
     openFeedbackModal: (workoutId, ownerId, title) => {
         const modal = document.getElementById('feedback-modal');
         AppPrincipal.state.modal = { isOpen: true, currentWorkoutId: workoutId, currentOwnerId: ownerId };
         document.getElementById('feedback-modal-title').textContent = title;
         
-        const sd = document.getElementById('strava-data-display');
-        sd.innerHTML=""; sd.classList.add('hidden');
+        // Reset UI
+        document.getElementById('workout-status').value = 'planejado';
+        document.getElementById('workout-feedback-text').value = '';
         document.getElementById('comments-list').innerHTML = "Carregando...";
+        document.getElementById('modal-strava-data').classList.add('hidden');
 
+        // Carregar Dados do Treino
         AppPrincipal.state.db.ref(`data/${ownerId}/workouts/${workoutId}`).once('value', s => {
             if(s.exists()) {
                 const d = s.val();
                 if(document.getElementById('workout-status')) document.getElementById('workout-status').value = d.status || 'planejado';
                 if(document.getElementById('workout-feedback-text')) document.getElementById('workout-feedback-text').value = d.feedback || '';
                 
-                // Exibe Tabela de Splits
+                // Exibir Strava Data (Splits e Infos)
                 if(d.stravaData) {
-                    sd.classList.remove('hidden');
-                    let rows = "";
-                    if(d.stravaData.splits) {
-                        d.stravaData.splits.forEach(sp => {
-                            rows += `<tr><td>${sp.km}</td><td>${sp.pace}</td><td>${sp.time}</td><td>${sp.elev}m</td></tr>`;
-                        });
-                    }
-                    sd.innerHTML = `
-                        <div style="background:#f9f9f9; padding:10px; border:1px solid #ccc; margin-top:10px;">
-                            <strong>Dados Strava:</strong> ${d.stravaData.distancia} | ${d.stravaData.tempo} | ${d.stravaData.ritmo}
-                            <table class="sisrun-table" style="margin-top:5px;">
-                                <thead><tr><th>Km</th><th>Pace</th><th>Tempo</th><th>Elev</th></tr></thead>
-                                <tbody>${rows}</tbody>
-                            </table>
+                    const sd = document.getElementById('modal-strava-content');
+                    const container = document.getElementById('modal-strava-data');
+                    container.classList.remove('hidden');
+                    
+                    let html = `
+                        <div style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap:10px; margin-bottom:10px; text-align:center;">
+                            <div><b>Dist</b><br>${d.stravaData.distancia}</div>
+                            <div><b>Pace</b><br>${d.stravaData.ritmo}</div>
+                            <div><b>Elev</b><br>${d.stravaData.elevacao}</div>
                         </div>
                     `;
+                    
+                    if(d.stravaData.splits && d.stravaData.splits.length > 0) {
+                        html += `<table style="width:100%; border-collapse:collapse; font-size:0.8rem;">
+                                    <tr style="border-bottom:1px solid #ddd; text-align:left;"><th>Km</th><th>Pace</th><th>Elev</th></tr>`;
+                        d.stravaData.splits.forEach(sp => {
+                            html += `<tr><td>${sp.km}</td><td>${sp.pace}</td><td>${sp.elev}m</td></tr>`;
+                        });
+                        html += `</table>`;
+                    }
+                    sd.innerHTML = html;
                 }
             }
         });
         
+        // Carregar Comentários
         AppPrincipal.state.db.ref(`workoutComments/${workoutId}`).on('value', s => {
             const list = document.getElementById('comments-list');
             list.innerHTML = "";
+            if(!s.exists()) return;
             s.forEach(c => {
                 const v = c.val();
-                list.innerHTML += `<div class="comment-item"><b>${v.name}:</b> ${v.text}</div>`;
+                list.innerHTML += `<div class="comment-item" style="border-bottom:1px solid #eee; padding:5px;"><b>${v.name}:</b> ${v.text}</div>`;
             });
         });
+        
         modal.classList.remove('hidden');
     },
 
     handleFeedbackSubmit: async (e) => {
         e.preventDefault();
         const { currentWorkoutId, currentOwnerId } = AppPrincipal.state.modal;
-        const updates = { status: document.getElementById('workout-status').value, feedback: document.getElementById('workout-feedback-text').value, realizadoAt: new Date().toISOString() };
+        
+        // Upload de Foto (Opcional)
+        let imageUrl = null;
+        const fileInput = document.getElementById('photo-upload-input');
+        if (fileInput.files.length > 0) {
+            document.getElementById('save-feedback-btn').textContent = "Enviando Foto...";
+            imageUrl = await AppPrincipal.uploadFileToCloudinary(fileInput.files[0], 'workouts');
+        }
+
+        const updates = { 
+            status: document.getElementById('workout-status').value, 
+            feedback: document.getElementById('workout-feedback-text').value, 
+            realizadoAt: new Date().toISOString() 
+        };
+        if(imageUrl) updates.imageUrl = imageUrl;
+
         await AppPrincipal.state.db.ref(`data/${currentOwnerId}/workouts/${currentWorkoutId}`).update(updates);
-        const full = (await AppPrincipal.state.db.ref(`data/${currentOwnerId}/workouts/${currentWorkoutId}`).once('value')).val();
-        if(updates.status !== 'planejado') await AppPrincipal.state.db.ref(`publicWorkouts/${currentWorkoutId}`).set({ownerId: currentOwnerId, ownerName: AppPrincipal.state.userCache[currentOwnerId]?.name, ...full});
+        
+        // Atualiza Feed Público
+        const fullSnap = await AppPrincipal.state.db.ref(`data/${currentOwnerId}/workouts/${currentWorkoutId}`).once('value');
+        const fullData = fullSnap.val();
+        
+        if(updates.status !== 'planejado') {
+            await AppPrincipal.state.db.ref(`publicWorkouts/${currentWorkoutId}`).set({
+                ownerId: currentOwnerId, 
+                ownerName: AppPrincipal.state.userCache[currentOwnerId]?.name || "Atleta", 
+                ...fullData
+            });
+        }
+        
         document.getElementById('feedback-modal').classList.add('hidden');
+        document.getElementById('save-feedback-btn').textContent = "Salvar Feedback";
     },
     
     handleCommentSubmit: (e) => {
         e.preventDefault();
         const text = document.getElementById('comment-input').value;
         if(!text) return;
-        AppPrincipal.state.db.ref(`workoutComments/${AppPrincipal.state.modal.currentWorkoutId}`).push({ uid: AppPrincipal.state.currentUser.uid, name: AppPrincipal.state.userData.name, text: text, timestamp: firebase.database.ServerValue.TIMESTAMP });
+        AppPrincipal.state.db.ref(`workoutComments/${AppPrincipal.state.modal.currentWorkoutId}`).push({ 
+            uid: AppPrincipal.state.currentUser.uid, 
+            name: AppPrincipal.state.userData.name, 
+            text: text, 
+            timestamp: firebase.database.ServerValue.TIMESTAMP 
+        });
         document.getElementById('comment-input').value = "";
     },
     
-    handleLogActivitySubmit: async (e) => { e.preventDefault(); /* V2 Stub */ },
-    handlePhotoUpload: () => {}, handleProfilePhotoUpload: () => {},
+    handleLogActivitySubmit: async (e) => { 
+        e.preventDefault();
+        const currentUser = AppPrincipal.state.currentUser;
+        const data = {
+            date: document.getElementById('log-activity-date').value,
+            title: document.getElementById('log-activity-title').value,
+            description: document.getElementById('log-activity-feedback').value, // Usando feedback como desc
+            status: 'realizado',
+            realizadoAt: new Date().toISOString(),
+            createdBy: currentUser.uid,
+            createdAt: new Date().toISOString()
+        };
+        const ref = await AppPrincipal.state.db.ref(`data/${currentUser.uid}/workouts`).push(data);
+        await AppPrincipal.state.db.ref(`publicWorkouts/${ref.key}`).set({
+            ownerId: currentUser.uid,
+            ownerName: AppPrincipal.state.userData.name,
+            ...data
+        });
+        alert("Atividade salva!");
+        document.getElementById('log-activity-modal').classList.add('hidden');
+    },
+
+    // Utilities
+    handlePhotoUpload: () => {}, // Stub
+    handleProfilePhotoUpload: () => {}, // Stub
     
     openProfileModal: () => { 
         document.getElementById('profile-modal').classList.remove('hidden'); 
-        const form = document.getElementById('profile-form');
-        let btn = document.getElementById('btn-strava-action');
-        if(!btn) {
-            btn = document.createElement('button'); btn.id='btn-strava-action'; btn.type='button'; btn.className='btn btn-secondary'; btn.style.marginTop='10px'; btn.style.width='100%';
-            form.appendChild(btn);
+        const u = AppPrincipal.state.userData;
+        if(u) {
+            document.getElementById('profile-name').value = u.name || "";
+            document.getElementById('profile-bio').value = u.bio || "";
+            document.getElementById('profile-pic-preview').src = u.photoUrl || "https://placehold.co/150";
         }
-        btn.textContent = AppPrincipal.state.stravaTokenData ? "Sincronizar Strava" : "Conectar Strava";
-        btn.onclick = AppPrincipal.state.stravaTokenData ? AppPrincipal.handleStravaSyncActivities : AppPrincipal.handleStravaConnect;
+
+        // Render Strava Button
+        const container = document.getElementById('strava-connection-area');
+        container.innerHTML = "";
+        
+        const btn = document.createElement('button');
+        btn.id='btn-strava-action'; 
+        btn.type='button'; 
+        btn.className='btn btn-secondary'; 
+        btn.style.width='100%';
+        
+        if (AppPrincipal.state.stravaTokenData) {
+            btn.innerHTML = "<i class='bx bx-refresh'></i> Sincronizar Strava (Deep Sync)";
+            btn.style.backgroundColor = "#fc4c02";
+            btn.onclick = AppPrincipal.handleStravaSyncActivities;
+            const status = document.createElement('p');
+            status.id = "strava-sync-status";
+            status.style.fontSize="0.8rem"; status.style.color="#666";
+            container.appendChild(status);
+        } else {
+            btn.innerHTML = "<i class='bx bxl-strava'></i> Conectar Strava";
+            btn.onclick = AppPrincipal.handleStravaConnect;
+        }
+        container.appendChild(btn);
     },
-    handleProfileSubmit: (e) => { e.preventDefault(); document.getElementById('profile-modal').classList.add('hidden'); },
+
+    handleProfileSubmit: async (e) => { 
+        e.preventDefault(); 
+        const name = document.getElementById('profile-name').value;
+        const bio = document.getElementById('profile-bio').value;
+        await AppPrincipal.state.db.ref(`users/${AppPrincipal.state.currentUser.uid}`).update({name, bio});
+        alert("Perfil salvo.");
+        document.getElementById('profile-modal').classList.add('hidden');
+    },
     
+    // IA Integration
     callGeminiTextAPI: async (prompt) => {
         if(!window.GEMINI_API_KEY) throw new Error("Sem Chave API");
         const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${window.GEMINI_API_KEY}`, {
@@ -320,6 +520,24 @@ const AppPrincipal = {
         });
         if(r.status === 429) return "⚠️ Limite de uso da IA atingido. Tente novamente mais tarde.";
         const d = await r.json(); return d.candidates[0].content.parts[0].text;
+    },
+
+    handleSaveIaAnalysis: async () => {
+        if(!AppPrincipal.state.currentAnalysisData) return;
+        const athleteId = AdminPanel.state.selectedAthleteId;
+        await AppPrincipal.state.db.ref(`iaAnalysisHistory/${athleteId}`).push(AppPrincipal.state.currentAnalysisData);
+        alert("Análise salva no histórico do atleta!");
+        document.getElementById('ia-analysis-modal').classList.add('hidden');
+    },
+
+    uploadFileToCloudinary: async (file, folder) => {
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('upload_preset', window.CLOUDINARY_CONFIG.uploadPreset);
+        formData.append('folder', `lerunners/${folder}`);
+        const res = await fetch(`https://api.cloudinary.com/v1_1/${window.CLOUDINARY_CONFIG.cloudName}/upload`, { method: 'POST', body: formData });
+        const data = await res.json();
+        return data.secure_url;
     }
 };
 
@@ -334,4 +552,5 @@ const AuthLogic = {
     }
 };
 
+// Start
 document.addEventListener('DOMContentLoaded', AppPrincipal.init);

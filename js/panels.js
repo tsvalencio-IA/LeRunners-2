@@ -7,7 +7,7 @@ const AdminPanel = {
     elements: {},
 
     init: (user, db) => {
-        AdminPanel.state = { db, currentUser: user, athletes: {} };
+        AdminPanel.state = { db, currentUser: user, selectedAthleteId: null, athletes: {} };
         
         // Liga elementos do Template V2
         AdminPanel.elements = {
@@ -26,7 +26,7 @@ const AdminPanel = {
         if(AdminPanel.elements.analyzeAthleteBtnIa) AdminPanel.elements.analyzeAthleteBtnIa.addEventListener('click', AdminPanel.handleAnalyzeAthleteIA);
         
         AdminPanel.loadAthletes();
-        AdminPanel.loadPendingApprovals(); // Restaura aprovações V2
+        AdminPanel.loadPendingApprovals();
     },
 
     loadAthletes: () => {
@@ -131,7 +131,6 @@ const AdminPanel = {
         return el;
     },
     
-    // IA (Função Ligada ao Botão do Template)
     handleAnalyzeAthleteIA: async () => {
         const uid = AdminPanel.state.selectedAthleteId;
         if(!uid) return alert("Selecione um aluno!");

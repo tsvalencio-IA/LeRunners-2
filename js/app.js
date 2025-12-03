@@ -1,5 +1,5 @@
 /* =================================================================== */
-/* APP.JS V20.0 - BASE V2 COMPLETA (SEM OMISSÕES)
+/* APP.JS V20.0 - BASE V2 COM DEEP SYNC E LOGIN CORRIGIDO (COMPLETO)
 /* =================================================================== */
 
 const AppPrincipal = {

@@ -1,5 +1,5 @@
 /* =================================================================== */
-/* ARQUIVO DE MÓDULOS (V7.1 - APROVAÇÃO STRAVA COMPLIANCE)
+/* ARQUIVO DE MÓDULOS (V7.2 - FINAL: IA FISIOLOGISTA & STRAVA COMPLIANCE)
 /* =================================================================== */
 
 // ===================================================================
@@ -10,7 +10,7 @@ const AdminPanel = {
     elements: {},
 
     init: (user, db) => {
-        console.log("AdminPanel V7.0: Inicializado.");
+        console.log("AdminPanel V7.2: Inicializado.");
         AdminPanel.state = { db, currentUser: user, selectedAthleteId: null, athletes: {} };
 
         AdminPanel.elements = {
@@ -307,19 +307,20 @@ const AdminPanel = {
         });
     },
 
-    // CORREÇÃO CRÍTICA: Fallback de Nome para o Botão funcionar sempre
+    // ===================================================================
+    // NOVA IA: MODO FISIOLOGISTA SÊNIOR (SUBSTITUIÇÃO COMPLETA)
+    // ===================================================================
     handleAnalyzeAthleteIA: async () => {
         const { selectedAthleteId } = AdminPanel.state;
         if (!selectedAthleteId) return alert("Selecione um atleta.");
         
-        // Tenta pegar o nome do state local ou do cache global (Fallback robusto)
+        // Lógica robusta para pegar o nome do atleta (evita "undefined")
         let athleteName = "Atleta";
         if (AdminPanel.state.athletes && AdminPanel.state.athletes[selectedAthleteId]) {
             athleteName = AdminPanel.state.athletes[selectedAthleteId].name;
         } else if (AppPrincipal.state.userCache && AppPrincipal.state.userCache[selectedAthleteId]) {
             athleteName = AppPrincipal.state.userCache[selectedAthleteId].name;
         } else {
-            // Último recurso: pega do DOM
             const domName = document.getElementById('athlete-detail-name').textContent;
             if(domName) athleteName = domName.replace("Atleta: ", "");
         }
@@ -328,19 +329,49 @@ const AdminPanel = {
         const iaAnalysisOutput = AppPrincipal.elements.iaAnalysisOutput;
         const saveBtn = AppPrincipal.elements.saveIaAnalysisBtn;
         
-        iaAnalysisOutput.textContent = "Coletando dados do atleta...";
+        iaAnalysisOutput.textContent = `Coletando dados fisiológicos de ${athleteName}...`;
         saveBtn.classList.add('hidden'); 
 
         try {
+            // Aumentamos para 15 treinos para a IA ter mais contexto de evolução
             const dataRef = AdminPanel.state.db.ref(`data/${selectedAthleteId}/workouts`);
-            const snapshot = await dataRef.orderByChild('date').limitToLast(10).once('value');
+            const snapshot = await dataRef.orderByChild('date').limitToLast(15).once('value');
             
-            if (!snapshot.exists()) throw new Error("Nenhum dado de treino encontrado.");
+            if (!snapshot.exists()) throw new Error("Dados insuficientes para análise.");
             const workoutData = snapshot.val();
             
-            const prompt = `ATUE COMO: Coach de Corrida. ATLETA: ${athleteName}. DADOS: ${JSON.stringify(workoutData, null, 2)}. Crie um relatório breve e direto sobre consistência e performance.`;
+            // --- NOVO CÉREBRO DA IA (Prompt Fisiologista) ---
+            const prompt = `
+            ATUE COMO: Fisiologista Sênior e Treinador de Elite da Seleção Brasileira de Atletismo.
+            DESTINATÁRIO: Treinador Leandro (Head Coach da LeRunners).
+            ATLETA EM ANÁLISE: ${athleteName}.
             
-            iaAnalysisOutput.textContent = "Gerando análise (Gemini)...";
+            DADOS TÉCNICOS (HISTÓRICO RECENTE JSON):
+            ${JSON.stringify(workoutData, null, 2)}
+
+            DIRETRIZES RÍGIDAS DE ANÁLISE (ZERO ALUCINAÇÃO):
+            1. VERDADE ABSOLUTA: Use ESTRITAMENTE os dados do JSON acima. Se o campo "stravaData" não existir num treino, assuma que não foi feito ou não foi sincronizado.
+            2. COMPARAÇÃO TÉCNICA: Compare o campo "structure" (O que o Leandro pediu) com "stravaData" (O que o atleta entregou).
+               - Verifique discrepância de volume (km) e intensidade (pace).
+            3. TOM DE VOZ: Profissional, técnico, direto e motivador quando merecido.
+
+            GERE O RELATÓRIO NESTE FORMATO:
+            
+            ### 📊 Diagnóstico de Carga e Execução
+            - **Volume Semanal:** O atleta bateu a quilometragem? (Cite números).
+            - **Intensidade:** Respeitou as zonas (Leve/Forte)? (Ex: "Era rodagem leve a 6:00, mas fez a 5:00").
+            - **Consistência:** Faltou a algum treino chave?
+
+            ### ⚠️ Pontos de Atenção (Fisiologia)
+            - Identifique riscos de lesão (aumento súbito de carga) ou destreino.
+            - Analise os "Feedbacks" escritos pelo atleta no JSON (dores, cansaço).
+
+            ### 🎯 Recomendação para o Treinador Leandro
+            - Sugestão prática para a próxima semana (Ex: "Manter volume", "Fazer tapering", "Ajustar pace do longo").
+            `;
+            // ----------------------------------------
+            
+            iaAnalysisOutput.textContent = "Processando análise de performance (Gemini Pro)...";
             const analysisResult = await AppPrincipal.callGeminiTextAPI(prompt);
             
             iaAnalysisOutput.textContent = analysisResult;
@@ -353,7 +384,7 @@ const AdminPanel = {
             saveBtn.classList.remove('hidden'); 
 
         } catch (err) {
-            iaAnalysisOutput.textContent = `ERRO: ${err.message}`;
+            iaAnalysisOutput.textContent = `ERRO NA ANÁLISE: ${err.message}`;
         }
     },
     

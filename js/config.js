@@ -1,5 +1,5 @@
 // js/config.js
-// COLE AQUI AS CHAVES DO PASSO 4 DA CONFIGURAÇÃO DO FIREBASE
+// CONFIGURAÇÕES GLOBAIS - VERSÃO ATUALIZADA
 
 const firebaseConfig = {
   apiKey: "AIzaSyDEfyw4v2UlVw85swueLoEnGjYY95xh2NI",
@@ -24,16 +24,18 @@ const CLOUDINARY_CONFIG = {
 const STRAVA_PUBLIC_CONFIG = {
     clientID: '185534', 
     
-    // NOVO ENDEREÇO DO GITHUB PAGES (Para onde o Strava redireciona)
+    // NOVO ENDEREÇO DO GITHUB PAGES (Para onde o Strava redireciona após login)
     redirectURI: 'https://tsvalencio-ia.github.io/LeRunners-2/app.html', 
     
-    // URL FINAL DO VERCEL (O SEU BACKEND)
-    // CORREÇÃO CRÍTICA: Usar o domínio principal do Vercel
-    vercelAPI: 'https://le-runners2.vercel.app/api/strava-exchange' 
+    // URL FINAL DO VERCEL (Troca de código inicial)
+    vercelAPI: 'https://le-runners2.vercel.app/api/strava-exchange',
+
+    // NOVA URL: RENOVAÇÃO DE TOKEN (Refresh)
+    vercelRefreshAPI: 'https://le-runners2.vercel.app/api/strava-refresh'
 };
 
 // ===================================================================
-// NOVO (V2.5): Disponibiliza as chaves globalmente para app.js
+// EXPORTAÇÃO GLOBAL
 // ===================================================================
 window.firebaseConfig = firebaseConfig;
 window.GEMINI_API_KEY = GEMINI_API_KEY;

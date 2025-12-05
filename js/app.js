@@ -1,5 +1,5 @@
 /* =================================================================== */
-/* APP.JS - VERSÃO 2 ORIGINAL + MODO PROFESSOR-ATLETA
+/* APP.JS - VERSÃO 4.1 + CORREÇÃO STRAVA REFRESH
 /* =================================================================== */
 
 const AppPrincipal = {
@@ -10,7 +10,7 @@ const AppPrincipal = {
         auth: null,
         listeners: {},
         currentView: 'planilha',
-        viewMode: 'admin', // NOVA VARIÁVEL: Controla a visão
+        viewMode: 'admin', 
         adminUIDs: {},
         userCache: {},
         modal: { isOpen: false, currentWorkoutId: null, currentOwnerId: null, newPhotoUrl: null },
@@ -20,7 +20,7 @@ const AppPrincipal = {
     elements: {},
 
     // ===================================================================
-    // 1. INICIALIZAÇÃO (Mantida Original V2)
+    // 1. INICIALIZAÇÃO
     // ===================================================================
     init: () => {
         if (typeof window.firebaseConfig === 'undefined') return;
@@ -82,6 +82,7 @@ const AppPrincipal = {
             navPlanilhaBtn: document.getElementById('nav-planilha-btn'),
             navFeedBtn: document.getElementById('nav-feed-btn'),
             navProfileBtn: document.getElementById('nav-profile-btn'),
+            navFinanceBtn: document.getElementById('nav-finance-btn'), 
             
             feedbackModal: document.getElementById('feedback-modal'),
             closeFeedbackModal: document.getElementById('close-feedback-modal'),
@@ -132,6 +133,7 @@ const AppPrincipal = {
         AppPrincipal.elements.logoutButton.addEventListener('click', AppPrincipal.handleLogout);
         AppPrincipal.elements.navPlanilhaBtn.addEventListener('click', () => AppPrincipal.navigateTo('planilha'));
         AppPrincipal.elements.navFeedBtn.addEventListener('click', () => AppPrincipal.navigateTo('feed'));
+        AppPrincipal.elements.navFinanceBtn.addEventListener('click', () => AppPrincipal.navigateTo('finance'));
         
         AppPrincipal.elements.closeFeedbackModal.addEventListener('click', AppPrincipal.closeFeedbackModal);
         AppPrincipal.elements.feedbackForm.addEventListener('submit', AppPrincipal.handleFeedbackSubmit);
@@ -170,7 +172,7 @@ const AppPrincipal = {
     },
 
     // ===================================================================
-    // 2. AUTH & DADOS (Com a lógica do Modo Atleta)
+    // 2. AUTH & DADOS
     // ===================================================================
     handlePlatformAuthStateChange: (user) => {
         if (!user) {
@@ -179,7 +181,7 @@ const AppPrincipal = {
             return;
         }
 
-        const { appContainer } = AppPrincipal.elements;
+        const { appContainer, navFinanceBtn } = AppPrincipal.elements;
         AppPrincipal.state.currentUser = user;
         const uid = user.uid;
         
@@ -191,6 +193,9 @@ const AppPrincipal = {
 
         AppPrincipal.state.db.ref('admins/' + uid).once('value', adminSnapshot => {
             if (adminSnapshot.exists() && adminSnapshot.val() === true) {
+                // É ADMIN
+                navFinanceBtn.classList.remove('hidden'); 
+
                 AppPrincipal.state.db.ref('users/' + uid).once('value', userSnapshot => {
                     let adminName;
                     if (userSnapshot.exists()) {
@@ -207,10 +212,10 @@ const AppPrincipal = {
                         AppPrincipal.state.db.ref('users/' + uid).set(adminProfile);
                         AppPrincipal.state.userData = adminProfile;
                     }
-                    AppPrincipal.state.userData.role = 'admin'; // Garante o role
+                    AppPrincipal.state.userData.role = 'admin';
                     AppPrincipal.elements.userDisplay.textContent = `${adminName} (Coach)`;
                     
-                    // --- INSERÇÃO DO BOTÃO "MODO ATLETA" (NOVO) ---
+                    // --- BOTÃO "MODO ATLETA" ---
                     const nav = document.querySelector('.app-header nav');
                     if(!document.getElementById('admin-toggle')) {
                         const btn = document.createElement('button');
@@ -226,16 +231,17 @@ const AppPrincipal = {
                                 btn.innerHTML = "Modo Coach";
                                 appContainer.classList.add('atleta-view');
                                 appContainer.classList.remove('admin-view');
+                                navFinanceBtn.classList.add('hidden'); 
                             } else {
                                 AppPrincipal.state.viewMode = 'admin';
                                 btn.innerHTML = "Modo Atleta";
                                 appContainer.classList.add('admin-view');
                                 appContainer.classList.remove('atleta-view');
+                                navFinanceBtn.classList.remove('hidden'); 
                             }
                             AppPrincipal.navigateTo('planilha');
                         };
                         
-                        // Insere antes do botão Sair
                         const logoutBtn = document.getElementById('logoutButton');
                         nav.insertBefore(btn, logoutBtn);
                     }
@@ -247,6 +253,9 @@ const AppPrincipal = {
                 });
                 return;
             }
+
+            // NÃO É ADMIN (Atleta comum)
+            navFinanceBtn.classList.add('hidden'); 
 
             AppPrincipal.state.db.ref('users/' + uid).once('value', userSnapshot => {
                 if (userSnapshot.exists()) {
@@ -263,30 +272,29 @@ const AppPrincipal = {
     },
 
     // ===================================================================
-    // 3. ROTEAMENTO (Modificado para suportar Modo Atleta)
+    // 3. ROTEAMENTO
     // ===================================================================
     navigateTo: (page) => {
-        const { mainContent, loader, appContainer, navPlanilhaBtn, navFeedBtn } = AppPrincipal.elements;
+        const { mainContent, loader, appContainer, navPlanilhaBtn, navFeedBtn, navFinanceBtn } = AppPrincipal.elements;
         mainContent.innerHTML = ""; 
         AppPrincipal.cleanupListeners(true);
         AppPrincipal.state.currentView = page;
 
         navPlanilhaBtn.classList.toggle('active', page === 'planilha');
         navFeedBtn.classList.toggle('active', page === 'feed');
+        navFinanceBtn.classList.toggle('active', page === 'finance');
 
-        if (typeof AdminPanel === 'undefined' || typeof AtletaPanel === 'undefined' || typeof FeedPanel === 'undefined') {
+        if (typeof AdminPanel === 'undefined' || typeof AtletaPanel === 'undefined' || typeof FeedPanel === 'undefined' || typeof FinancePanel === 'undefined') {
             mainContent.innerHTML = "<h1>Erro ao carregar módulos. Recarregue a página.</h1>";
             return;
         }
 
         if (page === 'planilha') {
-            // LÓGICA DE TOGGLE: Se for admin mas estiver em modo atleta, carrega painel de atleta
             if (AppPrincipal.state.userData.role === 'admin' && AppPrincipal.state.viewMode === 'admin') {
                 const adminTemplate = document.getElementById('admin-panel-template').content.cloneNode(true);
                 mainContent.appendChild(adminTemplate);
                 AdminPanel.init(AppPrincipal.state.currentUser, AppPrincipal.state.db);
             } else {
-                // Admin no modo atleta ou Atleta normal
                 const atletaTemplate = document.getElementById('atleta-panel-template').content.cloneNode(true);
                 mainContent.appendChild(atletaTemplate);
                 const welcomeEl = document.getElementById('atleta-welcome-name');
@@ -300,6 +308,16 @@ const AppPrincipal = {
             const feedTemplate = document.getElementById('feed-panel-template').content.cloneNode(true);
             mainContent.appendChild(feedTemplate);
             FeedPanel.init(AppPrincipal.state.currentUser, AppPrincipal.state.db);
+        }
+        else if (page === 'finance') {
+            if (AppPrincipal.state.userData.role === 'admin') {
+                const financeTemplate = document.getElementById('finance-panel-template').content.cloneNode(true);
+                mainContent.appendChild(financeTemplate);
+                FinancePanel.init(AppPrincipal.state.currentUser, AppPrincipal.state.db);
+            } else {
+                alert("Acesso negado.");
+                AppPrincipal.navigateTo('planilha');
+            }
         }
 
         loader.classList.add('hidden');
@@ -321,7 +339,7 @@ const AppPrincipal = {
     },
 
     // ===================================================================
-    // 4. PERFIL E STRAVA (Mantendo a lógica da V2)
+    // 4. PERFIL E STRAVA
     // ===================================================================
     openProfileModal: () => {
         const { profileModal, profileName, profileBio, profilePicPreview, profileUploadFeedback, saveProfileBtn } = AppPrincipal.elements;
@@ -349,12 +367,17 @@ const AppPrincipal = {
         stravaSection.style.paddingTop = "1rem";
         stravaSection.style.borderTop = "1px solid #e0e0e0";
 
+        // VERIFICAÇÃO VISUAL DE EXPIRAÇÃO (Opcional, mas útil)
+        const now = Math.floor(Date.now() / 1000);
+        const isExpired = stravaTokenData && stravaTokenData.expiresAt && now > stravaTokenData.expiresAt;
+        const statusText = isExpired ? " (Token expirado - renovação automática no sync)" : " (Ativo)";
+
         if (stravaTokenData && stravaTokenData.accessToken) {
             stravaSection.innerHTML = `
                 <fieldset style="border-color: var(--success-color);">
                     <legend style="color: var(--success-color);"><i class='bx bxl-strava'></i> Strava Conectado</legend>
                     <p style="font-size: 0.9rem; margin-bottom: 1rem; color: var(--success-color);">
-                        <i class='bx bx-check-circle'></i> Conta vinculada.
+                        <i class='bx bx-check-circle'></i> Conta vinculada${statusText}.
                     </p>
                     <button id="btn-sync-strava" class="btn btn-primary" style="background-color: var(--strava-orange); color: white;">
                         <i class='bx bx-cloud-download'></i> Sincronizar Tudo
@@ -481,7 +504,35 @@ const AppPrincipal = {
         }
     },
 
-    // --- STRAVA SYNC (Lógica V2 Pura) ---
+    // --- FUNÇÃO DE RENOVAÇÃO (REFRESH) ---
+    refreshStravaToken: async () => {
+        const VERCEL_REFRESH_URL = window.STRAVA_PUBLIC_CONFIG.vercelRefreshAPI;
+        const user = AppPrincipal.state.currentUser;
+        
+        console.log("Tentando renovar token Strava...");
+        
+        try {
+            const idToken = await user.getIdToken();
+            const response = await fetch(VERCEL_REFRESH_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${idToken}` }
+            });
+            
+            const result = await response.json();
+            if (!response.ok) throw new Error(result.error || "Falha na renovação");
+            
+            // O Backend já atualizou o Firebase, mas atualizamos o state local para garantir
+            console.log("Token renovado com sucesso!");
+            AppPrincipal.state.stravaTokenData.accessToken = result.accessToken;
+            return result.accessToken;
+
+        } catch (error) {
+            console.error("Erro ao renovar token:", error);
+            throw error; // Propaga erro para parar a sincronização
+        }
+    },
+
+    // --- STRAVA SYNC (V2 Pura + Refresh Automático) ---
     handleStravaSyncActivities: async () => {
         const { stravaTokenData, currentUser } = AppPrincipal.state;
         const btn = document.getElementById('btn-sync-strava');
@@ -493,17 +544,31 @@ const AppPrincipal = {
         }
 
         btn.disabled = true;
-        statusEl.textContent = "Sincronizando...";
+        statusEl.textContent = "Verificando conexão...";
 
         try {
-            // Busca apenas a primeira página (50 itens) como na V2
+            // 1. VERIFICAÇÃO DE VALIDADE DO TOKEN
+            // Strava expira em 6 horas. Vamos checar se já expirou ou vence em 5 min.
+            let accessToken = stravaTokenData.accessToken;
+            const nowSeconds = Math.floor(Date.now() / 1000);
+            const expiresAt = stravaTokenData.expiresAt || 0;
+
+            if (nowSeconds >= (expiresAt - 300)) { 
+                statusEl.textContent = "Renovando token de segurança...";
+                accessToken = await AppPrincipal.refreshStravaToken();
+            }
+
+            // 2. BUSCA ATIVIDADES (Com token válido)
+            statusEl.textContent = "Buscando atividades no Strava...";
             const response = await fetch(`https://www.strava.com/api/v3/athlete/activities?per_page=50`, {
-                headers: { 'Authorization': `Bearer ${stravaTokenData.accessToken}` }
+                headers: { 'Authorization': `Bearer ${accessToken}` }
             });
 
-            if (!response.ok) throw new Error("Erro Strava API.");
+            if (!response.ok) throw new Error("Erro Strava API (401/403).");
 
             const activities = await response.json();
+            statusEl.textContent = "Processando dados...";
+            
             const existingWorkoutsRef = AppPrincipal.state.db.ref(`data/${currentUser.uid}/workouts`);
             const snapshot = await existingWorkoutsRef.once('value');
             const existingWorkouts = snapshot.val() || {};
@@ -524,10 +589,13 @@ const AppPrincipal = {
                     const newKey = AppPrincipal.state.db.ref().push().key;
                     
                     const distKm = (act.distance / 1000).toFixed(2) + " km";
-                    // Cálculo simples de ritmo da V2
-                    const paceMin = Math.floor((act.moving_time / 60) / (act.distance / 1000));
-                    const paceSec = Math.floor(((act.moving_time / 60) / (act.distance / 1000) - paceMin) * 60);
-                    const ritmoStr = `${paceMin}:${paceSec.toString().padStart(2, '0')} /km`;
+                    // Calculo de pace (min/km)
+                    let ritmoStr = "0:00 /km";
+                    if (act.distance > 0 && act.moving_time > 0) {
+                        const paceMin = Math.floor((act.moving_time / 60) / (act.distance / 1000));
+                        const paceSec = Math.floor(((act.moving_time / 60) / (act.distance / 1000) - paceMin) * 60);
+                        ritmoStr = `${paceMin}:${paceSec.toString().padStart(2, '0')} /km`;
+                    }
                     
                     const workoutData = {
                         title: act.name,
@@ -537,12 +605,15 @@ const AppPrincipal = {
                         realizadoAt: new Date().toISOString(),
                         createdBy: currentUser.uid,
                         createdAt: new Date().toISOString(),
-                        feedback: "Treino importado.",
+                        feedback: "Treino importado do Strava.",
                         stravaActivityId: String(act.id),
                         stravaData: {
                             distancia: distKm,
                             tempo: new Date(act.moving_time * 1000).toISOString().substr(11, 8),
-                            ritmo: ritmoStr
+                            ritmo: ritmoStr,
+                            mapLink: act.map && act.map.summary_polyline 
+                                ? `https://www.strava.com/activities/${act.id}` 
+                                : null
                         }
                     };
 
@@ -558,13 +629,14 @@ const AppPrincipal = {
 
             if (Object.keys(updates).length > 0) {
                 await AppPrincipal.state.db.ref().update(updates);
-                alert(`Sincronização concluída! ${count} atividades importadas.`);
+                alert(`Sincronização concluída! ${count} novas atividades importadas.`);
             } else {
-                alert("Tudo atualizado.");
+                alert("Nenhuma atividade nova encontrada.");
             }
             AppPrincipal.closeProfileModal();
 
         } catch (err) {
+            console.error(err);
             alert("Erro na sincronização: " + err.message);
         } finally {
             btn.disabled = false;
@@ -573,7 +645,7 @@ const AppPrincipal = {
     },
 
     // ===================================================================
-    // FUNÇÕES AUXILIARES (V2)
+    // FUNÇÕES AUXILIARES
     // ===================================================================
     openFeedbackModal: (workoutId, ownerId, workoutTitle) => {
         const { feedbackModal, feedbackModalTitle, workoutStatusSelect, workoutFeedbackText, commentsList, commentInput, photoUploadInput, saveFeedbackBtn, photoUploadFeedback, stravaDataDisplay } = AppPrincipal.elements;
@@ -688,7 +760,6 @@ const AppPrincipal = {
         AppPrincipal.elements.commentInput.value = "";
     },
 
-    // Funções extras V2 (Log Manual, Who Liked, IA, Upload)
     openLogActivityModal: () => {
         AppPrincipal.elements.logActivityForm.reset();
         AppPrincipal.elements.logActivityModal.classList.remove('hidden');
@@ -766,9 +837,8 @@ const AppPrincipal = {
             const prompt = `Analise a imagem. Retorne JSON: { "distancia": "X km", "tempo": "HH:MM:SS", "ritmo": "X:XX /km" }`;
             const json = await AppPrincipal.callGeminiVisionAPI(prompt, base64, file.type);
             const data = JSON.parse(json);
-            AppPrincipal.state.stravaData = data; // Armazena temporariamente para salvar no submit
+            AppPrincipal.state.stravaData = data; 
             
-            // Exibição simples V2
             const display = document.getElementById('strava-data-display');
             if(display) {
                 display.classList.remove('hidden');

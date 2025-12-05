@@ -12,6 +12,24 @@
 
     <link href="https://cdn.jsdelivr.net/npm/boxicons@2.1.4/css/boxicons.min.css" rel="stylesheet">
     <meta name="theme-color" content="#00008B">
+    <style>
+        /* Estilos Específicos do Módulo Financeiro (Aditivo) */
+        .finance-summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-bottom: 2rem; }
+        .finance-card { background: white; padding: 1.5rem; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); text-align: center; border-left: 5px solid #ccc; }
+        .finance-card.receita { border-color: var(--success-color); }
+        .finance-card.despesa { border-color: var(--danger-color); }
+        .finance-card.saldo { border-color: var(--primary-color); }
+        .finance-card h3 { font-size: 0.9rem; color: #666; margin-bottom: 0.5rem; }
+        .finance-card p { font-size: 1.8rem; font-weight: bold; color: #333; margin: 0; }
+        
+        .table-responsive { overflow-x: auto; }
+        .data-table { width: 100%; border-collapse: collapse; margin-top: 1rem; background: white; border-radius: 8px; overflow: hidden; }
+        .data-table th, .data-table td { padding: 1rem; text-align: left; border-bottom: 1px solid #eee; }
+        .data-table th { background-color: #f8f9fa; font-weight: 600; color: #444; }
+        .badge { padding: 0.25rem 0.5rem; border-radius: 4px; font-size: 0.75rem; font-weight: bold; text-transform: uppercase; }
+        .badge-success { background: #d4edda; color: #155724; }
+        .badge-danger { background: #f8d7da; color: #721c24; }
+    </style>
 </head>
 <body class="app-page">
 
@@ -27,6 +45,10 @@
             <nav>
                 <button id="nav-planilha-btn" class="btn btn-nav active">
                     <i class='bx bx-calendar'></i> <span>Planilha</span>
+                </button>
+                <!-- BOTÃO FINANCEIRO (NOVO - Inicia Oculto) -->
+                <button id="nav-finance-btn" class="btn btn-nav hidden">
+                    <i class='bx bx-dollar-circle'></i> <span>Financeiro</span>
                 </button>
                 <button id="nav-feed-btn" class="btn btn-nav">
                     <i class='bx bx-news'></i> <span>Feed</span>
@@ -44,13 +66,15 @@
         </header>
 
         <main id="app-main-content" class="app-main">
-            </main>
+            <!-- O conteúdo dinâmico entra aqui -->
+        </main>
     </div>
 
     <footer class="app-footer">
         Desenvolvido com 🤖 por thIAguinho Soluções
     </footer>
 
+    <!-- TEMPLATE DO ADMIN/COACH (PRESERVADO) -->
     <template id="admin-panel-template">
         <div class="admin-dashboard">
             <h2><i class="bx bx-shield-quarter"></i> Painel do Coach</h2>
@@ -58,7 +82,8 @@
             <div class="panel approval-panel">
                 <h3><i class='bx bx-user-check'></i> Aprovações Pendentes</h3>
                 <div id="pending-list">
-                    </div>
+                    <!-- Lista injetada via JS -->
+                </div>
             </div>
 
             <div class="admin-layout">
@@ -66,7 +91,8 @@
                     <h3><i class='bx bx-group'></i> Meus Atletas</h3>
                     <input type="text" id="athlete-search" class="search-input" placeholder="Pesquisar atleta...">
                     <div id="athlete-list" class="athlete-list">
-                        </div>
+                        <!-- Lista injetada via JS -->
+                    </div>
                 </div>
                 <div class="athlete-details-container panel">
                     <h3 id="athlete-detail-name">Selecione um Atleta</h3>
@@ -100,7 +126,7 @@
                                 </div>
                 
                                 <fieldset class="workout-fieldset">
-                                    <legend>Detalhes do Treino</legend>
+                                    <legend>Detalhes do Treino (Estruturado)</legend>
                                     <div class="form-grid-2col">
                                         <div class="form-group">
                                             <label for="workout-modalidade">Modalidade</label>
@@ -179,7 +205,8 @@
                             <hr>
                             <h4><i class='bx bx-history'></i> Treinos Agendados</h4>
                             <div id="workouts-list">
-                                </div>
+                                <!-- Lista injetada via JS -->
+                            </div>
                         </div>
 
                         <div id="admin-tab-kpis" class="admin-tab-content">
@@ -190,7 +217,8 @@
                             
                             <h4><i class='bx bx-save'></i> Histórico de Análises Salvas</h4>
                             <div id="ia-history-list" class="ia-history-list">
-                                </div>
+                                <!-- Lista injetada via JS -->
+                            </div>
                         </div>
 
                     </div>
@@ -199,6 +227,159 @@
         </div>
     </template>
 
+    <!-- NOVO TEMPLATE: FINANCEIRO (ADAPTADO) -->
+    <template id="finance-panel-template">
+        <div class="finance-dashboard">
+            <h2><i class='bx bx-dollar-circle'></i> Gestão Financeira</h2>
+            
+            <div class="finance-summary">
+                <div class="finance-card receita">
+                    <h3>Receitas (Mês)</h3>
+                    <p id="fin-total-receita">R$ 0,00</p>
+                </div>
+                <div class="finance-card despesa">
+                    <h3>Despesas (Mês)</h3>
+                    <p id="fin-total-despesa">R$ 0,00</p>
+                </div>
+                <div class="finance-card saldo">
+                    <h3>Saldo Atual</h3>
+                    <p id="fin-saldo">R$ 0,00</p>
+                </div>
+            </div>
+
+            <div class="admin-tabs">
+                <button class="tab-btn active" data-fin-tab="lancamentos">Lançamentos</button>
+                <button class="tab-btn" data-fin-tab="estoque">Estoque & Produtos</button>
+            </div>
+
+            <!-- ABA 1: LANÇAMENTOS -->
+            <div id="fin-tab-lancamentos" class="fin-tab-content active">
+                <div class="panel">
+                    <h3>Novo Lançamento</h3>
+                    <form id="finance-transaction-form" class="form-minimal">
+                        <div class="form-grid-2col">
+                            <div class="form-group">
+                                <label>Tipo</label>
+                                <select id="fin-type" required>
+                                    <option value="receita">Receita (Entrada)</option>
+                                    <option value="despesa">Despesa (Saída)</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>Categoria</label>
+                                <select id="fin-category" required>
+                                    <!-- Opções mudam via JS -->
+                                    <option value="Mensalidade">Mensalidade</option>
+                                    <option value="Venda">Venda de Produto</option>
+                                    <option value="Outro">Outro</option>
+                                </select>
+                            </div>
+                        </div>
+                        
+                        <!-- Campos Dinâmicos -->
+                        <div id="fin-student-selector" class="form-group hidden">
+                            <label>Aluno</label>
+                            <select id="fin-student-select">
+                                <option value="">Selecione o Aluno...</option>
+                            </select>
+                        </div>
+                        
+                        <div id="fin-product-selector" class="form-group hidden">
+                            <label>Produto do Estoque</label>
+                            <select id="fin-product-select">
+                                <option value="">Selecione o Produto...</option>
+                            </select>
+                        </div>
+
+                        <div class="form-grid-2col">
+                            <div class="form-group">
+                                <label>Descrição</label>
+                                <input type="text" id="fin-description" placeholder="Ex: Mensalidade Janeiro" required>
+                            </div>
+                            <div class="form-group">
+                                <label>Valor (R$)</label>
+                                <input type="number" id="fin-amount" step="0.01" placeholder="0.00" required>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>Data</label>
+                            <input type="date" id="fin-date" required>
+                        </div>
+                        <button type="submit" class="btn btn-success">Salvar Lançamento</button>
+                    </form>
+                </div>
+
+                <div class="panel">
+                    <h3>Histórico de Transações</h3>
+                    <div class="table-responsive">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>Data</th>
+                                    <th>Descrição</th>
+                                    <th>Cat.</th>
+                                    <th>Valor</th>
+                                    <th>Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody id="finance-transactions-list">
+                                <!-- Injetado via JS -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ABA 2: ESTOQUE -->
+            <div id="fin-tab-estoque" class="fin-tab-content hidden">
+                <div class="panel">
+                    <h3>Cadastrar Produto</h3>
+                    <form id="finance-product-form" class="form-minimal">
+                        <div class="form-grid-4col">
+                            <div class="form-group">
+                                <label>Nome do Produto</label>
+                                <input type="text" id="prod-name" placeholder="Ex: Camiseta P" required>
+                            </div>
+                            <div class="form-group">
+                                <label>Preço Venda (R$)</label>
+                                <input type="number" id="prod-price" step="0.01" required>
+                            </div>
+                            <div class="form-group">
+                                <label>Custo (R$)</label>
+                                <input type="number" id="prod-cost" step="0.01">
+                            </div>
+                            <div class="form-group">
+                                <label>Qtd. Inicial</label>
+                                <input type="number" id="prod-qty" required>
+                            </div>
+                        </div>
+                        <button type="submit" class="btn btn-primary">Adicionar ao Estoque</button>
+                    </form>
+                </div>
+
+                <div class="panel">
+                    <h3>Estoque Atual</h3>
+                    <div class="table-responsive">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>Produto</th>
+                                    <th>Preço Venda</th>
+                                    <th>Qtd.</th>
+                                    <th>Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody id="finance-inventory-list">
+                                <!-- Injetado via JS -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </template>
+
+    <!-- TEMPLATE DO ATLETA (PRESERVADO) -->
     <template id="atleta-panel-template">
         <div class="atleta-dashboard">
             <div class="atleta-header">
@@ -212,21 +393,25 @@
             <div id="atleta-workouts-container" class="panel">
                 <h4>Meus Treinos</h4>
                 <div id="atleta-workouts-list">
-                    </div>
+                    <!-- Lista injetada via JS -->
+                </div>
             </div>
         </div>
     </template>
 
+    <!-- TEMPLATE DO FEED (PRESERVADO) -->
     <template id="feed-panel-template">
         <div class="feed-dashboard">
             <h2><i class='bx bx-news'></i> Feed da Equipe</h2>
             <p class="subtitle">Veja o que a equipe está fazendo e deixe seu feedback.</p>
             <div id="feed-list" class="feed-list">
-                </div>
+                <!-- Lista injetada via JS -->
+            </div>
         </div>
     </template>
 
 
+    <!-- MODAIS E COMPONENTES GLOBAIS (PRESERVADOS) -->
     <div id="feedback-modal" class="modal-overlay hidden">
         <div class="modal-content">
             <div class="modal-header">
@@ -276,7 +461,8 @@
                 <fieldset>
                     <legend>Comentários (Coach/Atleta)</legend>
                     <div id="comments-list" class="comments-list">
-                        </div>
+                        <!-- Comentários via JS -->
+                    </div>
                     <form id="comment-form" class="comment-form">
                         <input type="text" id="comment-input" placeholder="Escreva um comentário..." required>
                         <button type="submit" class="btn btn-secondary btn-small">
@@ -336,7 +522,8 @@
             </div>
             <div class="modal-body">
                 <ul id="who-liked-list">
-                    </ul>
+                    <!-- Lista via JS -->
+                </ul>
             </div>
         </div>
     </div>
@@ -415,10 +602,12 @@
     <script src="https://upload-widget.cloudinary.com/global/all.js" type="text/javascript"></script>
 
     <script src="js/config.js"></script>
-    <script src="js/app.js"></script> <script src="js/panels.js"></script> <script>
+    <script src="js/app.js"></script> 
+    <script src="js/panels.js"></script> 
+    <script>
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
-                navigator.serviceWorker.register('./service-worker.js') /* CORRIGIDO DE / PARA ./ */
+                navigator.serviceWorker.register('./service-worker.js')
                     .then(registration => {
                         console.log('Service Worker registrado com sucesso:', registration.scope);
                     })
@@ -428,5 +617,5 @@
             });
         }
     </script>
-    </body>
+</body>
 </html>

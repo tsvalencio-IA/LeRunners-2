@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LeRunners - Consultoria Online IA</title>
+    <link rel="stylesheet" href="css/styles.css">
+    <link href="https://cdn.jsdelivr.net/npm/boxicons@2.1.4/css/boxicons.min.css" rel="stylesheet">
+    <meta name="theme-color" content="#00008B">
+    <link rel="icon" type="image/png" sizes="192x192" href="img/logo-192.png">
+</head>
+<body class="app-page">
+
+    <div id="loader" class="loader-container">
+        <div class="loader"></div>
+        <p>Conectando ao Treinador Virtual...</p>
+    </div>
+
+    <div id="auth-container" class="login-container hidden" style="margin: 2rem auto; max-width: 450px;">
+        <img src="img/logo-512.png" alt="Logo LeRunners" class="logo">
+        
+        <form id="login-form">
+            <h2>Consultoria Online</h2>
+            <p class="subtitle">Acesse sua planilha inteligente</p>
+            <div class="form-group">
+                <label>Email</label>
+                <div class="input-icon"><i class="bx bx-envelope"></i><input type="email" id="loginEmail" required></div>
+            </div>
+            <div class="form-group">
+                <label>Senha</label>
+                <div class="input-icon"><i class="bx bx-lock"></i><input type="password" id="loginPassword" required></div>
+            </div>
+            <button type="submit" class="btn btn-primary">Entrar</button>
+            <p id="login-error" class="error-message"></p>
+            <p class="toggle-link">Novo aluno? <a href="#" id="toggleToRegister">Cadastre-se aqui</a></p>
+        </form>
+
+        <form id="register-form" class="hidden">
+            <h2>Nova Consultoria</h2>
+            <p class="subtitle">Solicite acesso ao Coach Leandro</p>
+            <div class="form-group">
+                <label>Nome Completo</label>
+                <div class="input-icon"><i class="bx bx-user"></i><input type="text" id="registerName" required></div>
+            </div>
+            <div class="form-group">
+                <label>Email</label>
+                <div class="input-icon"><i class="bx bx-envelope"></i><input type="email" id="registerEmail" required></div>
+            </div>
+            <div class="form-group">
+                <label>Senha</label>
+                <div class="input-icon"><i class="bx bx-lock-alt"></i><input type="password" id="registerPassword" required></div>
+            </div>
+            <button type="submit" class="btn btn-secondary">Solicitar Aprovação</button>
+            <p id="register-error" class="error-message"></p>
+            <p class="toggle-link">Já tem conta? <a href="#" id="toggleToLogin">Voltar para Login</a></p>
+        </form>
+
+        <div id="pending-view" class="hidden panel" style="text-align: center; border-left: 4px solid orange;">
+            <h3><i class='bx bx-time-five'></i> Aguardando Aprovação</h3>
+            <p>Sua solicitação foi enviada para o <strong>Coach Leandro</strong>.</p>
+            <p>Assim que ele aprovar, você terá acesso à Inteligência Artificial para gerar seus treinos.</p>
+            <button id="btn-logout-pending" class="btn btn-danger btn-small">Sair</button>
+        </div>
+    </div>
+
+    <div id="app-container" class="hidden" style="max-width: 800px; margin: 0 auto; width: 100%;">
+        <header class="app-header">
+            <h1>LeRunners <span style="font-size: 0.8rem; background: #28a745; color: #fff; padding: 2px 6px; border-radius: 4px;">IA</span></h1>
+            <nav>
+                <span id="user-name-display" style="font-weight: bold; color: #666; margin-right: 10px;"></span>
+                <button id="btn-logout" class="btn btn-danger btn-small"><i class='bx bx-log-out'></i></button>
+            </nav>
+        </header>
+
+        <main class="app-main" style="padding: 1rem;">
+            
+            <div class="panel">
+                <h3><i class='bx bx-pulse'></i> 1. Sincronização de Dados</h3>
+                <p>Para a IA atuar como Fisiologista, ela precisa ler seus treinos passados.</p>
+                <div style="display: flex; gap: 10px; flex-wrap: wrap; margin-top: 1rem;">
+                    <button id="btn-connect-strava" class="btn btn-secondary" style="background: #fc4c02; border: none; color: white;">
+                        <i class='bx bxl-strava'></i> Conectar Strava
+                    </button>
+                    <button id="btn-sync-strava" class="btn btn-primary hidden">
+                        <i class='bx bx-refresh'></i> Sincronizar Agora
+                    </button>
+                </div>
+                <p id="status-strava" style="margin-top: 10px; font-weight: 600; color: var(--primary-color);"></p>
+            </div>
+
+            <div class="panel" style="border: 2px solid #00008B; background: #fdfdff;">
+                <h3 style="color: #00008B;"><i class='bx bxs-brain'></i> 2. Fisiologista Virtual</h3>
+                <p>Com base no seu histórico real, a IA vai prescrever sua próxima semana de treinos com a metodologia da Seleção Brasileira.</p>
+                
+                <button id="btn-generate-plan" class="btn btn-primary" style="padding: 1rem; font-size: 1.1rem;">
+                    <i class='bx bx-loader-circle'></i> GERAR MINHA PLANILHA
+                </button>
+                
+                <div id="ia-loading" class="hidden" style="margin-top: 1rem; text-align: center; color: #666;">
+                    <div class="loader" style="width: 30px; height: 30px; margin: 0 auto;"></div>
+                    <p>Analisando volume, intensidade e carga...</p>
+                </div>
+            </div>
+
+            <div class="panel">
+                <h3>Minha Planilha Inteligente</h3>
+                <div id="workout-list">
+                    </div>
+            </div>
+        </main>
+    </div>
+
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+    
+    <script src="js/config.js"></script>
+    
+    <script src="js/aluno-ia.js"></script>
+
+</body>
+</html>

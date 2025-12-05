@@ -1,5 +1,5 @@
 /* =================================================================== */
-/* ARQUIVO DE MÓDULOS (V7.0 - FINAL: RESTAURAÇÃO FIEL DA LÓGICA V2)
+/* ARQUIVO DE MÓDULOS (V7.1 - APROVAÇÃO STRAVA COMPLIANCE)
 /* =================================================================== */
 
 // ===================================================================
@@ -422,12 +422,16 @@ const AdminPanel = {
         return el;
     },
 
+    // ========================================================
+    // ATUALIZAÇÃO STRAVA ADMIN (COMPLIANCE)
+    // ========================================================
     createStravaDataDisplay: (stravaData) => {
         if (!stravaData) return '';
 
+        // Regra Strava: Link obrigatório e visível
         let mapLinkHtml = '';
         if (stravaData.mapLink) {
-            mapLinkHtml = `<p style="margin-top:10px;"><a href="${stravaData.mapLink}" target="_blank" style="display:inline-block; padding:8px 12px; background:#fc4c02; color:white; border-radius:4px; text-decoration:none; font-weight:bold;">🗺️ Ver Mapa no Strava</a></p>`;
+            mapLinkHtml = `<p style="margin-top:10px; text-align:center;"><a href="${stravaData.mapLink}" target="_blank" style="display:inline-block; color:#fc4c02; text-decoration:underline; font-weight:bold;">View on Strava</a></p>`;
         }
 
         let splitsHtml = '';
@@ -459,7 +463,10 @@ const AdminPanel = {
 
         return `
             <fieldset class="strava-data-display" style="border-color:#fc4c02; background:#fff5f0;">
-                <legend style="color:#fc4c02; font-weight:bold;"><i class='bx bxl-strava'></i> Dados do Treino</legend>
+                <legend style="color:#fc4c02; font-weight:bold;">
+                    <img src="img/strava.png" alt="Powered by Strava" style="height: 20px; vertical-align: middle; margin-right: 5px;">
+                    Dados do Treino
+                </legend>
                 <div style="font-family:monospace; font-size:1rem; color:#333;">
                     <p><strong>Distância:</strong> ${stravaData.distancia || "N/A"}</p>
                     <p><strong>Tempo:</strong>     ${stravaData.tempo || "N/A"}</p>
@@ -948,13 +955,16 @@ const AtletaPanel = {
         return el;
     },
     
-    // RESTAURAÇÃO: Visualização Completa (Strava + Splits)
+    // ========================================================
+    // ATUALIZAÇÃO STRAVA ATLETA (COMPLIANCE)
+    // ========================================================
     createStravaDataDisplay: (stravaData) => {
         if (!stravaData) return '';
 
+        // Regra Strava: Link obrigatório e visível
         let mapLinkHtml = '';
         if (stravaData.mapLink) {
-            mapLinkHtml = `<p style="margin-top:10px;"><a href="${stravaData.mapLink}" target="_blank" style="display:inline-block; padding:8px 12px; background:#fc4c02; color:white; border-radius:4px; text-decoration:none; font-weight:bold;">🗺️ Ver Mapa no Strava</a></p>`;
+            mapLinkHtml = `<p style="margin-top:10px; text-align:center;"><a href="${stravaData.mapLink}" target="_blank" style="display:inline-block; color:#fc4c02; text-decoration:underline; font-weight:bold;">View on Strava</a></p>`;
         }
 
         let splitsHtml = '';
@@ -985,9 +995,12 @@ const AtletaPanel = {
         }
 
         return `
-            <fieldset class="strava-data-display" style="border-color:#fc4c02;">
-                <legend><i class='bx bxl-strava'></i> Dados do Treino</legend>
-                <div style="font-family:monospace; font-size:1rem;">
+            <fieldset class="strava-data-display" style="border-color:#fc4c02; background:#fff5f0;">
+                <legend style="color:#fc4c02; font-weight:bold;">
+                    <img src="img/strava.png" alt="Powered by Strava" style="height: 20px; vertical-align: middle; margin-right: 5px;">
+                    Dados do Treino
+                </legend>
+                <div style="font-family:monospace; font-size:1rem; color:#333;">
                     <p><strong>Distância:</strong> ${stravaData.distancia || "N/A"}</p>
                     <p><strong>Tempo:</strong>     ${stravaData.tempo || "N/A"}</p>
                     <p><strong>Ritmo Médio:</strong> ${stravaData.ritmo || "N/A"}</p>

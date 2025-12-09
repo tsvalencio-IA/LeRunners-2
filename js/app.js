@@ -1,5 +1,6 @@
 /* =================================================================== */
-/* APP.JS - VERSÃO 4.2 + CORREÇÃO SYNC E SPLITS (MERGE INTELIGENTE)
+/* APP.JS - VERSÃO 5.0 - PERITO EDITION
+/* CORREÇÕES: SYNC DETALHADO (SPLITS) + MERGE COM TREINO PLANEJADO
 /* =================================================================== */
 
 const AppPrincipal = {
@@ -367,7 +368,7 @@ const AppPrincipal = {
         stravaSection.style.paddingTop = "1rem";
         stravaSection.style.borderTop = "1px solid #e0e0e0";
 
-        // VERIFICAÇÃO VISUAL DE EXPIRAÇÃO (Opcional, mas útil)
+        // VERIFICAÇÃO VISUAL DE EXPIRAÇÃO
         const now = Math.floor(Date.now() / 1000);
         const isExpired = stravaTokenData && stravaTokenData.expiresAt && now > stravaTokenData.expiresAt;
         const statusText = isExpired ? " (Token expirado - renovação automática no sync)" : " (Ativo)";
@@ -521,18 +522,19 @@ const AppPrincipal = {
             const result = await response.json();
             if (!response.ok) throw new Error(result.error || "Falha na renovação");
             
-            // O Backend já atualizou o Firebase, mas atualizamos o state local para garantir
             console.log("Token renovado com sucesso!");
             AppPrincipal.state.stravaTokenData.accessToken = result.accessToken;
             return result.accessToken;
 
         } catch (error) {
             console.error("Erro ao renovar token:", error);
-            throw error; // Propaga erro para parar a sincronização
+            throw error; 
         }
     },
 
-    // --- STRAVA SYNC (V2 Pura + Refresh Automático + CORREÇÃO MERGE & SPLITS) ---
+    // ===================================================================
+    //  STRAVA SYNC INTELIGENTE (CORREÇÃO DE SPLITS E MERGE)
+    // ===================================================================
     handleStravaSyncActivities: async () => {
         const { stravaTokenData, currentUser } = AppPrincipal.state;
         const btn = document.getElementById('btn-sync-strava');
@@ -547,36 +549,37 @@ const AppPrincipal = {
         statusEl.textContent = "Verificando conexão...";
 
         try {
-            // 1. VERIFICAÇÃO DE VALIDADE DO TOKEN
+            // 1. RENOVAÇÃO DE TOKEN
             let accessToken = stravaTokenData.accessToken;
             const nowSeconds = Math.floor(Date.now() / 1000);
             const expiresAt = stravaTokenData.expiresAt || 0;
 
             if (nowSeconds >= (expiresAt - 300)) { 
-                statusEl.textContent = "Renovando token de segurança...";
+                statusEl.textContent = "Renovando token...";
                 accessToken = await AppPrincipal.refreshStravaToken();
             }
 
-            // 2. BUSCA ATIVIDADES
-            statusEl.textContent = "Buscando atividades no Strava...";
+            // 2. BUSCA LISTA (RESUMO)
+            statusEl.textContent = "Buscando lista de atividades...";
             const response = await fetch(`https://www.strava.com/api/v3/athlete/activities?per_page=50`, {
                 headers: { 'Authorization': `Bearer ${accessToken}` }
             });
 
             if (!response.ok) throw new Error("Erro Strava API (401/403).");
-
             const activities = await response.json();
-            statusEl.textContent = "Processando dados...";
             
+            // 3. RECUPERA TREINOS EXISTENTES (Para Merge)
+            statusEl.textContent = "Analisando histórico local...";
             const existingWorkoutsRef = AppPrincipal.state.db.ref(`data/${currentUser.uid}/workouts`);
             const snapshot = await existingWorkoutsRef.once('value');
             const existingWorkouts = snapshot.val() || {};
             
             const updates = {};
-            let count = 0;
+            let countNew = 0;
+            let countMerged = 0;
 
-            activities.forEach(act => {
-                // VERIFICA SE JÁ EXISTE ESTE TREINO PELO ID DO STRAVA
+            for (const act of activities) {
+                // a) Verifica se este ID do Strava JÁ FOI IMPORTADO
                 let alreadyImported = false;
                 for (const key in existingWorkouts) {
                     if (String(existingWorkouts[key].stravaActivityId) === String(act.id)) {
@@ -584,108 +587,116 @@ const AppPrincipal = {
                         break;
                     }
                 }
+                if (alreadyImported) continue; // Pula se já importou
 
-                if (!alreadyImported) {
-                    // --- PREPARAÇÃO DOS DADOS ---
-                    const distKm = (act.distance / 1000).toFixed(2) + " km";
-                    let ritmoStr = "0:00 /km";
-                    if (act.distance > 0 && act.moving_time > 0) {
-                        const paceMin = Math.floor((act.moving_time / 60) / (act.distance / 1000));
-                        const paceSec = Math.floor(((act.moving_time / 60) / (act.distance / 1000) - paceMin) * 60);
-                        ritmoStr = `${paceMin}:${paceSec.toString().padStart(2, '0')} /km`;
+                // b) FETCH DETALHADO (Para pegar splits e dados completos que faltam no resumo)
+                // É necessário pegar a atividade individualmente para ter os splits_metric
+                const detailResponse = await fetch(`https://www.strava.com/api/v3/activities/${act.id}`, {
+                    headers: { 'Authorization': `Bearer ${accessToken}` }
+                });
+                const fullAct = await detailResponse.ok ? await detailResponse.json() : act;
+
+                // Processa dados
+                const distKm = (fullAct.distance / 1000).toFixed(2) + " km";
+                let ritmoStr = "0:00 /km";
+                if (fullAct.distance > 0 && fullAct.moving_time > 0) {
+                    const paceMin = Math.floor((fullAct.moving_time / 60) / (fullAct.distance / 1000));
+                    const paceSec = Math.floor(((fullAct.moving_time / 60) / (fullAct.distance / 1000) - paceMin) * 60);
+                    ritmoStr = `${paceMin}:${paceSec.toString().padStart(2, '0')} /km`;
+                }
+
+                // Processa Splits (Se existirem no detalhe)
+                let splitsData = [];
+                if (fullAct.splits_metric) {
+                    splitsData = fullAct.splits_metric.map(split => {
+                         // Calcula pace do split
+                         let sPace = "-";
+                         if (split.distance > 0 && split.moving_time > 0) {
+                             const pMin = Math.floor((split.moving_time / 60) / (split.distance / 1000));
+                             const pSec = Math.floor(((split.moving_time / 60) / (split.distance / 1000) - pMin) * 60);
+                             sPace = `${pMin}:${pSec.toString().padStart(2, '0')}`;
+                         }
+                         return {
+                             km: (split.split || splitsData.length + 1),
+                             pace: sPace,
+                             ele: split.elevation_difference || 0
+                         };
+                    });
+                }
+
+                const stravaPayload = {
+                    distancia: distKm,
+                    tempo: new Date(fullAct.moving_time * 1000).toISOString().substr(11, 8),
+                    ritmo: ritmoStr,
+                    mapLink: `https://www.strava.com/activities/${fullAct.id}`,
+                    splits: splitsData // Adiciona os splits recuperados
+                };
+
+                // c) TENTA ENCONTRAR UM TREINO PLANEJADO NA MESMA DATA (MERGE)
+                // O Strava manda data como "YYYY-MM-DDTHH:MM:SSZ". Pegamos só a data.
+                const actDate = fullAct.start_date_local.split('T')[0];
+                
+                let matchKey = null;
+                for (const key in existingWorkouts) {
+                    const localWorkout = existingWorkouts[key];
+                    // Regra: Mesma data + Status "planejado" + Ainda não tem Strava vinculado
+                    if (localWorkout.date === actDate && 
+                        localWorkout.status === 'planejado' && 
+                        !localWorkout.stravaActivityId) {
+                        matchKey = key;
+                        break;
                     }
+                }
 
-                    // CORREÇÃO: Extração de Splits (Parciais) para exibir na tabela
-                    let formattedSplits = [];
-                    if (act.splits_metric && act.splits_metric.length > 0) {
-                        formattedSplits = act.splits_metric.map((split, index) => {
-                            // Cálculo do pace da volta (min/km)
-                            // split.moving_time está em segundos
-                            const splitPaceMin = Math.floor(split.moving_time / 60);
-                            const splitPaceSec = (split.moving_time % 60).toString().padStart(2, '0');
-                            
-                            return {
-                                km: (index + 1) + ' km',
-                                pace: `${splitPaceMin}:${splitPaceSec}`,
-                                ele: (split.elevation_difference || 0).toFixed(0) + 'm'
-                            };
-                        });
-                    }
+                if (matchKey) {
+                    // --- CASO 1: MERGE (Atualiza existente) ---
+                    updates[`/data/${currentUser.uid}/workouts/${matchKey}/status`] = "realizado";
+                    updates[`/data/${currentUser.uid}/workouts/${matchKey}/realizadoAt`] = new Date().toISOString();
+                    updates[`/data/${currentUser.uid}/workouts/${matchKey}/stravaActivityId`] = String(fullAct.id);
+                    updates[`/data/${currentUser.uid}/workouts/${matchKey}/stravaData`] = stravaPayload;
+                    updates[`/data/${currentUser.uid}/workouts/${matchKey}/feedback`] = existingWorkouts[matchKey].feedback || "Sincronizado via Strava.";
+                    
+                    // Atualiza Feed Público também
+                    updates[`/publicWorkouts/${matchKey}`] = {
+                        ...existingWorkouts[matchKey],
+                        ownerId: currentUser.uid,
+                        ownerName: AppPrincipal.state.userData.name,
+                        status: "realizado",
+                        stravaData: stravaPayload
+                    };
+                    countMerged++;
 
-                    const stravaDataPayload = {
-                        distancia: distKm,
-                        tempo: new Date(act.moving_time * 1000).toISOString().substr(11, 8),
-                        ritmo: ritmoStr,
-                        mapLink: act.map && act.map.summary_polyline 
-                            ? `https://www.strava.com/activities/${act.id}` 
-                            : null,
-                        splits: formattedSplits // SALVANDO OS SPLITS
+                } else {
+                    // --- CASO 2: CRIA NOVO (Não achou planejado) ---
+                    const newKey = AppPrincipal.state.db.ref().push().key;
+                    const workoutData = {
+                        title: fullAct.name,
+                        date: actDate,
+                        description: `[Importado]: ${fullAct.type}`,
+                        status: "realizado",
+                        realizadoAt: new Date().toISOString(),
+                        createdBy: currentUser.uid,
+                        createdAt: new Date().toISOString(),
+                        feedback: "Treino importado do Strava.",
+                        stravaActivityId: String(fullAct.id),
+                        stravaData: stravaPayload
                     };
 
-                    const actDate = act.start_date.split('T')[0];
-                    
-                    // --- LÓGICA DE MERGE (VINCULAR COM PLANEJADO) ---
-                    // Procura se existe um treino PLANEJADO na mesma data
-                    let plannedKey = null;
-                    for (const key in existingWorkouts) {
-                        const workout = existingWorkouts[key];
-                        if (workout.date === actDate && workout.status === 'planejado') {
-                            plannedKey = key;
-                            break; // Encontrou, vincula com o primeiro que achar
-                        }
-                    }
-
-                    if (plannedKey) {
-                        // ATUALIZA TREINO EXISTENTE
-                        updates[`/data/${currentUser.uid}/workouts/${plannedKey}/status`] = "realizado";
-                        updates[`/data/${currentUser.uid}/workouts/${plannedKey}/realizadoAt`] = new Date().toISOString();
-                        updates[`/data/${currentUser.uid}/workouts/${plannedKey}/stravaActivityId`] = String(act.id);
-                        updates[`/data/${currentUser.uid}/workouts/${plannedKey}/stravaData`] = stravaDataPayload;
-                        updates[`/data/${currentUser.uid}/workouts/${plannedKey}/description`] = 
-                            (existingWorkouts[plannedKey].description || "") + `\n\n[Importado do Strava]: ${act.name}`;
-                        
-                        // Atualiza feed público também
-                        const publicData = {
-                            ...existingWorkouts[plannedKey],
-                            ownerId: currentUser.uid,
-                            ownerName: AppPrincipal.state.userData.name,
-                            status: "realizado",
-                            stravaData: stravaDataPayload
-                        };
-                        updates[`/publicWorkouts/${plannedKey}`] = publicData;
-
-                    } else {
-                        // CRIA NOVO TREINO (Se não houver planejado)
-                        const newKey = AppPrincipal.state.db.ref().push().key;
-                        const workoutData = {
-                            title: act.name,
-                            date: actDate,
-                            description: `[Importado]: ${act.type}`,
-                            status: "realizado",
-                            realizadoAt: new Date().toISOString(),
-                            createdBy: currentUser.uid,
-                            createdAt: new Date().toISOString(),
-                            feedback: "Treino importado do Strava.",
-                            stravaActivityId: String(act.id),
-                            stravaData: stravaDataPayload
-                        };
-
-                        updates[`/data/${currentUser.uid}/workouts/${newKey}`] = workoutData;
-                        updates[`/publicWorkouts/${newKey}`] = {
-                            ownerId: currentUser.uid,
-                            ownerName: AppPrincipal.state.userData.name,
-                            ...workoutData
-                        };
-                    }
-                    count++;
+                    updates[`/data/${currentUser.uid}/workouts/${newKey}`] = workoutData;
+                    updates[`/publicWorkouts/${newKey}`] = {
+                        ownerId: currentUser.uid,
+                        ownerName: AppPrincipal.state.userData.name,
+                        ...workoutData
+                    };
+                    countNew++;
                 }
-            });
+            }
 
             if (Object.keys(updates).length > 0) {
                 await AppPrincipal.state.db.ref().update(updates);
-                alert(`Sincronização concluída! ${count} atividades processadas.`);
+                alert(`Sincronização: ${countMerged} treinos vinculados, ${countNew} novos importados.`);
             } else {
-                alert("Nenhuma atividade nova encontrada.");
+                alert("Tudo atualizado! Nenhuma atividade nova.");
             }
             AppPrincipal.closeProfileModal();
 
@@ -727,6 +738,7 @@ const AppPrincipal = {
                 // Exibe Strava simples se existir
                 if (data.stravaData && stravaDataDisplay) {
                     stravaDataDisplay.classList.remove('hidden');
+                    // Exibição simplificada no modal, o detalhe está no card
                     stravaDataDisplay.innerHTML = `<legend>Strava</legend><p>${data.stravaData.distancia} | ${data.stravaData.ritmo}</p>`;
                 }
             }

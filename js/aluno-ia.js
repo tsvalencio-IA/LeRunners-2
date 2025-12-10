@@ -1,6 +1,6 @@
 /* =================================================================== */
-/* ALUNO IA - MÓDULO DE CONSULTORIA ONLINE (V9.0 - LOGICA ESPELHO)
-/* CORREÇÃO: Usa a mesma lógica de loop do Professor para não falhar
+/* ALUNO IA - MÓDULO DE CONSULTORIA ONLINE (V10.0 - CLONE OFICIAL)
+/* CORREÇÃO: Lógica de leitura e visual idênticos ao Painel do Professor
 /* =================================================================== */
 
 const AppIA = {
@@ -37,7 +37,7 @@ const AppIA = {
                         document.getElementById('user-name-display').textContent = snapshot.val().name;
                         
                         AppIA.checkStravaConnection();
-                        AppIA.loadWorkouts(); // Carregamento corrigido
+                        AppIA.loadWorkouts(); // CARREGA IGUAL AO PROFESSOR
                     } else {
                         AppIA.db.ref('pendingApprovals/' + user.uid).once('value', pendingSnap => {
                             authContainer.classList.remove('hidden');
@@ -86,6 +86,9 @@ const AppIA = {
         document.getElementById('btn-generate-plan').onclick = AppIA.generatePlanWithAI;
     },
 
+    // ===================================================================
+    // LISTENERS DO MODAL (COPIADO DO APP.JS PARA FUNCIONAR AQUI)
+    // ===================================================================
     setupModalListeners: () => {
         const closeBtn = document.getElementById('close-feedback-modal');
         const form = document.getElementById('feedback-form');
@@ -113,7 +116,7 @@ const AppIA = {
     },
 
     // ===================================================================
-    // IA VISION & UPLOAD BLINDADO
+    // IA VISION & UPLOAD BLINDADO (CLONADO DO APP.JS PARA ESTE ARQUIVO)
     // ===================================================================
     handlePhotoAnalysis: async (e) => {
         const file = e.target.files[0];
@@ -131,7 +134,7 @@ const AppIA = {
                 body: JSON.stringify({ contents: [{ parts: [{ text: prompt }, { inlineData: { mimeType: file.type, data: base64 } }] }], generationConfig: { responseMimeType: "application/json" } })
             });
             
-            if(!r.ok) throw new Error("Erro na API do Google (Verifique a Chave)");
+            if(!r.ok) throw new Error("Erro na API do Google");
             const d = await r.json();
             
             if(!d.candidates || !d.candidates[0]) throw new Error("IA não reconheceu a imagem.");
@@ -164,6 +167,7 @@ const AppIA = {
             let imageUrl = null;
             const fileInput = document.getElementById('photo-upload-input');
             
+            // UPLOAD BLINDADO (REPLICADO AQUI POIS APP.JS NÃO É CARREGADO)
             if (fileInput.files[0]) {
                 const file = fileInput.files[0];
                 const MAX_SIZE_MB = 10;
@@ -175,7 +179,11 @@ const AppIA = {
                 f.append('folder', `lerunners/${AppIA.user.uid}/workouts`);
                 
                 const r = await fetch(`https://api.cloudinary.com/v1_1/${window.CLOUDINARY_CONFIG.cloudName}/upload`, { method: 'POST', body: f });
-                if (!r.ok) throw new Error("Erro no upload da foto.");
+                
+                if (!r.ok) {
+                    const errData = await r.json();
+                    throw new Error(errData.error?.message || "Erro no upload da foto.");
+                }
                 const d = await r.json();
                 imageUrl = d.secure_url;
             }
@@ -261,6 +269,7 @@ const AppIA = {
     // AQUI ESTÁ A CORREÇÃO PRINCIPAL: LOGICA ESPELHO DO PROFESSOR (PREPEND)
     loadWorkouts: () => {
         // Ordena por data no banco e itera. O prepend inverte a ordem visual.
+        // REMOVIDO limitToLast - Carrega TUDO
         AppIA.db.ref(`data/${AppIA.user.uid}/workouts`).orderByChild('date').on('value', snapshot => {
             const list = document.getElementById('workout-list');
             list.innerHTML = "";
@@ -288,6 +297,7 @@ const AppIA = {
                     `;
                 }
 
+                // VISUAL IDÊNTICO AO APP PRINCIPAL
                 el.innerHTML = `
                     <div class="workout-card-header">
                         <span class="date">${w.date}</span>
@@ -303,15 +313,17 @@ const AppIA = {
                     ${actionButton}
                 `;
 
-                const btn = el.querySelector('.btn-open-feedback');
-                if(btn) btn.addEventListener('click', () => AppIA.openFeedbackModal(w.id, w.title));
+                // Listener no card inteiro E no botão
+                const openModal = () => AppIA.openFeedbackModal(w.id, w.title);
                 
-                // Torna o card inteiro clicável para abrir o modal de feedback
+                const btn = el.querySelector('.btn-open-feedback');
+                if(btn) btn.addEventListener('click', (e) => { e.stopPropagation(); openModal(); });
+                
                 el.addEventListener('click', (e) => {
-                     if (!e.target.closest('button') && !e.target.closest('a')) AppIA.openFeedbackModal(w.id, w.title);
+                     if (!e.target.closest('button') && !e.target.closest('a')) openModal();
                 });
 
-                // USAMOS PREPEND IGUAL AO PAINEL DO PROFESSOR PARA ORDEM CORRETA (FUTURO NO TOPO)
+                // USAMOS PREPEND IGUAL AO PAINEL DO PROFESSOR (Mais novo no topo)
                 list.prepend(el);
             });
         });
@@ -336,7 +348,8 @@ const AppIA = {
         loading.classList.remove('hidden');
 
         try {
-            const snap = await AppIA.db.ref(`data/${AppIA.user.uid}/workouts`).limitToLast(15).once('value');
+            // Pega histórico completo (sem limites)
+            const snap = await AppIA.db.ref(`data/${AppIA.user.uid}/workouts`).orderByChild('date').limitToLast(15).once('value');
             const history = snap.val();
             
             let prompt = "";

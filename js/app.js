@@ -1,5 +1,5 @@
 /* =================================================================== */
-/* APP.JS - VERSÃO FINAL (STRAVA MERGE + IA GEMINI 2.0 PROTEGIDA)
+/* APP.JS - VERSÃO CORRIGIDA (IA VISÍVEL + STRAVA MERGE)
 /* =================================================================== */
 
 const AppPrincipal = {
@@ -434,8 +434,31 @@ const AppPrincipal = {
     },
     
     // ===================================================================
-    // IA & FOTO - GEMINI 2.0 (PROTEGIDO)
+    // FUNÇÕES IA VISÍVEIS (CORRIGIDO AQUI)
     // ===================================================================
+    openIaAnalysisModal: (data) => {
+        const { iaAnalysisModal, iaAnalysisOutput, saveIaAnalysisBtn } = AppPrincipal.elements;
+        iaAnalysisModal.classList.remove('hidden');
+        if (data) {
+            iaAnalysisOutput.textContent = data.analysisResult;
+            saveIaAnalysisBtn.classList.add('hidden');
+        } else {
+            iaAnalysisOutput.textContent = "Coletando dados...";
+            saveIaAnalysisBtn.classList.add('hidden');
+            AppPrincipal.state.currentAnalysisData = null;
+        }
+    },
+
+    closeIaAnalysisModal: () => AppPrincipal.elements.iaAnalysisModal.classList.add('hidden'),
+
+    handleSaveIaAnalysis: async () => {
+        if(!AppPrincipal.state.currentAnalysisData) return;
+        const athleteId = AdminPanel.state.selectedAthleteId;
+        await AppPrincipal.state.db.ref(`iaAnalysisHistory/${athleteId}`).push(AppPrincipal.state.currentAnalysisData);
+        alert("Salvo!");
+        AppPrincipal.closeIaAnalysisModal();
+    },
+
     handleProfilePhotoUpload: async (event) => {
         const file = event.target.files[0];
         if (!file) return;

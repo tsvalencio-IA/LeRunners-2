@@ -1,6 +1,6 @@
 /* =================================================================== */
-/* ALUNO IA - MÓDULO DE CONSULTORIA ONLINE (V10.0 - CLONE OFICIAL)
-/* CORREÇÃO: Lógica de leitura e visual idênticos ao Painel do Professor
+/* ALUNO IA - MÓDULO DE CONSULTORIA ONLINE (V11.0 - CLONE RENDER)
+/* CORREÇÃO FINAL: Usa PREPEND (pilha) igual ao Painel do Professor
 /* =================================================================== */
 
 const AppIA = {
@@ -37,7 +37,8 @@ const AppIA = {
                         document.getElementById('user-name-display').textContent = snapshot.val().name;
                         
                         AppIA.checkStravaConnection();
-                        AppIA.loadWorkouts(); // CARREGA IGUAL AO PROFESSOR
+                        // CHAMA A CARGA DE TREINOS IMEDIATAMENTE
+                        AppIA.loadWorkouts(); 
                     } else {
                         AppIA.db.ref('pendingApprovals/' + user.uid).once('value', pendingSnap => {
                             authContainer.classList.remove('hidden');
@@ -86,9 +87,6 @@ const AppIA = {
         document.getElementById('btn-generate-plan').onclick = AppIA.generatePlanWithAI;
     },
 
-    // ===================================================================
-    // LISTENERS DO MODAL (COPIADO DO APP.JS PARA FUNCIONAR AQUI)
-    // ===================================================================
     setupModalListeners: () => {
         const closeBtn = document.getElementById('close-feedback-modal');
         const form = document.getElementById('feedback-form');
@@ -116,7 +114,7 @@ const AppIA = {
     },
 
     // ===================================================================
-    // IA VISION & UPLOAD BLINDADO (CLONADO DO APP.JS PARA ESTE ARQUIVO)
+    // IA VISION & UPLOAD (IGUAL AO APP.JS)
     // ===================================================================
     handlePhotoAnalysis: async (e) => {
         const file = e.target.files[0];
@@ -167,7 +165,6 @@ const AppIA = {
             let imageUrl = null;
             const fileInput = document.getElementById('photo-upload-input');
             
-            // UPLOAD BLINDADO (REPLICADO AQUI POIS APP.JS NÃO É CARREGADO)
             if (fileInput.files[0]) {
                 const file = fileInput.files[0];
                 const MAX_SIZE_MB = 10;
@@ -179,11 +176,7 @@ const AppIA = {
                 f.append('folder', `lerunners/${AppIA.user.uid}/workouts`);
                 
                 const r = await fetch(`https://api.cloudinary.com/v1_1/${window.CLOUDINARY_CONFIG.cloudName}/upload`, { method: 'POST', body: f });
-                
-                if (!r.ok) {
-                    const errData = await r.json();
-                    throw new Error(errData.error?.message || "Erro no upload da foto.");
-                }
+                if (!r.ok) throw new Error("Erro no upload da foto.");
                 const d = await r.json();
                 imageUrl = d.secure_url;
             }
@@ -212,7 +205,7 @@ const AppIA = {
     fileToBase64: (file) => new Promise((r, j) => { const reader = new FileReader(); reader.onload = () => r(reader.result.split(',')[1]); reader.onerror = j; reader.readAsDataURL(file); }),
 
     // ===================================================================
-    // SISTEMA E RENDERIZAÇÃO (CORRIGIDO: IGUAL AO PANELS.JS)
+    // SISTEMA (STRAVA E GERAÇÃO)
     // ===================================================================
     checkStravaConnection: () => {
         AppIA.db.ref(`users/${AppIA.user.uid}/stravaAuth`).on('value', snapshot => {
@@ -261,29 +254,31 @@ const AppIA = {
         const btn = document.getElementById('btn-sync-strava');
         btn.disabled = true;
         btn.textContent = "Sincronizando...";
-        alert("Sincronização iniciada! Verifique o painel em instantes."); 
+        alert("Sincronização iniciada!"); 
         btn.disabled = false;
         btn.innerHTML = "<i class='bx bx-refresh'></i> Sincronizar Agora";
     },
 
-    // AQUI ESTÁ A CORREÇÃO PRINCIPAL: LOGICA ESPELHO DO PROFESSOR (PREPEND)
+    // ===================================================================
+    // CORREÇÃO MÁXIMA: RENDERIZAÇÃO IGUAL AO PAINEL DO PROFESSOR
+    // ===================================================================
     loadWorkouts: () => {
-        // Ordena por data no banco e itera. O prepend inverte a ordem visual.
-        // REMOVIDO limitToLast - Carrega TUDO
+        // Ordenação pelo banco (Data) sem limites
         AppIA.db.ref(`data/${AppIA.user.uid}/workouts`).orderByChild('date').on('value', snapshot => {
             const list = document.getElementById('workout-list');
-            list.innerHTML = "";
+            list.innerHTML = ""; // Limpa a lista para não duplicar
             
             if (!snapshot.exists()) {
-                list.innerHTML = `<p style="text-align:center; padding:1rem; color:#666;">Você ainda não tem treinos. Clique em "GERAR MINHA PLANILHA" para começar.</p>`;
+                list.innerHTML = `<p style="text-align:center; padding:1rem; color:#666;">Você ainda não tem treinos.</p>`;
                 return;
             }
 
             snapshot.forEach(childSnapshot => {
                 const w = { id: childSnapshot.key, ...childSnapshot.val() };
+                
+                // Criação do Card (Cópia exata da estrutura visual do Professor)
                 const el = document.createElement('div');
                 el.className = 'workout-card';
-                const isAI = w.createdBy === 'IA_COACH';
                 const isDone = w.status === 'realizado';
                 
                 let actionButton = '';
@@ -297,7 +292,6 @@ const AppIA = {
                     `;
                 }
 
-                // VISUAL IDÊNTICO AO APP PRINCIPAL
                 el.innerHTML = `
                     <div class="workout-card-header">
                         <span class="date">${w.date}</span>
@@ -313,17 +307,24 @@ const AppIA = {
                     ${actionButton}
                 `;
 
-                // Listener no card inteiro E no botão
-                const openModal = () => AppIA.openFeedbackModal(w.id, w.title);
-                
+                // Configura o clique no botão de ação
                 const btn = el.querySelector('.btn-open-feedback');
-                if(btn) btn.addEventListener('click', (e) => { e.stopPropagation(); openModal(); });
+                if(btn) {
+                    btn.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        AppIA.openFeedbackModal(w.id, w.title);
+                    });
+                }
                 
+                // Configura o clique no card inteiro (para facilitar no celular)
                 el.addEventListener('click', (e) => {
-                     if (!e.target.closest('button') && !e.target.closest('a')) openModal();
+                    // Só abre se não clicou num link ou botão específico
+                    if (!e.target.closest('button') && !e.target.closest('a')) {
+                        AppIA.openFeedbackModal(w.id, w.title);
+                    }
                 });
 
-                // USAMOS PREPEND IGUAL AO PAINEL DO PROFESSOR (Mais novo no topo)
+                // TRUQUE DO PROFESSOR: PREPEND (Empilha o mais novo visualmente no topo)
                 list.prepend(el);
             });
         });
@@ -348,16 +349,23 @@ const AppIA = {
         loading.classList.remove('hidden');
 
         try {
-            // Pega histórico completo (sem limites)
-            const snap = await AppIA.db.ref(`data/${AppIA.user.uid}/workouts`).orderByChild('date').limitToLast(15).once('value');
-            const history = snap.val();
+            // Pega histórico sem limites para dar contexto total
+            const snap = await AppIA.db.ref(`data/${AppIA.user.uid}/workouts`).orderByChild('date').once('value');
+            
+            // Converte snapshot em array para a IA
+            let history = [];
+            if(snap.exists()) {
+                snap.forEach(c => history.push(c.val()));
+                // Pega só os últimos 15 para não estourar o prompt
+                history = history.slice(-15);
+            }
             
             let prompt = "";
             const tomorrow = new Date();
             tomorrow.setDate(tomorrow.getDate() + 1);
             const dateStr = tomorrow.toISOString().split('T')[0];
 
-            if (!history) {
+            if (history.length === 0) {
                 prompt = `
                 ATUE COMO: Treinador de Elite (Fisiologista).
                 OBJETIVO: Criar APENAS UM treino para amanhã (${dateStr}): Um "Teste de Nivelamento".

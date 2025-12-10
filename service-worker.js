@@ -1,8 +1,8 @@
 /* =================================================================== */
-/* SERVICE WORKER - V4.0 (FORCE UPDATE)
+/* SERVICE WORKER - V5.0 (FORCE UPDATE - LEAK FIX)
 /* =================================================================== */
 
-const CACHE_NAME = 'lerunners-cache-v4.0-FORCE'; // Versão alterada para forçar update
+const CACHE_NAME = 'lerunners-cache-v5.0-KEY-FIX'; // Versão alterada para obrigar reload
 
 const FILES_TO_CACHE = [
     './',
@@ -23,7 +23,7 @@ const FILES_TO_CACHE = [
 ];
 
 self.addEventListener('install', (event) => {
-    self.skipWaiting(); // Força instalação imediata
+    self.skipWaiting();
     event.waitUntil(
         caches.open(CACHE_NAME)
             .then((cache) => cache.addAll(FILES_TO_CACHE))
@@ -36,7 +36,7 @@ self.addEventListener('activate', (event) => {
             return Promise.all(
                 cacheNames.map((cacheName) => {
                     if (cacheName !== CACHE_NAME) {
-                        return caches.delete(cacheName); // Deleta caches antigos
+                        return caches.delete(cacheName);
                     }
                 })
             );
@@ -45,7 +45,7 @@ self.addEventListener('activate', (event) => {
 });
 
 self.addEventListener('fetch', (event) => {
-    // Ignora APIs para não cachear erros ou dados velhos
+    // Ignora APIs para não cachear erros
     if (event.request.url.includes('firebaseio.com') || 
         event.request.url.includes('googleapis.com') || 
         event.request.url.includes('cloudinary.com') ||

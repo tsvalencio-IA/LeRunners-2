@@ -1,6 +1,6 @@
 /* =================================================================== */
-/* ALUNO IA - MÓDULO DE CONSULTORIA ONLINE (V14.0 - FINAL STRAVA)
-/* CONTÉM: CÉREBRO FISIOLOGISTA, UPLOAD BLINDADO, MODAL E LOGO STRAVA
+/* ALUNO IA - MÓDULO DE CONSULTORIA ONLINE (V18.0 - DELETE FEATURE)
+/* CONTÉM: TODAS AS FUNÇÕES ANTERIORES + BOTÃO EXCLUIR TREINO
 /* =================================================================== */
 
 const AppIA = {
@@ -83,27 +83,45 @@ const AppIA = {
 
         document.getElementById('btn-logout').onclick = () => AppIA.auth.signOut();
         document.getElementById('btn-logout-pending').onclick = () => AppIA.auth.signOut();
+        
+        // Listeners dos botões de IA
         document.getElementById('btn-generate-plan').onclick = AppIA.generatePlanWithAI;
+        const btnAnalyze = document.getElementById('btn-analyze-progress');
+        if(btnAnalyze) btnAnalyze.onclick = AppIA.analyzeProgressWithAI;
     },
 
     setupModalListeners: () => {
-        // Modal de Feedback
+        // Modal Feedback
         const closeBtn = document.getElementById('close-feedback-modal');
         const form = document.getElementById('feedback-form');
         const fileInput = document.getElementById('photo-upload-input');
-
         if(closeBtn) closeBtn.onclick = AppIA.closeFeedbackModal;
         if(form) form.addEventListener('submit', AppIA.handleFeedbackSubmit);
         if(fileInput) fileInput.addEventListener('change', AppIA.handlePhotoAnalysis);
 
-        // Modal de Atividade Avulsa
+        // Modal Avulso
         const btnLog = document.getElementById('btn-log-manual');
         const closeLog = document.getElementById('close-log-activity-modal');
         const formLog = document.getElementById('log-activity-form');
-        
         if(btnLog) btnLog.onclick = AppIA.openLogActivityModal;
         if(closeLog) closeLog.onclick = AppIA.closeLogActivityModal;
         if(formLog) formLog.onsubmit = AppIA.handleLogActivitySubmit;
+
+        // Modal Relatório
+        const closeReport = document.getElementById('close-ia-report-modal');
+        if(closeReport) closeReport.onclick = () => document.getElementById('ia-report-modal').classList.add('hidden');
+    },
+
+    // --- FUNÇÃO EXCLUIR TREINO (NOVO) ---
+    deleteWorkout: async (workoutId) => {
+        if(confirm("Tem certeza que deseja excluir este treino da sua planilha?")) {
+            try {
+                await AppIA.db.ref(`data/${AppIA.user.uid}/workouts/${workoutId}`).remove();
+                // A lista se atualiza automaticamente pelo listener .on()
+            } catch(e) {
+                alert("Erro ao excluir: " + e.message);
+            }
+        }
     },
 
     // --- ATIVIDADE AVULSA ---
@@ -112,17 +130,14 @@ const AppIA = {
         document.getElementById('log-date').value = new Date().toISOString().split('T')[0];
         document.getElementById('log-activity-modal').classList.remove('hidden');
     },
-
     closeLogActivityModal: (e) => {
         if(e) e.preventDefault();
         document.getElementById('log-activity-modal').classList.add('hidden');
     },
-
     handleLogActivitySubmit: async (e) => {
         e.preventDefault();
         const btn = e.target.querySelector('button');
         btn.disabled = true;
-        
         try {
             const workoutData = {
                 date: document.getElementById('log-date').value,
@@ -134,19 +149,14 @@ const AppIA = {
                 createdAt: new Date().toISOString(),
                 feedback: "Atividade registrada manualmente (Avulsa)."
             };
-
             await AppIA.db.ref(`data/${AppIA.user.uid}/workouts`).push(workoutData);
             AppIA.closeLogActivityModal();
             alert("Atividade registrada com sucesso!");
-        } catch(err) {
-            alert("Erro: " + err.message);
-        } finally {
-            btn.disabled = false;
-        }
+        } catch(err) { alert("Erro: " + err.message); } finally { btn.disabled = false; }
     },
 
-    // --- FEEDBACK ---
-    openFeedbackModal: (workoutId, title) => {
+    // --- FEEDBACK COM DATA FLEXÍVEL ---
+    openFeedbackModal: (workoutId, title, originalDate) => {
         AppIA.modalState.currentWorkoutId = workoutId;
         document.getElementById('feedback-modal-title').textContent = `Registro: ${title}`;
         document.getElementById('workout-status').value = 'realizado';
@@ -154,6 +164,20 @@ const AppIA = {
         document.getElementById('photo-upload-input').value = null;
         document.getElementById('photo-upload-feedback').textContent = '';
         document.getElementById('strava-data-display').classList.add('hidden');
+        
+        // --- INJEÇÃO INTELIGENTE DO CAMPO DE DATA ---
+        const form = document.getElementById('feedback-form');
+        if (!document.getElementById('feedback-date-realized')) {
+            const dateGroup = document.createElement('div');
+            dateGroup.className = 'form-group';
+            dateGroup.innerHTML = `
+                <label for="feedback-date-realized" style="display:block; font-weight:bold; margin-bottom:5px;">Data de Realização</label>
+                <input type="date" id="feedback-date-realized" class="form-control" style="width:100%; padding:8px; border:1px solid #ccc; border-radius:4px;">
+            `;
+            const statusGroup = form.querySelector('.form-group'); 
+            statusGroup.parentNode.insertBefore(dateGroup, statusGroup.nextSibling);
+        }
+        document.getElementById('feedback-date-realized').value = originalDate || new Date().toISOString().split('T')[0];
         document.getElementById('feedback-modal').classList.remove('hidden');
     },
 
@@ -201,41 +225,33 @@ const AppIA = {
         try {
             let imageUrl = null;
             const fileInput = document.getElementById('photo-upload-input');
-            
-            // UPLOAD BLINDADO (V13 Mantida)
             if (fileInput.files[0]) {
                 const file = fileInput.files[0];
                 const MAX_SIZE_MB = 10;
                 if (file.size > MAX_SIZE_MB * 1024 * 1024) throw new Error(`Foto muito grande. Máx 10MB.`);
-                
                 const f = new FormData();
                 f.append('file', file);
                 f.append('upload_preset', window.CLOUDINARY_CONFIG.uploadPreset);
                 f.append('folder', `lerunners/${AppIA.user.uid}/workouts`);
-                
                 const r = await fetch(`https://api.cloudinary.com/v1_1/${window.CLOUDINARY_CONFIG.cloudName}/upload`, { method: 'POST', body: f });
-                
-                if (!r.ok) {
-                    const errData = await r.json();
-                    throw new Error(errData.error?.message || "Erro no upload da foto.");
-                }
+                if (!r.ok) throw new Error("Erro no upload da foto.");
                 const d = await r.json();
                 imageUrl = d.secure_url;
             }
 
+            const realizedDate = document.getElementById('feedback-date-realized').value;
             const updates = {
                 status: document.getElementById('workout-status').value,
                 feedback: document.getElementById('workout-feedback-text').value,
-                realizadoAt: new Date().toISOString()
+                realizadoAt: new Date().toISOString(),
+                date: realizedDate 
             };
             if (imageUrl) updates.imageUrl = imageUrl;
             if (AppIA.stravaData) updates.stravaData = AppIA.stravaData; 
 
             await AppIA.db.ref(`data/${AppIA.user.uid}/workouts/${AppIA.modalState.currentWorkoutId}`).update(updates);
-            
             AppIA.closeFeedbackModal();
             alert("Treino registrado com sucesso!");
-
         } catch (err) {
             alert("Erro ao salvar: " + err.message);
         } finally {
@@ -252,7 +268,6 @@ const AppIA = {
             const btnConnect = document.getElementById('btn-connect-strava');
             const btnSync = document.getElementById('btn-sync-strava');
             const status = document.getElementById('status-strava');
-
             if (snapshot.exists()) {
                 AppIA.stravaData = snapshot.val();
                 btnConnect.classList.add('hidden');
@@ -299,7 +314,7 @@ const AppIA = {
         btn.innerHTML = "<i class='bx bx-refresh'></i> Sincronizar Agora";
     },
 
-    // --- RENDERIZAÇÃO (CLONE PROFESSOR) ---
+    // --- RENDERIZAÇÃO ---
     loadWorkouts: () => {
         AppIA.db.ref(`data/${AppIA.user.uid}/workouts`).orderByChild('date').on('value', snapshot => {
             const list = document.getElementById('workout-list');
@@ -313,16 +328,23 @@ const AppIA = {
                 const el = document.createElement('div');
                 el.className = 'workout-card';
                 const isDone = w.status === 'realizado';
-                let actionButton = '';
+                
+                // Botão DELETE (NOVO - SEMPRE VISÍVEL)
+                const deleteBtnHtml = `
+                    <button class="btn-delete" style="background: #ff4444; color: white; border: none; padding: 8px 12px; border-radius: 4px; cursor: pointer; margin-right: 5px;" title="Excluir Treino">
+                        <i class='bx bx-trash'></i>
+                    </button>
+                `;
+
+                let actionButtonHtml = '';
                 if (!isDone) {
-                    actionButton = `
-                        <div style="margin-top: 10px; border-top: 1px solid #eee; padding-top: 10px; text-align: right;">
-                            <button class="btn-open-feedback" style="background: var(--success-color); color: white; border: none; padding: 8px 12px; border-radius: 4px; cursor: pointer; font-size: 0.9rem;">
-                                <i class='bx bx-check-circle'></i> Registrar Treino
-                            </button>
-                        </div>
+                    actionButtonHtml = `
+                        <button class="btn-open-feedback" style="background: var(--success-color); color: white; border: none; padding: 8px 12px; border-radius: 4px; cursor: pointer; font-size: 0.9rem;">
+                            <i class='bx bx-check-circle'></i> Registrar Treino
+                        </button>
                     `;
                 }
+
                 el.innerHTML = `
                     <div class="workout-card-header">
                         <span class="date">${w.date}</span>
@@ -335,30 +357,37 @@ const AppIA = {
                         ${w.imageUrl ? `<img src="${w.imageUrl}" style="width:100%; max-height:200px; object-fit:cover; margin-top:10px; border-radius:8px;">` : ''}
                         ${w.feedback ? `<p style="font-size:0.9rem; font-style:italic; color:#666; margin-top:5px; border-left: 2px solid #ccc; padding-left: 5px;">"${w.feedback}"</p>` : ''}
                     </div>
-                    ${actionButton}
+                    <div style="margin-top: 10px; border-top: 1px solid #eee; padding-top: 10px; display: flex; justify-content: flex-end;">
+                        ${deleteBtnHtml}
+                        ${actionButtonHtml}
+                    </div>
                 `;
+                
                 const btn = el.querySelector('.btn-open-feedback');
-                if(btn) btn.addEventListener('click', (e) => { e.stopPropagation(); AppIA.openFeedbackModal(w.id, w.title); });
+                const btnDel = el.querySelector('.btn-delete'); // Seleciona o botão de deletar
+
+                if(btn) btn.addEventListener('click', (e) => { e.stopPropagation(); AppIA.openFeedbackModal(w.id, w.title, w.date); });
+                
+                // Listener do Botão Excluir
+                if(btnDel) btnDel.addEventListener('click', (e) => { 
+                    e.stopPropagation(); 
+                    AppIA.deleteWorkout(w.id); 
+                });
+
                 el.addEventListener('click', (e) => {
-                     if (!e.target.closest('button') && !e.target.closest('a')) AppIA.openFeedbackModal(w.id, w.title);
+                     if (!e.target.closest('button') && !e.target.closest('a')) AppIA.openFeedbackModal(w.id, w.title, w.date);
                 });
                 list.prepend(el);
             });
         });
     },
 
-    // ===================================================================
-    // CORREÇÃO CRÍTICA (STRAVA BRANDING V14): LOGO OBRIGATÓRIA
-    // ===================================================================
     createStravaDataDisplay: (stravaData) => {
         if (!stravaData) return '';
-        
         let mapLinkHtml = '';
         if (stravaData.mapLink) {
-            // LINK OBRIGATÓRIO: "View on Strava"
             mapLinkHtml = `<p style="margin-top:5px;"><a href="${stravaData.mapLink}" target="_blank" style="color: #fc4c02; font-weight: bold; text-decoration: none;">🗺️ Ver no Strava</a></p>`;
         }
-
         return `
             <fieldset class="strava-data-display" style="border: 1px solid #fc4c02; background: #fff5f0; padding: 10px; border-radius: 5px; margin-top: 10px;">
                 <legend style="color: #fc4c02; font-weight: bold; font-size: 0.9rem;">
@@ -373,67 +402,41 @@ const AppIA = {
         `;
     },
 
-    // --- CÉREBRO IA: FISIOLOGISTA SÊNIOR COM DISTRIBUIÇÃO TEMPORAL (V13 Mantida) ---
+    // --- CÉREBRO IA 1: GERAÇÃO DE TREINOS (V14 RESTAURADA) ---
     generatePlanWithAI: async () => {
         const btn = document.getElementById('btn-generate-plan');
         const loading = document.getElementById('ia-loading');
+        document.getElementById('ia-loading-text').textContent = "Analisando volume, intensidade e carga...";
         btn.disabled = true;
         loading.classList.remove('hidden');
 
         try {
             const snap = await AppIA.db.ref(`data/${AppIA.user.uid}/workouts`).orderByChild('date').limitToLast(20).once('value');
             let history = [];
-            if(snap.exists()) {
-                snap.forEach(c => history.push(c.val()));
-            }
+            if(snap.exists()) snap.forEach(c => history.push(c.val()));
             
-            let prompt = "";
             const tomorrow = new Date();
             tomorrow.setDate(tomorrow.getDate() + 1);
             const dateStr = tomorrow.toISOString().split('T')[0];
+            let prompt = "";
 
             if (history.length === 0) {
-                prompt = `
-                ATUE COMO: Fisiologista Sênior da Seleção Brasileira de Atletismo.
-                OBJETIVO: Criar um protocolo de TESTE DE CAMPO para um aluno iniciante.
-                DATA DO TREINO: ${dateStr}
-                
-                DIRETRIZES:
-                - O teste deve ser seguro mas desafiador para estimar o VO2max.
-                - Recomende: "Teste de 3km" (corrida forte constante) ou "Teste de 12min (Cooper)".
-                
-                SAÍDA OBRIGATÓRIA (JSON Array):
-                [ { "date": "${dateStr}", "title": "Teste de Nivelamento (Fisiologia)", "description": "Aquecimento 15min + TESTE MÁXIMO 3KM + Desaquecimento.", "structure": { "tipo": "Teste" } } ]
-                Retorne APENAS o JSON.
-                `;
+                prompt = `ATUE COMO: Fisiologista Sênior. OBJETIVO: Criar Teste de Nivelamento para ${dateStr}. SAÍDA: JSON Array com 1 treino.`;
             } else {
                 prompt = `
                 ATUE COMO: Fisiologista Sênior e Treinador de Elite (Nível Olímpico).
                 CONTEXTO: Você é um sistema inteligente (tipo Garmin Coach) que adapta o treino baseando-se na resposta biológica do atleta.
-                
                 HISTÓRICO RECENTE DO ATLETA (JSON):
                 ${JSON.stringify(history)}
-                
                 SUA MISSÃO (MICRO-CICLO SEMANAL):
                 1. ANÁLISE DE CARGA: Verifique a Carga Aguda vs Crônica. Se houver relatos de dor/cansaço nos feedbacks, prescreva semana regenerativa.
                 2. SOBRECARGA PROGRESSIVA: Se o atleta estiver bem, aumente o volume em no máximo 10%.
                 3. DISTRIBUIÇÃO TEMPORAL (CRÍTICO):
                    - O objetivo é gerar 3 a 4 treinos para os PRÓXIMOS 7 DIAS.
-                   - OBRIGATÓRIO: Intercale dias de descanso (OFF). Não agende 4 dias seguidos de corrida para um iniciante/intermediário.
-                   - Exemplo de estrutura segura: Treino, Off, Treino, Off, Treino, Off, Longo.
-                
+                   - OBRIGATÓRIO: Intercale dias de descanso (OFF). Não agende 4 dias seguidos de corrida.
                 SAÍDA: Gere a planilha a partir de ${dateStr}.
-                
-                FORMATO JSON OBRIGATÓRIO (Array de Objetos):
-                [
-                  {
-                    "date": "YYYY-MM-DD",
-                    "title": "Nome do Treino",
-                    "description": "Detalhes técnicos precisos (Aquecimento, Parte Principal com Zonas de FC/Pace, Desaquecimento).",
-                    "structure": { "tipo": "Qualidade", "distancia": "X km" }
-                  }
-                ]
-                
+                FORMATO JSON OBRIGATÓRIO (Array):
+                [ { "date": "YYYY-MM-DD", "title": "...", "description": "...", "structure": { "tipo": "Qualidade", "distancia": "X km" } } ]
                 IMPORTANTE: Responda APENAS o JSON.
                 `;
             }
@@ -443,15 +446,10 @@ const AppIA = {
                 body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
             });
 
-            if(!r.ok) {
-                const err = await r.json();
-                throw new Error(err.error?.message || "Erro na API do Google");
-            }
-
+            if(!r.ok) throw new Error("Erro na API");
             const json = await r.json();
             const textResponse = json.candidates[0].content.parts[0].text;
-            let cleanJson = textResponse;
-            if(textResponse.includes('```')) cleanJson = textResponse.replace(/```json/g, '').replace(/```/g, '').trim();
+            let cleanJson = textResponse.replace(/```json/g, '').replace(/```/g, '').trim();
             const newWorkouts = JSON.parse(cleanJson);
 
             const updates = {};
@@ -464,14 +462,58 @@ const AppIA = {
                     createdAt: new Date().toISOString()
                 };
             });
-
             await AppIA.db.ref().update(updates);
             if (history.length > 0) alert("✅ Planilha gerada com sucesso! Treinos distribuídos na semana.");
             else alert("✅ Protocolo de Teste gerado!");
 
-        } catch (e) {
-            console.error(e);
-            alert("Erro na Inteligência: " + e.message); 
+        } catch (e) { alert("Erro na IA: " + e.message); } 
+        finally { btn.disabled = false; loading.classList.add('hidden'); }
+    },
+
+    // --- CÉREBRO IA 2: ANÁLISE DE PROGRESSO ---
+    analyzeProgressWithAI: async () => {
+        const btn = document.getElementById('btn-analyze-progress');
+        const loading = document.getElementById('ia-loading');
+        const modal = document.getElementById('ia-report-modal');
+        const content = document.getElementById('ia-report-content');
+        
+        document.getElementById('ia-loading-text').textContent = "Fisiologista está analisando seu histórico...";
+        btn.disabled = true;
+        loading.classList.remove('hidden');
+
+        try {
+            const snap = await AppIA.db.ref(`data/${AppIA.user.uid}/workouts`).orderByChild('date').limitToLast(15).once('value');
+            if(!snap.exists()) throw new Error("Você precisa de pelo menos 1 treino realizado para analisar.");
+            
+            let history = [];
+            snap.forEach(c => history.push(c.val()));
+
+            const prompt = `
+            ATUE COMO: Seu Treinador Pessoal Sênior.
+            FALE DIRETAMENTE COM O ATLETA (Use "Você").
+            DADOS DO ATLETA (Últimos treinos):
+            ${JSON.stringify(history)}
+            TAREFA: Avaliar o progresso recente.
+            1. Analise o Volume e Constância (Ele treinou o que foi pedido?).
+            2. Analise a Intensidade e Feedback (Ele sentiu dor? Foi fácil?).
+            3. Dê 3 Conselhos Práticos para a próxima semana.
+            Gere um relatório curto, motivador e técnico em Texto Corrido (Markdown).
+            `;
+
+            const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${window.GEMINI_API_KEY}`, {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
+            });
+
+            if(!r.ok) throw new Error("Erro na API");
+            const json = await r.json();
+            const report = json.candidates[0].content.parts[0].text;
+
+            content.textContent = report; 
+            modal.classList.remove('hidden');
+
+        } catch(e) {
+            alert("Erro na Análise: " + e.message);
         } finally {
             btn.disabled = false;
             loading.classList.add('hidden');

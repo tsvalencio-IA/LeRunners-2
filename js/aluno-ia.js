@@ -1,6 +1,6 @@
 /* =================================================================== */
-/* ALUNO IA - MÓDULO DE CONSULTORIA ONLINE (V13.0 - FINAL COMPLETO)
-/* ATUALIZAÇÃO: Prompt da IA ajustado para intercalar dias de descanso
+/* ALUNO IA - MÓDULO DE CONSULTORIA ONLINE (V14.0 - FINAL STRAVA)
+/* CONTÉM: CÉREBRO FISIOLOGISTA, UPLOAD BLINDADO, MODAL E LOGO STRAVA
 /* =================================================================== */
 
 const AppIA = {
@@ -201,16 +201,24 @@ const AppIA = {
         try {
             let imageUrl = null;
             const fileInput = document.getElementById('photo-upload-input');
+            
+            // UPLOAD BLINDADO (V13 Mantida)
             if (fileInput.files[0]) {
                 const file = fileInput.files[0];
                 const MAX_SIZE_MB = 10;
                 if (file.size > MAX_SIZE_MB * 1024 * 1024) throw new Error(`Foto muito grande. Máx 10MB.`);
+                
                 const f = new FormData();
                 f.append('file', file);
                 f.append('upload_preset', window.CLOUDINARY_CONFIG.uploadPreset);
                 f.append('folder', `lerunners/${AppIA.user.uid}/workouts`);
+                
                 const r = await fetch(`https://api.cloudinary.com/v1_1/${window.CLOUDINARY_CONFIG.cloudName}/upload`, { method: 'POST', body: f });
-                if (!r.ok) throw new Error("Erro no upload da foto.");
+                
+                if (!r.ok) {
+                    const errData = await r.json();
+                    throw new Error(errData.error?.message || "Erro no upload da foto.");
+                }
                 const d = await r.json();
                 imageUrl = d.secure_url;
             }
@@ -224,8 +232,10 @@ const AppIA = {
             if (AppIA.stravaData) updates.stravaData = AppIA.stravaData; 
 
             await AppIA.db.ref(`data/${AppIA.user.uid}/workouts/${AppIA.modalState.currentWorkoutId}`).update(updates);
+            
             AppIA.closeFeedbackModal();
             alert("Treino registrado com sucesso!");
+
         } catch (err) {
             alert("Erro ao salvar: " + err.message);
         } finally {
@@ -236,9 +246,7 @@ const AppIA = {
 
     fileToBase64: (file) => new Promise((r, j) => { const reader = new FileReader(); reader.onload = () => r(reader.result.split(',')[1]); reader.onerror = j; reader.readAsDataURL(file); }),
 
-    // ===================================================================
-    // SISTEMA (STRAVA E GERAÇÃO)
-    // ===================================================================
+    // --- SISTEMA ---
     checkStravaConnection: () => {
         AppIA.db.ref(`users/${AppIA.user.uid}/stravaAuth`).on('value', snapshot => {
             const btnConnect = document.getElementById('btn-connect-strava');
@@ -339,19 +347,33 @@ const AppIA = {
         });
     },
 
+    // ===================================================================
+    // CORREÇÃO CRÍTICA (STRAVA BRANDING V14): LOGO OBRIGATÓRIA
+    // ===================================================================
     createStravaDataDisplay: (stravaData) => {
         if (!stravaData) return '';
+        
+        let mapLinkHtml = '';
+        if (stravaData.mapLink) {
+            // LINK OBRIGATÓRIO: "View on Strava"
+            mapLinkHtml = `<p style="margin-top:5px;"><a href="${stravaData.mapLink}" target="_blank" style="color: #fc4c02; font-weight: bold; text-decoration: none;">🗺️ Ver no Strava</a></p>`;
+        }
+
         return `
-            <div style="background:#fff5f0; border:1px solid #fc4c02; padding:10px; border-radius:5px; margin-top:10px;">
-                <strong style="color:#fc4c02">Strava / IA:</strong>
+            <fieldset class="strava-data-display" style="border: 1px solid #fc4c02; background: #fff5f0; padding: 10px; border-radius: 5px; margin-top: 10px;">
+                <legend style="color: #fc4c02; font-weight: bold; font-size: 0.9rem;">
+                    <img src="img/strava.png" alt="Powered by Strava" style="height: 20px; vertical-align: middle; margin-right: 5px;">
+                    Dados do Treino
+                </legend>
                 <div style="font-family:monospace;">
                     Dist: ${stravaData.distancia || "N/A"} | Tempo: ${stravaData.tempo || "N/A"} | Pace: ${stravaData.ritmo || "N/A"}
                 </div>
-            </div>
+                ${mapLinkHtml}
+            </fieldset>
         `;
     },
 
-    // --- CÉREBRO IA: FISIOLOGISTA SÊNIOR COM DISTRIBUIÇÃO TEMPORAL ---
+    // --- CÉREBRO IA: FISIOLOGISTA SÊNIOR COM DISTRIBUIÇÃO TEMPORAL (V13 Mantida) ---
     generatePlanWithAI: async () => {
         const btn = document.getElementById('btn-generate-plan');
         const loading = document.getElementById('ia-loading');

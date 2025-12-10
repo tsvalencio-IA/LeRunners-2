@@ -8,6 +8,30 @@
     <link href="https://cdn.jsdelivr.net/npm/boxicons@2.1.4/css/boxicons.min.css" rel="stylesheet">
     <meta name="theme-color" content="#00008B">
     <link rel="icon" type="image/png" sizes="192x192" href="img/logo-192.png">
+    <style>
+        /* Ajuste para o botão de análise ficar ao lado do gerar */
+        .ai-actions {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+            margin-top: 1rem;
+        }
+        @media (max-width: 600px) {
+            .ai-actions { grid-template-columns: 1fr; }
+        }
+        /* Estilo do Relatório IA */
+        #ia-report-content {
+            white-space: pre-wrap;
+            background: #f8f9fa;
+            padding: 1rem;
+            border-radius: 8px;
+            border: 1px solid #e0e0e0;
+            font-family: 'Segoe UI', sans-serif;
+            font-size: 0.95rem;
+            color: #333;
+            line-height: 1.6;
+        }
+    </style>
 </head>
 <body class="app-page">
 
@@ -90,15 +114,20 @@
 
             <div class="panel" style="border: 2px solid #00008B; background: #fdfdff;">
                 <h3 style="color: #00008B;"><i class='bx bxs-brain'></i> 2. Fisiologista Virtual</h3>
-                <p>Com base no seu histórico real, a IA vai prescrever sua próxima semana de treinos com a metodologia da Seleção Brasileira.</p>
+                <p>Com base no seu histórico real, a IA vai prescrever seus treinos e avaliar sua evolução.</p>
                 
-                <button id="btn-generate-plan" class="btn btn-primary" style="padding: 1rem; font-size: 1.1rem;">
-                    <i class='bx bx-loader-circle'></i> GERAR MINHA PLANILHA
-                </button>
+                <div class="ai-actions">
+                    <button id="btn-analyze-progress" class="btn btn-secondary" style="font-size: 1rem;">
+                        <i class='bx bx-line-chart'></i> ANALISAR MEU PROGRESSO
+                    </button>
+                    <button id="btn-generate-plan" class="btn btn-primary" style="font-size: 1rem;">
+                        <i class='bx bx-loader-circle'></i> GERAR NOVA PLANILHA
+                    </button>
+                </div>
                 
                 <div id="ia-loading" class="hidden" style="margin-top: 1rem; text-align: center; color: #666;">
                     <div class="loader" style="width: 30px; height: 30px; margin: 0 auto;"></div>
-                    <p>Analisando volume, intensidade e carga...</p>
+                    <p id="ia-loading-text">Processando dados...</p>
                 </div>
             </div>
 
@@ -182,6 +211,22 @@
                         <button type="submit" class="btn btn-primary">Salvar Atividade</button>
                     </fieldset>
                 </form>
+            </div>
+        </div>
+    </div>
+
+    <div id="ia-report-modal" class="modal-overlay hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3><i class='bx bxs-report'></i> Análise de Progresso</h3>
+                <button class="close-btn" id="close-ia-report-modal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div id="ia-report-content">
+                    </div>
+            </div>
+            <div class="modal-footer" style="padding: 1rem; border-top: 1px solid #eee; text-align: right;">
+                <button class="btn btn-secondary btn-small" onclick="document.getElementById('ia-report-modal').classList.add('hidden')">Fechar</button>
             </div>
         </div>
     </div>

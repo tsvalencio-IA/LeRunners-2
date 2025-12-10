@@ -12,7 +12,7 @@ const firebaseConfig = {
 };
 
 // --- Configuração da GOOGLE GEMINI API (MÓDULO 4 - IA) ---
-const GEMINI_API_KEY = "AIzaSyDuAA1HAwu4UlLUcqI5pla8nJn-Ue3esJg";
+const GEMINI_API_KEY = "AIzaSyDS4y-GLPtsoEcObvZjgbKDpLRPCRUN2UI";
 
 // --- Configuração do CLOUDINARY (MÓDULO 4 - Fotos) ---
 const CLOUDINARY_CONFIG = {

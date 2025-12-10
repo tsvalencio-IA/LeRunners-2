@@ -1,5 +1,5 @@
 /* =================================================================== */
-/* ALUNO IA - MÓDULO DE CONSULTORIA ONLINE (V3.0 - COM TESTE DE NIVELAMENTO)
+/* ALUNO IA - MÓDULO DE CONSULTORIA ONLINE (V4.0 - FEEDBACK MANUAL)
 /* =================================================================== */
 
 const AppIA = {
@@ -163,6 +163,8 @@ const AppIA = {
             
             const workouts = [];
             snapshot.forEach(child => workouts.push({id: child.key, ...child.val()}));
+            
+            // Ordenação por data
             workouts.sort((a,b) => new Date(b.date) - new Date(a.date));
 
             if (workouts.length === 0) {
@@ -174,21 +176,64 @@ const AppIA = {
                 const el = document.createElement('div');
                 el.className = 'workout-card';
                 const isAI = w.createdBy === 'IA_COACH';
+                const isDone = w.status === 'realizado';
                 
+                // Botão de ação: Só aparece se for planejado
+                let actionButton = '';
+                if (!isDone) {
+                    actionButton = `
+                        <div style="margin-top: 10px; border-top: 1px solid #eee; padding-top: 10px; text-align: right;">
+                            <button class="btn-check-manual" style="background: var(--success-color); color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; font-size: 0.9rem;">
+                                <i class='bx bx-check-circle'></i> Marcar como Feito
+                            </button>
+                        </div>
+                    `;
+                }
+
                 el.innerHTML = `
                     <div class="workout-card-header">
                         <span class="date">${w.date}</span>
                         <span class="title">${w.title}</span>
-                        <span class="status-tag ${isAI ? 'planejado' : 'realizado'}">${isAI ? '🤖 IA Coach' : 'Realizado'}</span>
+                        <span class="status-tag ${isDone ? 'realizado' : 'planejado'}">${isDone ? 'Concluído' : 'Planejado'}</span>
                     </div>
                     <div class="workout-card-body">
                         <p>${w.description}</p>
                         ${w.stravaData ? `<p style="font-size:0.9rem; color:#fc4c02;">Distância: ${w.stravaData.distancia}</p>` : ''}
+                        ${w.feedback ? `<p style="font-size:0.9rem; font-style:italic; color:#666; margin-top:5px; border-left: 2px solid #ccc; padding-left: 5px;">"${w.feedback}"</p>` : ''}
                     </div>
+                    ${actionButton}
                 `;
+
+                // Listener para o botão de Check Manual
+                const checkBtn = el.querySelector('.btn-check-manual');
+                if(checkBtn) {
+                    checkBtn.addEventListener('click', () => {
+                        const feedback = prompt("Como foi o treino? (Opcional)", "Treino concluído conforme planejado.");
+                        if (feedback !== null) {
+                            AppIA.markWorkoutAsDone(w.id, feedback);
+                        }
+                    });
+                }
+
                 list.appendChild(el);
             });
         });
+    },
+
+    // Nova Função: Marcar como Feito Manualmente
+    markWorkoutAsDone: (workoutId, feedbackText) => {
+        const updates = {};
+        updates[`data/${AppIA.user.uid}/workouts/${workoutId}/status`] = 'realizado';
+        updates[`data/${AppIA.user.uid}/workouts/${workoutId}/realizadoAt`] = new Date().toISOString();
+        updates[`data/${AppIA.user.uid}/workouts/${workoutId}/feedback`] = feedbackText;
+
+        // Também atualiza o feed público se necessário (embora este painel seja privado, mantemos a consistência)
+        // Se quiser que apareça no feed, teria que criar em /publicWorkouts também. 
+        // Por simplificação no IA, vamos focar no registro pessoal.
+        
+        AppIA.db.ref().update(updates)
+            .then(() => alert("Treino registrado com sucesso!"))
+            .catch(err => alert("Erro ao salvar: " + err.message));
     },
 
     // =================================================================

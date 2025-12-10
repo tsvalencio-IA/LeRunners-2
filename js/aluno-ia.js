@@ -1,5 +1,6 @@
 /* =================================================================== */
-/* ALUNO IA - MÓDULO DE CONSULTORIA ONLINE (V12.0 - COM ATIVIDADE AVULSA)
+/* ALUNO IA - MÓDULO DE CONSULTORIA ONLINE (V13.0 - FINAL COMPLETO)
+/* ATUALIZAÇÃO: Prompt da IA ajustado para intercalar dias de descanso
 /* =================================================================== */
 
 const AppIA = {
@@ -86,7 +87,7 @@ const AppIA = {
     },
 
     setupModalListeners: () => {
-        // Modal de Feedback (Treino Existente)
+        // Modal de Feedback
         const closeBtn = document.getElementById('close-feedback-modal');
         const form = document.getElementById('feedback-form');
         const fileInput = document.getElementById('photo-upload-input');
@@ -95,7 +96,7 @@ const AppIA = {
         if(form) form.addEventListener('submit', AppIA.handleFeedbackSubmit);
         if(fileInput) fileInput.addEventListener('change', AppIA.handlePhotoAnalysis);
 
-        // Modal de Atividade Avulsa (Novo)
+        // Modal de Atividade Avulsa
         const btnLog = document.getElementById('btn-log-manual');
         const closeLog = document.getElementById('close-log-activity-modal');
         const formLog = document.getElementById('log-activity-form');
@@ -105,7 +106,7 @@ const AppIA = {
         if(formLog) formLog.onsubmit = AppIA.handleLogActivitySubmit;
     },
 
-    // --- FUNÇÕES DE ATIVIDADE AVULSA ---
+    // --- ATIVIDADE AVULSA ---
     openLogActivityModal: () => {
         document.getElementById('log-activity-form').reset();
         document.getElementById('log-date').value = new Date().toISOString().split('T')[0];
@@ -135,7 +136,6 @@ const AppIA = {
             };
 
             await AppIA.db.ref(`data/${AppIA.user.uid}/workouts`).push(workoutData);
-            
             AppIA.closeLogActivityModal();
             alert("Atividade registrada com sucesso!");
         } catch(err) {
@@ -145,7 +145,7 @@ const AppIA = {
         }
     },
 
-    // --- FUNÇÕES DE FEEDBACK (TREINO EXISTENTE) ---
+    // --- FEEDBACK ---
     openFeedbackModal: (workoutId, title) => {
         AppIA.modalState.currentWorkoutId = workoutId;
         document.getElementById('feedback-modal-title').textContent = `Registro: ${title}`;
@@ -244,6 +244,7 @@ const AppIA = {
             const btnConnect = document.getElementById('btn-connect-strava');
             const btnSync = document.getElementById('btn-sync-strava');
             const status = document.getElementById('status-strava');
+
             if (snapshot.exists()) {
                 AppIA.stravaData = snapshot.val();
                 btnConnect.classList.add('hidden');
@@ -290,12 +291,13 @@ const AppIA = {
         btn.innerHTML = "<i class='bx bx-refresh'></i> Sincronizar Agora";
     },
 
+    // --- RENDERIZAÇÃO (CLONE PROFESSOR) ---
     loadWorkouts: () => {
         AppIA.db.ref(`data/${AppIA.user.uid}/workouts`).orderByChild('date').on('value', snapshot => {
             const list = document.getElementById('workout-list');
             list.innerHTML = "";
             if (!snapshot.exists()) {
-                list.innerHTML = `<p style="text-align:center; padding:1rem; color:#666;">Você ainda não tem treinos. Clique em "GERAR MINHA PLANILHA" para começar.</p>`;
+                list.innerHTML = `<p style="text-align:center; padding:1rem; color:#666;">Você ainda não tem treinos.</p>`;
                 return;
             }
             snapshot.forEach(childSnapshot => {
@@ -349,20 +351,15 @@ const AppIA = {
         `;
     },
 
-    // =================================================================
-    // CÉREBRO IA V2.0: FISIOLOGISTA DA SELEÇÃO (ADAPTATIVO TIPO GARMIN)
-    // =================================================================
+    // --- CÉREBRO IA: FISIOLOGISTA SÊNIOR COM DISTRIBUIÇÃO TEMPORAL ---
     generatePlanWithAI: async () => {
         const btn = document.getElementById('btn-generate-plan');
         const loading = document.getElementById('ia-loading');
-        
         btn.disabled = true;
         loading.classList.remove('hidden');
 
         try {
-            // 1. Coleta o histórico profundo (Contexto para a IA aprender o padrão do atleta)
             const snap = await AppIA.db.ref(`data/${AppIA.user.uid}/workouts`).orderByChild('date').limitToLast(20).once('value');
-            
             let history = [];
             if(snap.exists()) {
                 snap.forEach(c => history.push(c.val()));
@@ -373,9 +370,7 @@ const AppIA = {
             tomorrow.setDate(tomorrow.getDate() + 1);
             const dateStr = tomorrow.toISOString().split('T')[0];
 
-            // 2. Definição de Cenários
             if (history.length === 0) {
-                // CENÁRIO: Nivelamento (Zero Dados)
                 prompt = `
                 ATUE COMO: Fisiologista Sênior da Seleção Brasileira de Atletismo.
                 OBJETIVO: Criar um protocolo de TESTE DE CAMPO para um aluno iniciante.
@@ -390,8 +385,6 @@ const AppIA = {
                 Retorne APENAS o JSON.
                 `;
             } else {
-                // CENÁRIO: Treino Adaptativo (Tipo Garmin/Polar)
-                // A IA vai ler os feedbacks ("Senti dor", "Foi fácil") e ajustar a carga.
                 prompt = `
                 ATUE COMO: Fisiologista Sênior e Treinador de Elite (Nível Olímpico).
                 CONTEXTO: Você é um sistema inteligente (tipo Garmin Coach) que adapta o treino baseando-se na resposta biológica do atleta.
@@ -399,28 +392,30 @@ const AppIA = {
                 HISTÓRICO RECENTE DO ATLETA (JSON):
                 ${JSON.stringify(history)}
                 
-                SUA MISSÃO:
-                1. Analise a Carga Aguda (última semana) vs Crônica.
-                2. Leia os "feedbacks" e "status" dos treinos anteriores. SE houver relatos de dor ou cansaço extremo, prescreva uma semana regenerativa (Deload).
-                3. SE o atleta estiver evoluindo bem (treinos "realizados" com sucesso), aplique o princípio da Sobrecarga Progressiva (+5% a 10% de volume).
+                SUA MISSÃO (MICRO-CICLO SEMANAL):
+                1. ANÁLISE DE CARGA: Verifique a Carga Aguda vs Crônica. Se houver relatos de dor/cansaço nos feedbacks, prescreva semana regenerativa.
+                2. SOBRECARGA PROGRESSIVA: Se o atleta estiver bem, aumente o volume em no máximo 10%.
+                3. DISTRIBUIÇÃO TEMPORAL (CRÍTICO):
+                   - O objetivo é gerar 3 a 4 treinos para os PRÓXIMOS 7 DIAS.
+                   - OBRIGATÓRIO: Intercale dias de descanso (OFF). Não agende 4 dias seguidos de corrida para um iniciante/intermediário.
+                   - Exemplo de estrutura segura: Treino, Off, Treino, Off, Treino, Off, Longo.
                 
-                SAÍDA: Gere a planilha para a PRÓXIMA SEMANA (3 a 4 treinos) a partir de ${dateStr}.
+                SAÍDA: Gere a planilha a partir de ${dateStr}.
                 
                 FORMATO JSON OBRIGATÓRIO (Array de Objetos):
                 [
                   {
                     "date": "YYYY-MM-DD",
-                    "title": "Nome do Treino (Ex: Fartlek Piramidal)",
+                    "title": "Nome do Treino",
                     "description": "Detalhes técnicos precisos (Aquecimento, Parte Principal com Zonas de FC/Pace, Desaquecimento).",
                     "structure": { "tipo": "Qualidade", "distancia": "X km" }
                   }
                 ]
                 
-                IMPORTANTE: Não responda nada além do JSON. Seja técnico e preciso.
+                IMPORTANTE: Responda APENAS o JSON.
                 `;
             }
 
-            // 3. Chamada à API
             const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${window.GEMINI_API_KEY}`, {
                 method: 'POST', headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
@@ -433,33 +428,24 @@ const AppIA = {
 
             const json = await r.json();
             const textResponse = json.candidates[0].content.parts[0].text;
-            
-            // Tratamento de Limpeza
             let cleanJson = textResponse;
             if(textResponse.includes('```')) cleanJson = textResponse.replace(/```json/g, '').replace(/```/g, '').trim();
-            
             const newWorkouts = JSON.parse(cleanJson);
 
-            // 4. Gravação no Banco
             const updates = {};
             newWorkouts.forEach(workout => {
                 const key = AppIA.db.ref().push().key;
                 updates[`data/${AppIA.user.uid}/workouts/${key}`] = {
                     ...workout,
                     status: 'planejado',
-                    createdBy: 'IA_PHYSIO', // Marca que foi o Fisiologista Virtual
+                    createdBy: 'IA_PHYSIO',
                     createdAt: new Date().toISOString()
                 };
             });
 
             await AppIA.db.ref().update(updates);
-            
-            // Feedback Visual ao Usuário
-            if (history.length > 0) {
-                alert("✅ Fisiologista Virtual analisou seus dados!\n\nSua nova planilha foi calculada com base na sua recuperação e performance recente.");
-            } else {
-                alert("✅ Protocolo de Teste gerado com sucesso!");
-            }
+            if (history.length > 0) alert("✅ Planilha gerada com sucesso! Treinos distribuídos na semana.");
+            else alert("✅ Protocolo de Teste gerado!");
 
         } catch (e) {
             console.error(e);

@@ -103,7 +103,12 @@
             </div>
 
             <div class="panel">
-                <h3>Minha Planilha Inteligente</h3>
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; border-bottom: 1px solid #eee; padding-bottom: 0.5rem;">
+                    <h3 style="margin: 0; color: var(--primary-color);">Minha Planilha</h3>
+                    <button id="btn-log-manual" class="btn btn-secondary btn-small" style="width: auto; font-size: 0.85rem;">
+                        <i class='bx bx-plus-medical'></i> Atividade Avulsa
+                    </button>
+                </div>
                 <div id="workout-list">
                     </div>
             </div>
@@ -119,7 +124,6 @@
             <div class="modal-body">
                 <form id="feedback-form">
                     <input type="hidden" id="feedback-workout-id">
-                    
                     <fieldset>
                         <legend>Status do Treino</legend>
                         <div class="form-group">
@@ -134,21 +138,48 @@
                             <label for="workout-feedback-text">Como você se sentiu? (Obrigatório)</label>
                             <textarea id="workout-feedback-text" rows="3" placeholder="Ex: Senti o joelho no final, mas o pace foi bom..." required></textarea>
                         </div>
-                        
                         <div class="form-group">
-                            <label for="photo-upload-input">Anexar Foto do Relógio/Esteira (IA Gemini)</label>
+                            <label for="photo-upload-input">Anexar Foto (IA Gemini)</label>
                             <input type="file" id="photo-upload-input" accept="image/*">
                             <p id="photo-upload-feedback" class="upload-feedback"></p>
                         </div>
-                        
                         <fieldset id="strava-data-display" class="strava-data-display hidden">
                             <legend><i class='bx bxl-strava'></i> Dados Extraídos (IA)</legend>
                             <p id="strava-data-distancia"></p>
                             <p id="strava-data-tempo"></p>
                             <p id="strava-data-ritmo"></p>
                         </fieldset>
-
                         <button type="submit" id="save-feedback-btn" class="btn btn-primary">Salvar Registro</button>
+                    </fieldset>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div id="log-activity-modal" class="modal-overlay hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3><i class='bx bx-plus-medical'></i> Registrar Avulso</h3>
+                <button class="close-btn" id="close-log-activity-modal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="log-activity-form">
+                    <p style="font-size: 0.9rem; color: #666; margin-bottom: 1rem;">Registre um treino extra que não estava na planilha.</p>
+                    <fieldset>
+                        <legend>O que você fez?</legend>
+                        <div class="form-group">
+                            <label>Data</label>
+                            <input type="date" id="log-date" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Título do Treino</label>
+                            <input type="text" id="log-title" placeholder="Ex: Trote no Parque" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Descrição / Detalhes</label>
+                            <textarea id="log-description" rows="3" placeholder="Ex: 5km leve, sensação boa..."></textarea>
+                        </div>
+                        <button type="submit" class="btn btn-primary">Salvar Atividade</button>
                     </fieldset>
                 </form>
             </div>

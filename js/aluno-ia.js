@@ -1,6 +1,5 @@
 /* =================================================================== */
-/* ALUNO IA - MÓDULO DE CONSULTORIA ONLINE (V7.0 - FIX VISUALIZAÇÃO)
-/* CORREÇÃO: REMOÇÃO DE LIMITES DE QUERY PARA GARANTIR LEITURA
+/* ALUNO IA - MÓDULO DE CONSULTORIA ONLINE (V7.0 - CORREÇÃO DE PASTA)
 /* =================================================================== */
 
 const AppIA = {
@@ -16,7 +15,7 @@ const AppIA = {
         AppIA.db = firebase.database();
 
         AppIA.setupAuthListeners();
-        AppIA.setupModalListeners(); 
+        AppIA.setupModalListeners(); // Inicia ouvintes do modal
         
         AppIA.auth.onAuthStateChanged(user => {
             const loader = document.getElementById('loader');
@@ -86,6 +85,9 @@ const AppIA = {
         document.getElementById('btn-generate-plan').onclick = AppIA.generatePlanWithAI;
     },
 
+    // ===================================================================
+    // LISTENERS DO MODAL DE FEEDBACK (O QUE FALTAVA)
+    // ===================================================================
     setupModalListeners: () => {
         const closeBtn = document.getElementById('close-feedback-modal');
         const form = document.getElementById('feedback-form');
@@ -93,7 +95,7 @@ const AppIA = {
 
         if(closeBtn) closeBtn.onclick = AppIA.closeFeedbackModal;
         if(form) form.addEventListener('submit', AppIA.handleFeedbackSubmit);
-        if(fileInput) fileInput.addEventListener('change', AppIA.handlePhotoAnalysis);
+        if(fileInput) fileInput.addEventListener('change', AppIA.handlePhotoAnalysis); // IA Vision Trigger
     },
 
     openFeedbackModal: (workoutId, title) => {
@@ -112,6 +114,9 @@ const AppIA = {
         document.getElementById('feedback-modal').classList.add('hidden');
     },
 
+    // ===================================================================
+    // IA VISION & UPLOAD BLINDADO
+    // ===================================================================
     handlePhotoAnalysis: async (e) => {
         const file = e.target.files[0];
         if (!file) return;
@@ -138,7 +143,7 @@ const AppIA = {
             if(text.includes('```')) cleanJson = text.replace(/```json/g, '').replace(/```/g, '').trim();
             
             const data = JSON.parse(cleanJson);
-            AppIA.stravaData = data; 
+            AppIA.stravaData = data; // Armazena dados extraídos
             
             const display = document.getElementById('strava-data-display');
             display.classList.remove('hidden');
@@ -161,6 +166,7 @@ const AppIA = {
             let imageUrl = null;
             const fileInput = document.getElementById('photo-upload-input');
             
+            // UPLOAD BLINDADO (Verificação de tamanho)
             if (fileInput.files[0]) {
                 const file = fileInput.files[0];
                 const MAX_SIZE_MB = 10;
@@ -173,7 +179,11 @@ const AppIA = {
                 
                 const r = await fetch(`https://api.cloudinary.com/v1_1/${window.CLOUDINARY_CONFIG.cloudName}/upload`, { method: 'POST', body: f });
                 
-                if (!r.ok) throw new Error("Erro no upload da foto. Tente uma menor.");
+                if (!r.ok) {
+                    const errData = await r.json();
+                    throw new Error(errData.error?.message || "Erro no upload da foto.");
+                }
+                
                 const d = await r.json();
                 imageUrl = d.secure_url;
             }
@@ -202,65 +212,8 @@ const AppIA = {
     fileToBase64: (file) => new Promise((r, j) => { const reader = new FileReader(); reader.onload = () => r(reader.result.split(',')[1]); reader.onerror = j; reader.readAsDataURL(file); }),
 
     // ===================================================================
-    // CORREÇÃO CRÍTICA: BUSCA DE TREINOS (SEM LIMITE PARA EVITAR BUG DE ÍNDICE)
+    // FUNÇÕES DE SISTEMA
     // ===================================================================
-    loadWorkouts: () => {
-        // Removemos o .limitToLast(20) que estava escondendo treinos novos se o índice não existisse
-        AppIA.db.ref(`data/${AppIA.user.uid}/workouts`).orderByChild('date').on('value', snapshot => {
-            const list = document.getElementById('workout-list');
-            list.innerHTML = "";
-            
-            const workouts = [];
-            snapshot.forEach(child => workouts.push({id: child.key, ...child.val()}));
-            
-            // Ordena Descendente (Mais novo primeiro)
-            workouts.sort((a,b) => new Date(b.date) - new Date(a.date));
-
-            if (workouts.length === 0) {
-                list.innerHTML = `<p style="text-align:center; padding:1rem; color:#666;">Você ainda não tem treinos. Clique em "GERAR MINHA PLANILHA" para começar.</p>`;
-                return;
-            }
-
-            workouts.forEach(w => {
-                const el = document.createElement('div');
-                el.className = 'workout-card';
-                const isAI = w.createdBy === 'IA_COACH';
-                const isDone = w.status === 'realizado';
-                
-                let actionButton = '';
-                if (!isDone) {
-                    actionButton = `
-                        <div style="margin-top: 10px; border-top: 1px solid #eee; padding-top: 10px; text-align: right;">
-                            <button class="btn-open-feedback" style="background: var(--success-color); color: white; border: none; padding: 8px 12px; border-radius: 4px; cursor: pointer; font-size: 0.9rem;">
-                                <i class='bx bx-check-circle'></i> Registrar Treino
-                            </button>
-                        </div>
-                    `;
-                }
-
-                el.innerHTML = `
-                    <div class="workout-card-header">
-                        <span class="date">${w.date}</span>
-                        <span class="title">${w.title}</span>
-                        <span class="status-tag ${isDone ? 'realizado' : 'planejado'}">${isDone ? 'Concluído' : 'Planejado'}</span>
-                    </div>
-                    <div class="workout-card-body">
-                        <p>${w.description}</p>
-                        ${w.stravaData ? `<p style="font-size:0.9rem; color:#fc4c02;">Distância: ${w.stravaData.distancia} | Ritmo: ${w.stravaData.ritmo}</p>` : ''}
-                        ${w.imageUrl ? `<img src="${w.imageUrl}" style="width:100%; max-height:200px; object-fit:cover; margin-top:10px; border-radius:8px;">` : ''}
-                        ${w.feedback ? `<p style="font-size:0.9rem; font-style:italic; color:#666; margin-top:5px; border-left: 2px solid #ccc; padding-left: 5px;">"${w.feedback}"</p>` : ''}
-                    </div>
-                    ${actionButton}
-                `;
-
-                const btn = el.querySelector('.btn-open-feedback');
-                if(btn) btn.addEventListener('click', () => AppIA.openFeedbackModal(w.id, w.title));
-
-                list.appendChild(el);
-            });
-        });
-    },
-
     checkStravaConnection: () => {
         AppIA.db.ref(`users/${AppIA.user.uid}/stravaAuth`).on('value', snapshot => {
             const btnConnect = document.getElementById('btn-connect-strava');
@@ -308,11 +261,73 @@ const AppIA = {
         const btn = document.getElementById('btn-sync-strava');
         btn.disabled = true;
         btn.textContent = "Sincronizando...";
-        alert("Sincronização iniciada! Verifique o painel principal."); 
+        alert("Sincronização iniciada! Verifique o painel principal para detalhes completos."); 
         btn.disabled = false;
         btn.innerHTML = "<i class='bx bx-refresh'></i> Sincronizar Agora";
     },
 
+    // CORREÇÃO: CARREGA TUDO (SEM LIMITES) PARA EVITAR "PLANILHA SUMINDO"
+    loadWorkouts: () => {
+        AppIA.db.ref(`data/${AppIA.user.uid}/workouts`).orderByChild('date').on('value', snapshot => {
+            const list = document.getElementById('workout-list');
+            list.innerHTML = "";
+            
+            const workouts = [];
+            snapshot.forEach(child => workouts.push({id: child.key, ...child.val()}));
+            
+            // Ordena Descendente (Mais novo primeiro)
+            workouts.sort((a,b) => new Date(b.date) - new Date(a.date));
+
+            if (workouts.length === 0) {
+                list.innerHTML = `<p style="text-align:center; padding:1rem; color:#666;">Você ainda não tem treinos. Clique em "GERAR MINHA PLANILHA" para começar.</p>`;
+                return;
+            }
+
+            workouts.forEach(w => {
+                const el = document.createElement('div');
+                el.className = 'workout-card';
+                const isAI = w.createdBy === 'IA_COACH';
+                const isDone = w.status === 'realizado';
+                
+                // Botão de ação (Abre o Modal agora)
+                let actionButton = '';
+                if (!isDone) {
+                    actionButton = `
+                        <div style="margin-top: 10px; border-top: 1px solid #eee; padding-top: 10px; text-align: right;">
+                            <button class="btn-open-feedback" style="background: var(--success-color); color: white; border: none; padding: 8px 12px; border-radius: 4px; cursor: pointer; font-size: 0.9rem;">
+                                <i class='bx bx-check-circle'></i> Registrar Treino
+                            </button>
+                        </div>
+                    `;
+                }
+
+                el.innerHTML = `
+                    <div class="workout-card-header">
+                        <span class="date">${w.date}</span>
+                        <span class="title">${w.title}</span>
+                        <span class="status-tag ${isDone ? 'realizado' : 'planejado'}">${isDone ? 'Concluído' : 'Planejado'}</span>
+                    </div>
+                    <div class="workout-card-body">
+                        <p>${w.description}</p>
+                        ${w.stravaData ? `<p style="font-size:0.9rem; color:#fc4c02;">Distância: ${w.stravaData.distancia} | Ritmo: ${w.stravaData.ritmo}</p>` : ''}
+                        ${w.imageUrl ? `<img src="${w.imageUrl}" style="width:100%; max-height:200px; object-fit:cover; margin-top:10px; border-radius:8px;">` : ''}
+                        ${w.feedback ? `<p style="font-size:0.9rem; font-style:italic; color:#666; margin-top:5px; border-left: 2px solid #ccc; padding-left: 5px;">"${w.feedback}"</p>` : ''}
+                    </div>
+                    ${actionButton}
+                `;
+
+                // Listener para o botão de Feedback
+                const btn = el.querySelector('.btn-open-feedback');
+                if(btn) {
+                    btn.addEventListener('click', () => AppIA.openFeedbackModal(w.id, w.title));
+                }
+
+                list.appendChild(el);
+            });
+        });
+    },
+
+    // GERAÇÃO DE PLANILHA COM PROTEÇÃO DE ERRO E ROLAGEM
     generatePlanWithAI: async () => {
         const btn = document.getElementById('btn-generate-plan');
         const loading = document.getElementById('ia-loading');
@@ -334,9 +349,6 @@ const AppIA = {
                 ATUE COMO: Treinador de Elite (Fisiologista).
                 SITUAÇÃO: Este é um aluno NOVO, sem nenhum histórico de treino na plataforma.
                 OBJETIVO: Criar APENAS UM treino para amanhã (${dateStr}): Um "Teste de Nivelamento" (Teste de Campo) para descobrirmos o pace e zonas dele.
-                
-                PROTOCOLO RECOMENDADO: "Teste de 3km" (ou 12 min Cooper) se o aluno for ativo, ou "Caminhada Rápida" se for sedentário (assuma que ele pode correr leve).
-                
                 SAÍDA OBRIGATÓRIA (JSON Array com 1 Item):
                 [
                     {
@@ -391,7 +403,7 @@ const AppIA = {
             await AppIA.db.ref().update(updates);
             alert("✅ Nova planilha gerada com sucesso!");
             
-            // O Listener .on() no loadWorkouts vai pegar os dados automaticamente, não chame de novo.
+            // O Listener .on() no loadWorkouts vai pegar os dados automaticamente e reordenar.
 
         } catch (e) {
             console.error(e);

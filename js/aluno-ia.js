@@ -1,6 +1,6 @@
 /* =================================================================== */
-/* ALUNO IA - MÓDULO DE CONSULTORIA ONLINE (V8.0 - VISUAL UNIFICADO)
-/* CORREÇÃO: CARREGA TUDO (SEM LIMITES) + CARD IDÊNTICO AO APP
+/* ALUNO IA - MÓDULO DE CONSULTORIA ONLINE (V9.0 - LOGICA ESPELHO)
+/* CORREÇÃO: Usa a mesma lógica de loop do Professor para não falhar
 /* =================================================================== */
 
 const AppIA = {
@@ -37,7 +37,7 @@ const AppIA = {
                         document.getElementById('user-name-display').textContent = snapshot.val().name;
                         
                         AppIA.checkStravaConnection();
-                        AppIA.loadWorkouts(); // AGORA CARREGA TUDO
+                        AppIA.loadWorkouts(); // Carregamento corrigido
                     } else {
                         AppIA.db.ref('pendingApprovals/' + user.uid).once('value', pendingSnap => {
                             authContainer.classList.remove('hidden');
@@ -113,7 +113,7 @@ const AppIA = {
     },
 
     // ===================================================================
-    // IA VISION & UPLOAD BLINDADO (Igual ao App.js)
+    // IA VISION & UPLOAD BLINDADO
     // ===================================================================
     handlePhotoAnalysis: async (e) => {
         const file = e.target.files[0];
@@ -204,7 +204,7 @@ const AppIA = {
     fileToBase64: (file) => new Promise((r, j) => { const reader = new FileReader(); reader.onload = () => r(reader.result.split(',')[1]); reader.onerror = j; reader.readAsDataURL(file); }),
 
     // ===================================================================
-    // SISTEMA: STRAVA, CARREGAMENTO E GERAÇÃO
+    // SISTEMA E RENDERIZAÇÃO (CORRIGIDO: IGUAL AO PANELS.JS)
     // ===================================================================
     checkStravaConnection: () => {
         AppIA.db.ref(`users/${AppIA.user.uid}/stravaAuth`).on('value', snapshot => {
@@ -253,37 +253,41 @@ const AppIA = {
         const btn = document.getElementById('btn-sync-strava');
         btn.disabled = true;
         btn.textContent = "Sincronizando...";
-        alert("Sincronização iniciada! Verifique se os novos treinos aparecem em instantes."); 
+        alert("Sincronização iniciada! Verifique o painel em instantes."); 
         btn.disabled = false;
         btn.innerHTML = "<i class='bx bx-refresh'></i> Sincronizar Agora";
     },
 
-    // ===================================================================
-    // CORREÇÃO CRÍTICA: LOAD WORKOUTS IDÊNTICO AO PANELS.JS
-    // ===================================================================
+    // AQUI ESTÁ A CORREÇÃO PRINCIPAL: LOGICA ESPELHO DO PROFESSOR (PREPEND)
     loadWorkouts: () => {
-        // 1. Remove limitToLast para pegar TUDO (Histórico e Futuro)
+        // Ordena por data no banco e itera. O prepend inverte a ordem visual.
         AppIA.db.ref(`data/${AppIA.user.uid}/workouts`).orderByChild('date').on('value', snapshot => {
             const list = document.getElementById('workout-list');
             list.innerHTML = "";
             
-            const workouts = [];
-            snapshot.forEach(child => workouts.push({id: child.key, ...child.val()}));
-            
-            // 2. Ordenação Descendente (Mais novo/futuro no topo)
-            workouts.sort((a,b) => new Date(b.date) - new Date(a.date));
-
-            if (workouts.length === 0) {
+            if (!snapshot.exists()) {
                 list.innerHTML = `<p style="text-align:center; padding:1rem; color:#666;">Você ainda não tem treinos. Clique em "GERAR MINHA PLANILHA" para começar.</p>`;
                 return;
             }
 
-            // 3. Renderização visual IDÊNTICA ao app principal
-            workouts.forEach(w => {
+            snapshot.forEach(childSnapshot => {
+                const w = { id: childSnapshot.key, ...childSnapshot.val() };
                 const el = document.createElement('div');
                 el.className = 'workout-card';
+                const isAI = w.createdBy === 'IA_COACH';
                 const isDone = w.status === 'realizado';
                 
+                let actionButton = '';
+                if (!isDone) {
+                    actionButton = `
+                        <div style="margin-top: 10px; border-top: 1px solid #eee; padding-top: 10px; text-align: right;">
+                            <button class="btn-open-feedback" style="background: var(--success-color); color: white; border: none; padding: 8px 12px; border-radius: 4px; cursor: pointer; font-size: 0.9rem;">
+                                <i class='bx bx-check-circle'></i> Registrar Treino
+                            </button>
+                        </div>
+                    `;
+                }
+
                 el.innerHTML = `
                     <div class="workout-card-header">
                         <span class="date">${w.date}</span>
@@ -293,35 +297,26 @@ const AppIA = {
                     <div class="workout-card-body">
                         <p>${w.description}</p>
                         ${w.stravaData ? AppIA.createStravaDataDisplay(w.stravaData) : ''}
-                        ${w.imageUrl ? `<img src="${w.imageUrl}" class="workout-image" style="width:100%; border-radius:8px; margin-top:10px;">` : ''}
-                        ${w.feedback ? `<p class="feedback-text" style="border-left:3px solid blue; background:#f0f5ff; padding:5px; margin-top:5px;">"${w.feedback}"</p>` : ''}
+                        ${w.imageUrl ? `<img src="${w.imageUrl}" style="width:100%; max-height:200px; object-fit:cover; margin-top:10px; border-radius:8px;">` : ''}
+                        ${w.feedback ? `<p style="font-size:0.9rem; font-style:italic; color:#666; margin-top:5px; border-left: 2px solid #ccc; padding-left: 5px;">"${w.feedback}"</p>` : ''}
                     </div>
-                    <div class="workout-card-footer" style="padding: 10px; border-top: 1px solid #eee; text-align:right;">
-                        <button class="btn-open-feedback btn-primary btn-small" style="background: var(--primary-color); color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer;">
-                            <i class='bx bx-edit'></i> ${isDone ? 'Editar Feedback' : 'Registrar Treino'}
-                        </button>
-                    </div>
+                    ${actionButton}
                 `;
 
-                // Listener de clique no card e no botão (Para abrir o modal)
-                const openModal = () => AppIA.openFeedbackModal(w.id, w.title);
+                const btn = el.querySelector('.btn-open-feedback');
+                if(btn) btn.addEventListener('click', () => AppIA.openFeedbackModal(w.id, w.title));
                 
-                el.querySelector('.btn-open-feedback').addEventListener('click', (e) => {
-                    e.stopPropagation();
-                    openModal();
-                });
-                
-                // Torna o card todo clicável (exceto se clicar em links)
+                // Torna o card inteiro clicável para abrir o modal de feedback
                 el.addEventListener('click', (e) => {
-                    if (!e.target.closest('a')) openModal();
+                     if (!e.target.closest('button') && !e.target.closest('a')) AppIA.openFeedbackModal(w.id, w.title);
                 });
 
-                list.appendChild(el);
+                // USAMOS PREPEND IGUAL AO PAINEL DO PROFESSOR PARA ORDEM CORRETA (FUTURO NO TOPO)
+                list.prepend(el);
             });
         });
     },
 
-    // Helper visual para dados do Strava (Igual ao Panels.js)
     createStravaDataDisplay: (stravaData) => {
         if (!stravaData) return '';
         return `
@@ -341,8 +336,7 @@ const AppIA = {
         loading.classList.remove('hidden');
 
         try {
-            // Pega histórico completo (sem limites para evitar erro de contexto)
-            const snap = await AppIA.db.ref(`data/${AppIA.user.uid}/workouts`).orderByChild('date').limitToLast(20).once('value');
+            const snap = await AppIA.db.ref(`data/${AppIA.user.uid}/workouts`).limitToLast(15).once('value');
             const history = snap.val();
             
             let prompt = "";

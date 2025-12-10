@@ -1,6 +1,6 @@
 /* =================================================================== */
-/* ALUNO IA - MÓDULO DE CONSULTORIA ONLINE (V5.0 - PROFESSIONAL IA)
-/* INCLUI: GERAÇÃO DE TREINO, UPLOAD BLINDADO, VISÃO IA E FEEDBACK
+/* ALUNO IA - MÓDULO DE CONSULTORIA ONLINE (V6.0 - PROFESSIONAL)
+/* INCLUI: GERAÇÃO DE TREINO, UPLOAD BLINDADO, VISÃO IA E MODAL
 /* =================================================================== */
 
 const AppIA = {
@@ -16,7 +16,7 @@ const AppIA = {
         AppIA.db = firebase.database();
 
         AppIA.setupAuthListeners();
-        AppIA.setupModalListeners(); // Novo: Listeners do Modal
+        AppIA.setupModalListeners(); // Inicia ouvintes do modal
         
         AppIA.auth.onAuthStateChanged(user => {
             const loader = document.getElementById('loader');
@@ -87,12 +87,16 @@ const AppIA = {
     },
 
     // ===================================================================
-    // LISTENERS DO MODAL DE FEEDBACK (NOVO)
+    // MODAL LISTENERS (Para abrir e fechar o feedback)
     // ===================================================================
     setupModalListeners: () => {
-        document.getElementById('close-feedback-modal').onclick = AppIA.closeFeedbackModal;
-        document.getElementById('feedback-form').addEventListener('submit', AppIA.handleFeedbackSubmit);
-        document.getElementById('photo-upload-input').addEventListener('change', AppIA.handlePhotoAnalysis); // IA Vision
+        const closeBtn = document.getElementById('close-feedback-modal');
+        const form = document.getElementById('feedback-form');
+        const fileInput = document.getElementById('photo-upload-input');
+
+        if(closeBtn) closeBtn.onclick = AppIA.closeFeedbackModal;
+        if(form) form.addEventListener('submit', AppIA.handleFeedbackSubmit);
+        if(fileInput) fileInput.addEventListener('change', AppIA.handlePhotoAnalysis); // IA Vision Trigger
     },
 
     openFeedbackModal: (workoutId, title) => {
@@ -112,7 +116,7 @@ const AppIA = {
     },
 
     // ===================================================================
-    // LÓGICA DE UPLOAD BLINDADA E VISÃO IA (COPIADO DO APP.JS)
+    // IA VISION & UPLOAD (TECNOLOGIA DO APP PRINCIPAL TRANSPLANTADA)
     // ===================================================================
     handlePhotoAnalysis: async (e) => {
         const file = e.target.files[0];
@@ -125,22 +129,25 @@ const AppIA = {
             const base64 = await AppIA.fileToBase64(file);
             const prompt = `Analise a imagem. Retorne JSON: { "distancia": "X km", "tempo": "HH:MM:SS", "ritmo": "X:XX /km" }`;
             
-            // Chama API Gemini 2.0 (Mesma do app.js)
             const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${window.GEMINI_API_KEY}`, {
                 method: 'POST', headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ contents: [{ parts: [{ text: prompt }, { inlineData: { mimeType: file.type, data: base64 } }] }], generationConfig: { responseMimeType: "application/json" } })
             });
             
-            if(!r.ok) throw new Error("Erro na API do Google");
+            if(!r.ok) {
+                const err = await r.json();
+                throw new Error(err.error?.message || "Erro na API do Google");
+            }
+            
             const d = await r.json();
             const text = d.candidates[0].content.parts[0].text;
             
-            // Limpa JSON
+            // Limpa JSON (Markdown)
             let cleanJson = text;
             if(text.includes('```')) cleanJson = text.replace(/```json/g, '').replace(/```/g, '').trim();
             
             const data = JSON.parse(cleanJson);
-            AppIA.stravaData = data; // Guarda temporariamente
+            AppIA.stravaData = data; // Armazena dados extraídos
             
             const display = document.getElementById('strava-data-display');
             display.classList.remove('hidden');
@@ -149,7 +156,7 @@ const AppIA = {
 
         } catch (err) {
             console.error(err);
-            feedbackEl.textContent = "Falha na leitura IA. Digite manualmente.";
+            feedbackEl.textContent = `Falha na leitura IA: ${err.message}. Digite manualmente.`;
         }
     },
 
@@ -163,7 +170,7 @@ const AppIA = {
             let imageUrl = null;
             const fileInput = document.getElementById('photo-upload-input');
             
-            // UPLOAD BLINDADO (Igual ao App.js)
+            // UPLOAD BLINDADO (Verificação de tamanho)
             if (fileInput.files[0]) {
                 const file = fileInput.files[0];
                 const MAX_SIZE_MB = 10;
@@ -175,7 +182,12 @@ const AppIA = {
                 f.append('folder', `lerunners/${AppIA.user.uid}/workouts`);
                 
                 const r = await fetch(`https://api.cloudinary.com/v1_1/${window.CLOUDINARY_CONFIG.cloudName}/upload`, { method: 'POST', body: f });
-                if (!r.ok) throw new Error("Erro no upload da foto.");
+                
+                if (!r.ok) {
+                    const errData = await r.json();
+                    throw new Error(errData.error?.message || "Erro no upload da foto.");
+                }
+                
                 const d = await r.json();
                 imageUrl = d.secure_url;
             }
@@ -186,7 +198,7 @@ const AppIA = {
                 realizadoAt: new Date().toISOString()
             };
             if (imageUrl) updates.imageUrl = imageUrl;
-            if (AppIA.stravaData) updates.stravaData = AppIA.stravaData; // Salva dados da IA
+            if (AppIA.stravaData) updates.stravaData = AppIA.stravaData; 
 
             await AppIA.db.ref(`data/${AppIA.user.uid}/workouts/${AppIA.modalState.currentWorkoutId}`).update(updates);
             
@@ -194,7 +206,7 @@ const AppIA = {
             alert("Treino registrado com sucesso!");
 
         } catch (err) {
-            alert("Erro: " + err.message);
+            alert("Erro ao salvar: " + err.message);
         } finally {
             btn.disabled = false;
             btn.textContent = "Salvar Registro";
@@ -204,7 +216,7 @@ const AppIA = {
     fileToBase64: (file) => new Promise((r, j) => { const reader = new FileReader(); reader.onload = () => r(reader.result.split(',')[1]); reader.onerror = j; reader.readAsDataURL(file); }),
 
     // ===================================================================
-    // FUNÇÕES DE SISTEMA (STRAVA, WORKOUTS, GENERATION)
+    // FUNÇÕES DE SISTEMA
     // ===================================================================
     checkStravaConnection: () => {
         AppIA.db.ref(`users/${AppIA.user.uid}/stravaAuth`).on('value', snapshot => {
@@ -253,7 +265,7 @@ const AppIA = {
         const btn = document.getElementById('btn-sync-strava');
         btn.disabled = true;
         btn.textContent = "Sincronizando...";
-        alert("Sincronização iniciada! Verifique o painel principal para detalhes completos."); // Simplificado aqui
+        alert("Sincronização iniciada! Verifique o painel principal para detalhes completos."); 
         btn.disabled = false;
         btn.innerHTML = "<i class='bx bx-refresh'></i> Sincronizar Agora";
     },
@@ -268,7 +280,7 @@ const AppIA = {
             workouts.sort((a,b) => new Date(b.date) - new Date(a.date));
 
             if (workouts.length === 0) {
-                list.innerHTML = `<p style="text-align:center; padding:1rem; color:#666;">Você ainda não tem treinos. Clique em "GERAR MINHA PLANILHA" para começar.</p>`;
+                list.innerHTML = `<p style="text-align:center; padding:1rem; color:#666;">Você ainda não tem treinos. Clique em "GERAR MINHA PLANILHA" para começar com um teste de nível.</p>`;
                 return;
             }
 
@@ -278,7 +290,7 @@ const AppIA = {
                 const isAI = w.createdBy === 'IA_COACH';
                 const isDone = w.status === 'realizado';
                 
-                // Botão de ação
+                // Botão de ação (Abre o Modal agora)
                 let actionButton = '';
                 if (!isDone) {
                     actionButton = `
@@ -305,9 +317,11 @@ const AppIA = {
                     ${actionButton}
                 `;
 
-                // Listener para abrir o modal
+                // Listener para o botão de Feedback
                 const btn = el.querySelector('.btn-open-feedback');
-                if(btn) btn.addEventListener('click', () => AppIA.openFeedbackModal(w.id, w.title));
+                if(btn) {
+                    btn.addEventListener('click', () => AppIA.openFeedbackModal(w.id, w.title));
+                }
 
                 list.appendChild(el);
             });
@@ -359,7 +373,6 @@ const AppIA = {
                 `;
             }
 
-            // CHAMADA BLINDADA (IGUAL APP.JS)
             const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${window.GEMINI_API_KEY}`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -394,7 +407,7 @@ const AppIA = {
 
         } catch (e) {
             console.error(e);
-            alert("Erro na IA: " + e.message); // Agora mostra o erro real
+            alert("Erro na IA: " + e.message); 
         } finally {
             btn.disabled = false;
             loading.classList.add('hidden');

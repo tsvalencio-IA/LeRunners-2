@@ -1,5 +1,5 @@
 /* =================================================================== */
-/* APP.JS - FUSÃO FINAL (STRAVA FIX + IA GEMINI 2.0 DO ZIP)
+/* APP.JS - VERSÃO FINAL (STRAVA MERGE + IA GEMINI 2.0 PROTEGIDA)
 /* =================================================================== */
 
 const AppPrincipal = {
@@ -434,7 +434,7 @@ const AppPrincipal = {
     },
     
     // ===================================================================
-    // IA & FOTO - VERSÃO DO ZIP (GEMINI 2.0)
+    // IA & FOTO - GEMINI 2.0 (PROTEGIDO)
     // ===================================================================
     handleProfilePhotoUpload: async (event) => {
         const file = event.target.files[0];
@@ -462,10 +462,8 @@ const AppPrincipal = {
             const base64 = await AppPrincipal.fileToBase64(file);
             const prompt = `Analise a imagem. Retorne JSON: { "distancia": "X km", "tempo": "HH:MM:SS", "ritmo": "X:XX /km" }`;
             
-            // CHAMADA 2.0-FLASH DO ZIP
             const jsonString = await AppPrincipal.callGeminiVisionAPI(prompt, base64, file.type);
             
-            // PEQUENA SEGURANÇA: Tenta limpar se vier com Markdown, senão tenta direto
             let cleanJson = jsonString;
             if(jsonString.includes('```')) {
                 cleanJson = jsonString.replace(/```json/g, '').replace(/```/g, '').trim();
@@ -482,41 +480,56 @@ const AppPrincipal = {
             AppPrincipal.elements.photoUploadFeedback.textContent = "Dados extraídos!";
         } catch (err) {
             console.error(err);
-            AppPrincipal.elements.photoUploadFeedback.textContent = "Falha na leitura IA. Tente outra foto.";
+            AppPrincipal.elements.photoUploadFeedback.textContent = `Falha IA: ${err.message}`;
         }
     },
 
     fileToBase64: (file) => new Promise((r, j) => { const reader = new FileReader(); reader.onload = () => r(reader.result.split(',')[1]); reader.onerror = j; reader.readAsDataURL(file); }),
     
-    // --- FUNÇÕES DA API DO GOOGLE (DO ZIP - GEMINI 2.0) ---
+    // --- FUNÇÕES DA API DO GOOGLE (GEMINI 2.0 PROTEGIDO) ---
     callGeminiTextAPI: async (prompt) => {
-        const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${window.GEMINI_API_KEY}`, {
-            method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
-        });
-        const d = await r.json();
-        
-        // PROTEÇÃO CONTRA O ERRO "UNDEFINED"
-        if(d.error) {
-            console.error("Erro API Gemini:", d.error);
-            return `ERRO GOOGLE: ${d.error.message}. (Verifique se sua chave tem acesso ao modelo 2.0)`;
+        try {
+            const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${window.GEMINI_API_KEY}`, {
+                method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
+            });
+            
+            if(!r.ok) {
+                const err = await r.json();
+                throw new Error(err.error?.message || "Erro HTTP Google");
+            }
+
+            const d = await r.json();
+            if(d.error) throw new Error(d.error.message);
+            if(!d.candidates || !d.candidates[0]) throw new Error("IA sem resposta.");
+            
+            return d.candidates[0].content.parts[0].text;
+        } catch (e) {
+            console.error("Gemini Error:", e);
+            return `ERRO IA: ${e.message}. Tente novamente mais tarde.`;
         }
-        if(!d.candidates || !d.candidates[0]) return "Sem resposta da IA.";
-        
-        return d.candidates[0].content.parts[0].text;
     },
 
     callGeminiVisionAPI: async (prompt, base64, mime) => {
-        const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${window.GEMINI_API_KEY}`, {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ contents: [{ parts: [{ text: prompt }, { inlineData: { mimeType: mime, data: base64 } }] }], generationConfig: { responseMimeType: "application/json" } })
-        });
-        const d = await r.json();
-        
-        // PROTEÇÃO CONTRA O ERRO "UNDEFINED"
-        if(d.error) throw new Error(d.error.message);
-        if(!d.candidates || !d.candidates[0]) throw new Error("Sem resposta visual.");
+        try {
+            const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${window.GEMINI_API_KEY}`, {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ contents: [{ parts: [{ text: prompt }, { inlineData: { mimeType: mime, data: base64 } }] }], generationConfig: { responseMimeType: "application/json" } })
+            });
+            
+            if(!r.ok) {
+                const err = await r.json();
+                throw new Error(err.error?.message || "Erro HTTP Google");
+            }
 
-        return d.candidates[0].content.parts[0].text;
+            const d = await r.json();
+            if(d.error) throw new Error(d.error.message);
+            if(!d.candidates || !d.candidates[0]) throw new Error("IA sem resposta visual.");
+
+            return d.candidates[0].content.parts[0].text;
+        } catch (e) {
+            console.error("Gemini Vision Error:", e);
+            throw e;
+        }
     },
 
     uploadFileToCloudinary: async (file, folder) => {

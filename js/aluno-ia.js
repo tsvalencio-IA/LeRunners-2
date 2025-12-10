@@ -349,63 +349,121 @@ const AppIA = {
         `;
     },
 
+    // =================================================================
+    // CÉREBRO IA V2.0: FISIOLOGISTA DA SELEÇÃO (ADAPTATIVO TIPO GARMIN)
+    // =================================================================
     generatePlanWithAI: async () => {
         const btn = document.getElementById('btn-generate-plan');
         const loading = document.getElementById('ia-loading');
+        
         btn.disabled = true;
         loading.classList.remove('hidden');
+
         try {
-            const snap = await AppIA.db.ref(`data/${AppIA.user.uid}/workouts`).orderByChild('date').limitToLast(15).once('value');
-            const history = snap.val();
+            // 1. Coleta o histórico profundo (Contexto para a IA aprender o padrão do atleta)
+            const snap = await AppIA.db.ref(`data/${AppIA.user.uid}/workouts`).orderByChild('date').limitToLast(20).once('value');
+            
+            let history = [];
+            if(snap.exists()) {
+                snap.forEach(c => history.push(c.val()));
+            }
+            
             let prompt = "";
             const tomorrow = new Date();
             tomorrow.setDate(tomorrow.getDate() + 1);
             const dateStr = tomorrow.toISOString().split('T')[0];
-            if (!history) {
+
+            // 2. Definição de Cenários
+            if (history.length === 0) {
+                // CENÁRIO: Nivelamento (Zero Dados)
                 prompt = `
-                ATUE COMO: Treinador de Elite (Fisiologista).
-                OBJETIVO: Criar APENAS UM treino para amanhã (${dateStr}): Um "Teste de Nivelamento".
-                SAÍDA OBRIGATÓRIA (JSON Array com 1 Item):
-                [ { "date": "${dateStr}", "title": "Teste de Nivelamento (3km)", "description": "Teste máximo de 3km. Anote o tempo.", "structure": { "tipo": "Teste" } } ]
+                ATUE COMO: Fisiologista Sênior da Seleção Brasileira de Atletismo.
+                OBJETIVO: Criar um protocolo de TESTE DE CAMPO para um aluno iniciante.
+                DATA DO TREINO: ${dateStr}
+                
+                DIRETRIZES:
+                - O teste deve ser seguro mas desafiador para estimar o VO2max.
+                - Recomende: "Teste de 3km" (corrida forte constante) ou "Teste de 12min (Cooper)".
+                
+                SAÍDA OBRIGATÓRIA (JSON Array):
+                [ { "date": "${dateStr}", "title": "Teste de Nivelamento (Fisiologia)", "description": "Aquecimento 15min + TESTE MÁXIMO 3KM + Desaquecimento.", "structure": { "tipo": "Teste" } } ]
                 Retorne APENAS o JSON.
                 `;
             } else {
+                // CENÁRIO: Treino Adaptativo (Tipo Garmin/Polar)
+                // A IA vai ler os feedbacks ("Senti dor", "Foi fácil") e ajustar a carga.
                 prompt = `
-                ATUE COMO: Treinador de Elite.
-                HISTÓRICO RECENTE: ${JSON.stringify(history)}
-                SAÍDA: JSON Array com 3 ou 4 treinos a partir de amanhã (${dateStr}).
-                Formato: [{"date": "...", "title": "...", "description": "..."}]
-                Retorne APENAS o JSON.
+                ATUE COMO: Fisiologista Sênior e Treinador de Elite (Nível Olímpico).
+                CONTEXTO: Você é um sistema inteligente (tipo Garmin Coach) que adapta o treino baseando-se na resposta biológica do atleta.
+                
+                HISTÓRICO RECENTE DO ATLETA (JSON):
+                ${JSON.stringify(history)}
+                
+                SUA MISSÃO:
+                1. Analise a Carga Aguda (última semana) vs Crônica.
+                2. Leia os "feedbacks" e "status" dos treinos anteriores. SE houver relatos de dor ou cansaço extremo, prescreva uma semana regenerativa (Deload).
+                3. SE o atleta estiver evoluindo bem (treinos "realizados" com sucesso), aplique o princípio da Sobrecarga Progressiva (+5% a 10% de volume).
+                
+                SAÍDA: Gere a planilha para a PRÓXIMA SEMANA (3 a 4 treinos) a partir de ${dateStr}.
+                
+                FORMATO JSON OBRIGATÓRIO (Array de Objetos):
+                [
+                  {
+                    "date": "YYYY-MM-DD",
+                    "title": "Nome do Treino (Ex: Fartlek Piramidal)",
+                    "description": "Detalhes técnicos precisos (Aquecimento, Parte Principal com Zonas de FC/Pace, Desaquecimento).",
+                    "structure": { "tipo": "Qualidade", "distancia": "X km" }
+                  }
+                ]
+                
+                IMPORTANTE: Não responda nada além do JSON. Seja técnico e preciso.
                 `;
             }
+
+            // 3. Chamada à API
             const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${window.GEMINI_API_KEY}`, {
                 method: 'POST', headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
             });
+
             if(!r.ok) {
                 const err = await r.json();
                 throw new Error(err.error?.message || "Erro na API do Google");
             }
+
             const json = await r.json();
             const textResponse = json.candidates[0].content.parts[0].text;
+            
+            // Tratamento de Limpeza
             let cleanJson = textResponse;
             if(textResponse.includes('```')) cleanJson = textResponse.replace(/```json/g, '').replace(/```/g, '').trim();
+            
             const newWorkouts = JSON.parse(cleanJson);
+
+            // 4. Gravação no Banco
             const updates = {};
             newWorkouts.forEach(workout => {
                 const key = AppIA.db.ref().push().key;
                 updates[`data/${AppIA.user.uid}/workouts/${key}`] = {
                     ...workout,
                     status: 'planejado',
-                    createdBy: 'IA_COACH',
+                    createdBy: 'IA_PHYSIO', // Marca que foi o Fisiologista Virtual
                     createdAt: new Date().toISOString()
                 };
             });
+
             await AppIA.db.ref().update(updates);
-            alert("✅ Nova planilha gerada com sucesso!");
+            
+            // Feedback Visual ao Usuário
+            if (history.length > 0) {
+                alert("✅ Fisiologista Virtual analisou seus dados!\n\nSua nova planilha foi calculada com base na sua recuperação e performance recente.");
+            } else {
+                alert("✅ Protocolo de Teste gerado com sucesso!");
+            }
+
         } catch (e) {
             console.error(e);
-            alert("Erro na IA: " + e.message); 
+            alert("Erro na Inteligência: " + e.message); 
         } finally {
             btn.disabled = false;
             loading.classList.add('hidden');

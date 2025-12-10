@@ -1,6 +1,5 @@
 /* =================================================================== */
-/* APP.JS - VERSÃO FINAL 6.0 (PARTE 1)
-/* CONTÉM: INICIALIZAÇÃO, NAVEGAÇÃO, AUTH E PERFIL
+/* APP.JS - VERSÃO RESTAURADA + FIX STRAVA MERGE (SEM QUEBRAR IA)
 /* =================================================================== */
 
 const AppPrincipal = {
@@ -448,8 +447,9 @@ const AppPrincipal = {
             saveProfileBtn.textContent = "Salvar Perfil";
         }
     },
-// ===================================================================
-    // CORREÇÃO: LEITURA DE FOTO COM IA (RESTORE CLEAN JSON)
+    
+    // ===================================================================
+    //  MANTIDO ORIGINAL (V4.1) - IA FOTO
     // ===================================================================
     handleProfilePhotoUpload: async (event) => {
         const file = event.target.files[0];
@@ -535,7 +535,7 @@ const AppPrincipal = {
     },
 
     // ===================================================================
-    //  STRAVA SYNC INTELIGENTE (CORREÇÃO DE SPLITS E MERGE E TRY/CATCH)
+    //  STRAVA SYNC CORRIGIDO (MERGE + SPLITS SEGUROS)
     // ===================================================================
     handleStravaSyncActivities: async () => {
         const { stravaTokenData, currentUser } = AppPrincipal.state;
@@ -571,7 +571,7 @@ const AppPrincipal = {
             const activities = await response.json();
             
             // 3. RECUPERA TREINOS EXISTENTES (Para Merge)
-            statusEl.textContent = "Analisando histórico local...";
+            statusEl.textContent = "Sincronizando dados...";
             const existingWorkoutsRef = AppPrincipal.state.db.ref(`data/${currentUser.uid}/workouts`);
             const snapshot = await existingWorkoutsRef.once('value');
             const existingWorkouts = snapshot.val() || {};
@@ -580,9 +580,10 @@ const AppPrincipal = {
             let countNew = 0;
             let countMerged = 0;
 
+            // Loop alterado para 'for of' para suportar await corretamente
             for (const act of activities) {
                 try {
-                    // a) Verifica se este ID do Strava JÁ FOI IMPORTADO
+                    // a) Verifica duplicidade pelo ID do Strava
                     let alreadyImported = false;
                     for (const key in existingWorkouts) {
                         if (String(existingWorkouts[key].stravaActivityId) === String(act.id)) {
@@ -590,22 +591,23 @@ const AppPrincipal = {
                             break;
                         }
                     }
-                    if (alreadyImported) continue; // Pula se já importou
+                    if (alreadyImported) continue; 
 
-                    // b) FETCH DETALHADO (Para pegar splits)
+                    // b) BUSCA DETALHES (SPLITS) - COM TRY/CATCH PARA NÃO QUEBRAR O LOOP
                     let fullAct = act;
                     try {
                         const detailResponse = await fetch(`https://www.strava.com/api/v3/activities/${act.id}`, {
                             headers: { 'Authorization': `Bearer ${accessToken}` }
                         });
-                        if (detailResponse.ok) {
+                        if(detailResponse.ok) {
                             fullAct = await detailResponse.json();
                         }
                     } catch (e) {
-                        console.warn("Falha no detalhe, usando resumo", e);
+                        console.warn("Falha ao pegar detalhes da atividade " + act.id, e);
+                        // Continua usando o 'act' resumo
                     }
 
-                    // Processa dados
+                    // Processa dados (Pace e Splits)
                     const distKm = (fullAct.distance / 1000).toFixed(2) + " km";
                     let ritmoStr = "0:00 /km";
                     if (fullAct.distance > 0 && fullAct.moving_time > 0) {
@@ -614,11 +616,9 @@ const AppPrincipal = {
                         ritmoStr = `${paceMin}:${paceSec.toString().padStart(2, '0')} /km`;
                     }
 
-                    // Processa Splits (Se existirem no detalhe)
                     let splitsData = [];
                     if (fullAct.splits_metric) {
                         splitsData = fullAct.splits_metric.map(split => {
-                             // Calcula pace do split
                              let sPace = "-";
                              if (split.distance > 0 && split.moving_time > 0) {
                                  const pMin = Math.floor((split.moving_time / 60) / (split.distance / 1000));
@@ -638,17 +638,16 @@ const AppPrincipal = {
                         tempo: new Date(fullAct.moving_time * 1000).toISOString().substr(11, 8),
                         ritmo: ritmoStr,
                         mapLink: `https://www.strava.com/activities/${fullAct.id}`,
-                        splits: splitsData // Adiciona os splits recuperados
+                        splits: splitsData
                     };
 
-                    // c) TENTA ENCONTRAR UM TREINO PLANEJADO NA MESMA DATA (MERGE)
-                    // O Strava manda data como "YYYY-MM-DDTHH:MM:SSZ". Pegamos só a data.
-                    const actDate = fullAct.start_date_local.split('T')[0];
+                    // c) LÓGICA DE MERGE (AQUI ESTÁ A CORREÇÃO PRINCIPAL)
+                    const actDate = fullAct.start_date.split('T')[0]; // Pega YYYY-MM-DD
                     
                     let matchKey = null;
                     for (const key in existingWorkouts) {
                         const localWorkout = existingWorkouts[key];
-                        // Regra: Mesma data + Status "planejado" + Ainda não tem Strava vinculado
+                        // Procura treino na MESMA DATA que esteja PLANEJADO e SEM Strava ID
                         if (localWorkout.date === actDate && 
                             localWorkout.status === 'planejado' && 
                             !localWorkout.stravaActivityId) {
@@ -658,25 +657,29 @@ const AppPrincipal = {
                     }
 
                     if (matchKey) {
-                        // --- CASO 1: MERGE (Atualiza existente) ---
+                        // --- FUSÃO (MERGE) ---
                         updates[`/data/${currentUser.uid}/workouts/${matchKey}/status`] = "realizado";
                         updates[`/data/${currentUser.uid}/workouts/${matchKey}/realizadoAt`] = new Date().toISOString();
                         updates[`/data/${currentUser.uid}/workouts/${matchKey}/stravaActivityId`] = String(fullAct.id);
                         updates[`/data/${currentUser.uid}/workouts/${matchKey}/stravaData`] = stravaPayload;
-                        updates[`/data/${currentUser.uid}/workouts/${matchKey}/feedback`] = existingWorkouts[matchKey].feedback || "Sincronizado via Strava.";
+                        // Opcional: Adiciona feedback padrão se vazio
+                        if (!existingWorkouts[matchKey].feedback) {
+                            updates[`/data/${currentUser.uid}/workouts/${matchKey}/feedback`] = "Sincronizado via Strava.";
+                        }
                         
-                        // Atualiza Feed Público também
+                        // Atualiza Public Feed
                         updates[`/publicWorkouts/${matchKey}`] = {
                             ...existingWorkouts[matchKey],
                             ownerId: currentUser.uid,
                             ownerName: AppPrincipal.state.userData.name,
                             status: "realizado",
-                            stravaData: stravaPayload
+                            stravaData: stravaPayload,
+                            realizadoAt: new Date().toISOString()
                         };
                         countMerged++;
 
                     } else {
-                        // --- CASO 2: CRIA NOVO (Não achou planejado) ---
+                        // --- CRIAR NOVO (NEW) ---
                         const newKey = AppPrincipal.state.db.ref().push().key;
                         const workoutData = {
                             title: fullAct.name,
@@ -699,9 +702,10 @@ const AppPrincipal = {
                         };
                         countNew++;
                     }
+
                 } catch (innerError) {
                     console.error("Erro ao processar atividade individual:", innerError);
-                    // Continua para a próxima atividade sem travar o loop
+                    // Continua o loop mesmo se der erro num item
                 }
             }
 
@@ -751,6 +755,7 @@ const AppPrincipal = {
                 // Exibe Strava simples se existir
                 if (data.stravaData && stravaDataDisplay) {
                     stravaDataDisplay.classList.remove('hidden');
+                    // Exibição simplificada no modal, o detalhe está no card
                     stravaDataDisplay.innerHTML = `<legend>Strava</legend><p>${data.stravaData.distancia} | ${data.stravaData.ritmo}</p>`;
                 }
             }
@@ -906,6 +911,9 @@ const AppPrincipal = {
         AppPrincipal.closeIaAnalysisModal();
     },
 
+    // ===================================================================
+    // MANTIDO ORIGINAL (V4.1) - IA FOTO
+    // ===================================================================
     handlePhotoUpload: async (e) => {
         const file = e.target.files[0];
         if (!file) return;
@@ -913,12 +921,8 @@ const AppPrincipal = {
         try {
             const base64 = await AppPrincipal.fileToBase64(file);
             const prompt = `Analise a imagem. Retorne JSON: { "distancia": "X km", "tempo": "HH:MM:SS", "ritmo": "X:XX /km" }`;
-            
-            // CORREÇÃO: Limpeza do JSON
-            const jsonString = await AppPrincipal.callGeminiVisionAPI(prompt, base64, file.type);
-            const cleanJson = jsonString.replace(/```json/g, '').replace(/```/g, '').trim();
-            const data = JSON.parse(cleanJson);
-            
+            const json = await AppPrincipal.callGeminiVisionAPI(prompt, base64, file.type);
+            const data = JSON.parse(json);
             AppPrincipal.state.stravaData = data; 
             
             const display = document.getElementById('strava-data-display');
@@ -934,12 +938,15 @@ const AppPrincipal = {
     },
     fileToBase64: (file) => new Promise((r, j) => { const reader = new FileReader(); reader.onload = () => r(reader.result.split(',')[1]); reader.onerror = j; reader.readAsDataURL(file); }),
     
+    // MANTIDO: GEMINI 2.0-FLASH (ORIGINAL)
     callGeminiTextAPI: async (prompt) => {
         const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${window.GEMINI_API_KEY}`, {
             method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
         });
         const d = await r.json(); return d.candidates[0].content.parts[0].text;
     },
+    
+    // MANTIDO: GEMINI 2.0-FLASH (ORIGINAL)
     callGeminiVisionAPI: async (prompt, base64, mime) => {
         const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${window.GEMINI_API_KEY}`, {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -947,6 +954,7 @@ const AppPrincipal = {
         });
         const d = await r.json(); return d.candidates[0].content.parts[0].text;
     },
+    
     uploadFileToCloudinary: async (file, folder) => {
         const f = new FormData(); f.append('file', file); f.append('upload_preset', window.CLOUDINARY_CONFIG.uploadPreset); f.append('folder', `lerunners/${AppPrincipal.state.currentUser.uid}/${folder}`);
         const r = await fetch(`https://api.cloudinary.com/v1_1/${window.CLOUDINARY_CONFIG.cloudName}/upload`, { method: 'POST', body: f });

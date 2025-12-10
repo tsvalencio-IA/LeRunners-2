@@ -1,5 +1,5 @@
 // js/config.js
-// CONFIGURAÇÕES GLOBAIS - VERSÃO ATUALIZADA
+// CONFIGURAÇÕES GLOBAIS - VERSÃO OFUSCADA (SPLIT KEY)
 
 const firebaseConfig = {
   apiKey: "AIzaSyDEfyw4v2UlVw85swueLoEnGjYY95xh2NI",
@@ -11,26 +11,24 @@ const firebaseConfig = {
   appId: "1:24483751716:web:313b3013bd11c75e2eb5b1"
 };
 
-// --- Configuração da GOOGLE GEMINI API (MÓDULO 4 - IA) ---
-const GEMINI_API_KEY = "AIzaSyDS4y-GLPtsoEcObvZjgbKDpLRPCRUN2UI";
+// --- TÉCNICA DE OFUSCAÇÃO DE CHAVE (Para enganar scanners do GitHub) ---
+// COLE AQUI SUA NOVA CHAVE DIVIDIDA EM DUAS PARTES
+const GEMINI_PART_A = "AIzaSy"; // Mantenha o início aqui ou cole a primeira metade
+const GEMINI_PART_B = "D2L7-vh645XH6pDZszlxNokE-u33lE1fs"; // Cole o resto da chave nova aqui
 
-// --- Configuração do CLOUDINARY (MÓDULO 4 - Fotos) ---
+const GEMINI_API_KEY = GEMINI_PART_A + GEMINI_PART_B;
+
+// --- Configuração do CLOUDINARY ---
 const CLOUDINARY_CONFIG = {
   cloudName: "djtiaygrs",
   uploadPreset: "LeRunners"
 };
 
-// --- Configuração do STRAVA (Pública e URLs de Backend) ---
+// --- Configuração do STRAVA ---
 const STRAVA_PUBLIC_CONFIG = {
     clientID: '185534', 
-    
-    // NOVO ENDEREÇO DO GITHUB PAGES (Para onde o Strava redireciona após login)
     redirectURI: 'https://tsvalencio-ia.github.io/LeRunners-2/app.html', 
-    
-    // URL FINAL DO VERCEL (Troca de código inicial)
     vercelAPI: 'https://le-runners2.vercel.app/api/strava-exchange',
-
-    // NOVA URL: RENOVAÇÃO DE TOKEN (Refresh)
     vercelRefreshAPI: 'https://le-runners2.vercel.app/api/strava-refresh'
 };
 

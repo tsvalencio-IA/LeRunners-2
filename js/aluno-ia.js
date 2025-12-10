@@ -1,5 +1,6 @@
 /* =================================================================== */
-/* ALUNO IA - MÓDULO DE CONSULTORIA ONLINE (V7.0 - CORREÇÃO DE PASTA)
+/* ALUNO IA - MÓDULO DE CONSULTORIA ONLINE (V8.0 - VISUAL UNIFICADO)
+/* CORREÇÃO: CARREGA TUDO (SEM LIMITES) + CARD IDÊNTICO AO APP
 /* =================================================================== */
 
 const AppIA = {
@@ -15,7 +16,7 @@ const AppIA = {
         AppIA.db = firebase.database();
 
         AppIA.setupAuthListeners();
-        AppIA.setupModalListeners(); // Inicia ouvintes do modal
+        AppIA.setupModalListeners(); 
         
         AppIA.auth.onAuthStateChanged(user => {
             const loader = document.getElementById('loader');
@@ -36,7 +37,7 @@ const AppIA = {
                         document.getElementById('user-name-display').textContent = snapshot.val().name;
                         
                         AppIA.checkStravaConnection();
-                        AppIA.loadWorkouts();
+                        AppIA.loadWorkouts(); // AGORA CARREGA TUDO
                     } else {
                         AppIA.db.ref('pendingApprovals/' + user.uid).once('value', pendingSnap => {
                             authContainer.classList.remove('hidden');
@@ -85,9 +86,6 @@ const AppIA = {
         document.getElementById('btn-generate-plan').onclick = AppIA.generatePlanWithAI;
     },
 
-    // ===================================================================
-    // LISTENERS DO MODAL DE FEEDBACK (O QUE FALTAVA)
-    // ===================================================================
     setupModalListeners: () => {
         const closeBtn = document.getElementById('close-feedback-modal');
         const form = document.getElementById('feedback-form');
@@ -95,7 +93,7 @@ const AppIA = {
 
         if(closeBtn) closeBtn.onclick = AppIA.closeFeedbackModal;
         if(form) form.addEventListener('submit', AppIA.handleFeedbackSubmit);
-        if(fileInput) fileInput.addEventListener('change', AppIA.handlePhotoAnalysis); // IA Vision Trigger
+        if(fileInput) fileInput.addEventListener('change', AppIA.handlePhotoAnalysis);
     },
 
     openFeedbackModal: (workoutId, title) => {
@@ -115,7 +113,7 @@ const AppIA = {
     },
 
     // ===================================================================
-    // IA VISION & UPLOAD BLINDADO
+    // IA VISION & UPLOAD BLINDADO (Igual ao App.js)
     // ===================================================================
     handlePhotoAnalysis: async (e) => {
         const file = e.target.files[0];
@@ -133,7 +131,7 @@ const AppIA = {
                 body: JSON.stringify({ contents: [{ parts: [{ text: prompt }, { inlineData: { mimeType: file.type, data: base64 } }] }], generationConfig: { responseMimeType: "application/json" } })
             });
             
-            if(!r.ok) throw new Error("Erro na API do Google");
+            if(!r.ok) throw new Error("Erro na API do Google (Verifique a Chave)");
             const d = await r.json();
             
             if(!d.candidates || !d.candidates[0]) throw new Error("IA não reconheceu a imagem.");
@@ -143,7 +141,7 @@ const AppIA = {
             if(text.includes('```')) cleanJson = text.replace(/```json/g, '').replace(/```/g, '').trim();
             
             const data = JSON.parse(cleanJson);
-            AppIA.stravaData = data; // Armazena dados extraídos
+            AppIA.stravaData = data; 
             
             const display = document.getElementById('strava-data-display');
             display.classList.remove('hidden');
@@ -166,7 +164,6 @@ const AppIA = {
             let imageUrl = null;
             const fileInput = document.getElementById('photo-upload-input');
             
-            // UPLOAD BLINDADO (Verificação de tamanho)
             if (fileInput.files[0]) {
                 const file = fileInput.files[0];
                 const MAX_SIZE_MB = 10;
@@ -178,12 +175,7 @@ const AppIA = {
                 f.append('folder', `lerunners/${AppIA.user.uid}/workouts`);
                 
                 const r = await fetch(`https://api.cloudinary.com/v1_1/${window.CLOUDINARY_CONFIG.cloudName}/upload`, { method: 'POST', body: f });
-                
-                if (!r.ok) {
-                    const errData = await r.json();
-                    throw new Error(errData.error?.message || "Erro no upload da foto.");
-                }
-                
+                if (!r.ok) throw new Error("Erro no upload da foto.");
                 const d = await r.json();
                 imageUrl = d.secure_url;
             }
@@ -212,7 +204,7 @@ const AppIA = {
     fileToBase64: (file) => new Promise((r, j) => { const reader = new FileReader(); reader.onload = () => r(reader.result.split(',')[1]); reader.onerror = j; reader.readAsDataURL(file); }),
 
     // ===================================================================
-    // FUNÇÕES DE SISTEMA
+    // SISTEMA: STRAVA, CARREGAMENTO E GERAÇÃO
     // ===================================================================
     checkStravaConnection: () => {
         AppIA.db.ref(`users/${AppIA.user.uid}/stravaAuth`).on('value', snapshot => {
@@ -261,13 +253,16 @@ const AppIA = {
         const btn = document.getElementById('btn-sync-strava');
         btn.disabled = true;
         btn.textContent = "Sincronizando...";
-        alert("Sincronização iniciada! Verifique o painel principal para detalhes completos."); 
+        alert("Sincronização iniciada! Verifique se os novos treinos aparecem em instantes."); 
         btn.disabled = false;
         btn.innerHTML = "<i class='bx bx-refresh'></i> Sincronizar Agora";
     },
 
-    // CORREÇÃO: CARREGA TUDO (SEM LIMITES) PARA EVITAR "PLANILHA SUMINDO"
+    // ===================================================================
+    // CORREÇÃO CRÍTICA: LOAD WORKOUTS IDÊNTICO AO PANELS.JS
+    // ===================================================================
     loadWorkouts: () => {
+        // 1. Remove limitToLast para pegar TUDO (Histórico e Futuro)
         AppIA.db.ref(`data/${AppIA.user.uid}/workouts`).orderByChild('date').on('value', snapshot => {
             const list = document.getElementById('workout-list');
             list.innerHTML = "";
@@ -275,7 +270,7 @@ const AppIA = {
             const workouts = [];
             snapshot.forEach(child => workouts.push({id: child.key, ...child.val()}));
             
-            // Ordena Descendente (Mais novo primeiro)
+            // 2. Ordenação Descendente (Mais novo/futuro no topo)
             workouts.sort((a,b) => new Date(b.date) - new Date(a.date));
 
             if (workouts.length === 0) {
@@ -283,24 +278,12 @@ const AppIA = {
                 return;
             }
 
+            // 3. Renderização visual IDÊNTICA ao app principal
             workouts.forEach(w => {
                 const el = document.createElement('div');
                 el.className = 'workout-card';
-                const isAI = w.createdBy === 'IA_COACH';
                 const isDone = w.status === 'realizado';
                 
-                // Botão de ação (Abre o Modal agora)
-                let actionButton = '';
-                if (!isDone) {
-                    actionButton = `
-                        <div style="margin-top: 10px; border-top: 1px solid #eee; padding-top: 10px; text-align: right;">
-                            <button class="btn-open-feedback" style="background: var(--success-color); color: white; border: none; padding: 8px 12px; border-radius: 4px; cursor: pointer; font-size: 0.9rem;">
-                                <i class='bx bx-check-circle'></i> Registrar Treino
-                            </button>
-                        </div>
-                    `;
-                }
-
                 el.innerHTML = `
                     <div class="workout-card-header">
                         <span class="date">${w.date}</span>
@@ -309,34 +292,57 @@ const AppIA = {
                     </div>
                     <div class="workout-card-body">
                         <p>${w.description}</p>
-                        ${w.stravaData ? `<p style="font-size:0.9rem; color:#fc4c02;">Distância: ${w.stravaData.distancia} | Ritmo: ${w.stravaData.ritmo}</p>` : ''}
-                        ${w.imageUrl ? `<img src="${w.imageUrl}" style="width:100%; max-height:200px; object-fit:cover; margin-top:10px; border-radius:8px;">` : ''}
-                        ${w.feedback ? `<p style="font-size:0.9rem; font-style:italic; color:#666; margin-top:5px; border-left: 2px solid #ccc; padding-left: 5px;">"${w.feedback}"</p>` : ''}
+                        ${w.stravaData ? AppIA.createStravaDataDisplay(w.stravaData) : ''}
+                        ${w.imageUrl ? `<img src="${w.imageUrl}" class="workout-image" style="width:100%; border-radius:8px; margin-top:10px;">` : ''}
+                        ${w.feedback ? `<p class="feedback-text" style="border-left:3px solid blue; background:#f0f5ff; padding:5px; margin-top:5px;">"${w.feedback}"</p>` : ''}
                     </div>
-                    ${actionButton}
+                    <div class="workout-card-footer" style="padding: 10px; border-top: 1px solid #eee; text-align:right;">
+                        <button class="btn-open-feedback btn-primary btn-small" style="background: var(--primary-color); color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer;">
+                            <i class='bx bx-edit'></i> ${isDone ? 'Editar Feedback' : 'Registrar Treino'}
+                        </button>
+                    </div>
                 `;
 
-                // Listener para o botão de Feedback
-                const btn = el.querySelector('.btn-open-feedback');
-                if(btn) {
-                    btn.addEventListener('click', () => AppIA.openFeedbackModal(w.id, w.title));
-                }
+                // Listener de clique no card e no botão (Para abrir o modal)
+                const openModal = () => AppIA.openFeedbackModal(w.id, w.title);
+                
+                el.querySelector('.btn-open-feedback').addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    openModal();
+                });
+                
+                // Torna o card todo clicável (exceto se clicar em links)
+                el.addEventListener('click', (e) => {
+                    if (!e.target.closest('a')) openModal();
+                });
 
                 list.appendChild(el);
             });
         });
     },
 
-    // GERAÇÃO DE PLANILHA COM PROTEÇÃO DE ERRO E ROLAGEM
+    // Helper visual para dados do Strava (Igual ao Panels.js)
+    createStravaDataDisplay: (stravaData) => {
+        if (!stravaData) return '';
+        return `
+            <div style="background:#fff5f0; border:1px solid #fc4c02; padding:10px; border-radius:5px; margin-top:10px;">
+                <strong style="color:#fc4c02">Strava / IA:</strong>
+                <div style="font-family:monospace;">
+                    Dist: ${stravaData.distancia || "N/A"} | Tempo: ${stravaData.tempo || "N/A"} | Pace: ${stravaData.ritmo || "N/A"}
+                </div>
+            </div>
+        `;
+    },
+
     generatePlanWithAI: async () => {
         const btn = document.getElementById('btn-generate-plan');
         const loading = document.getElementById('ia-loading');
-        
         btn.disabled = true;
         loading.classList.remove('hidden');
 
         try {
-            const snap = await AppIA.db.ref(`data/${AppIA.user.uid}/workouts`).limitToLast(15).once('value');
+            // Pega histórico completo (sem limites para evitar erro de contexto)
+            const snap = await AppIA.db.ref(`data/${AppIA.user.uid}/workouts`).orderByChild('date').limitToLast(20).once('value');
             const history = snap.val();
             
             let prompt = "";
@@ -347,34 +353,23 @@ const AppIA = {
             if (!history) {
                 prompt = `
                 ATUE COMO: Treinador de Elite (Fisiologista).
-                SITUAÇÃO: Este é um aluno NOVO, sem nenhum histórico de treino na plataforma.
-                OBJETIVO: Criar APENAS UM treino para amanhã (${dateStr}): Um "Teste de Nivelamento" (Teste de Campo) para descobrirmos o pace e zonas dele.
+                OBJETIVO: Criar APENAS UM treino para amanhã (${dateStr}): Um "Teste de Nivelamento".
                 SAÍDA OBRIGATÓRIA (JSON Array com 1 Item):
-                [
-                    {
-                        "date": "${dateStr}",
-                        "title": "Teste de Nivelamento (3km)",
-                        "description": "Aquecimento 10min leve.\\n\\nTESTE PRINCIPAL:\\nCorra 3km no seu melhor ritmo possível (forte, mas constante).\\n\\nDesaquecimento: 10min caminhada.\\nIMPORTANTE: Sincronize este treino com Strava para eu analisar seu VO2max depois.",
-                        "structure": { "tipo": "Teste", "distancia": "3km" }
-                    }
-                ]
+                [ { "date": "${dateStr}", "title": "Teste de Nivelamento (3km)", "description": "Teste máximo de 3km. Anote o tempo.", "structure": { "tipo": "Teste" } } ]
                 Retorne APENAS o JSON.
                 `;
             } else {
                 prompt = `
                 ATUE COMO: Treinador de Elite.
-                HISTÓRICO RECENTE (JSON): ${JSON.stringify(history)}
-                TAREFA: Criar um microciclo de treinos (próxima semana) focado em evolução segura.
+                HISTÓRICO RECENTE: ${JSON.stringify(history)}
                 SAÍDA: JSON Array com 3 ou 4 treinos a partir de amanhã (${dateStr}).
-                Formato JSON esperado:
-                [{"date": "...", "title": "...", "description": "...", "structure": {...}}]
+                Formato: [{"date": "...", "title": "...", "description": "..."}]
                 Retorne APENAS o JSON.
                 `;
             }
 
             const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${window.GEMINI_API_KEY}`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
             });
 
@@ -402,8 +397,6 @@ const AppIA = {
 
             await AppIA.db.ref().update(updates);
             alert("✅ Nova planilha gerada com sucesso!");
-            
-            // O Listener .on() no loadWorkouts vai pegar os dados automaticamente e reordenar.
 
         } catch (e) {
             console.error(e);

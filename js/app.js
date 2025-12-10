@@ -539,9 +539,43 @@ const AppPrincipal = {
     },
 
     uploadFileToCloudinary: async (file, folder) => {
-        const f = new FormData(); f.append('file', file); f.append('upload_preset', window.CLOUDINARY_CONFIG.uploadPreset); f.append('folder', `lerunners/${AppPrincipal.state.currentUser.uid}/${folder}`);
-        const r = await fetch(`https://api.cloudinary.com/v1_1/${window.CLOUDINARY_CONFIG.cloudName}/upload`, { method: 'POST', body: f });
-        const d = await r.json(); return d.secure_url;
+        // 1. BLINDAGEM DE TAMANHO (Mobile Photos Fix)
+        // Fotos de celular podem ter 15MB+. O Cloudinary Free trava em 10MB para uploads unsigned.
+        const MAX_SIZE_MB = 10;
+        if (file.size > MAX_SIZE_MB * 1024 * 1024) {
+            throw new Error(`A foto é muito grande (${(file.size / 1024 / 1024).toFixed(1)}MB). O limite é ${MAX_SIZE_MB}MB. Tente uma menor.`);
+        }
+
+        const f = new FormData(); 
+        f.append('file', file); 
+        f.append('upload_preset', window.CLOUDINARY_CONFIG.uploadPreset); 
+        f.append('folder', `lerunners/${AppPrincipal.state.currentUser.uid}/${folder}`);
+
+        try {
+            // 2. ENVIO COM VERIFICAÇÃO DE RESPOSTA
+            const r = await fetch(`https://api.cloudinary.com/v1_1/${window.CLOUDINARY_CONFIG.cloudName}/upload`, { 
+                method: 'POST', 
+                body: f 
+            });
+            
+            // Se o servidor rejeitar (Erro 400/500), capturamos o motivo real
+            if (!r.ok) {
+                const errData = await r.json();
+                console.error("Cloudinary Rejection:", errData);
+                throw new Error(errData.error?.message || `Erro no servidor de imagens (${r.status})`);
+            }
+            
+            const d = await r.json(); 
+            return d.secure_url;
+
+        } catch (e) {
+            console.error("Erro Crítico Upload:", e);
+            // Retorna o erro para o usuário ver na tela (Feedback)
+            if (e.message.includes('fetch')) {
+                throw new Error("Falha de conexão. Verifique sua internet.");
+            }
+            throw e;
+        }
     },
 
     handleStravaConnect: () => {

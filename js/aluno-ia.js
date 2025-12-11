@@ -1,6 +1,6 @@
 /* =================================================================== */
-/* ALUNO IA - MÓDULO DE CONSULTORIA ONLINE (V18.0 - DELETE FEATURE)
-/* CONTÉM: TODAS AS FUNÇÕES ANTERIORES + BOTÃO EXCLUIR TREINO
+/* ALUNO IA - MÓDULO DE CONSULTORIA ONLINE (V19.0 - ANALYTICS FINAL)
+/* CONTÉM: TUDO DA V18 + GERAÇÃO DE RELATÓRIO DE PROGRESSO (COACH IA)
 /* =================================================================== */
 
 const AppIA = {
@@ -84,8 +84,10 @@ const AppIA = {
         document.getElementById('btn-logout').onclick = () => AppIA.auth.signOut();
         document.getElementById('btn-logout-pending').onclick = () => AppIA.auth.signOut();
         
-        // Listeners dos botões de IA
+        // --- LISTENERS DOS BOTÕES DA IA ---
         document.getElementById('btn-generate-plan').onclick = AppIA.generatePlanWithAI;
+        
+        // NOVO: Botão de Análise de Progresso (Se existir no HTML)
         const btnAnalyze = document.getElementById('btn-analyze-progress');
         if(btnAnalyze) btnAnalyze.onclick = AppIA.analyzeProgressWithAI;
     },
@@ -107,24 +109,23 @@ const AppIA = {
         if(closeLog) closeLog.onclick = AppIA.closeLogActivityModal;
         if(formLog) formLog.onsubmit = AppIA.handleLogActivitySubmit;
 
-        // Modal Relatório
+        // Modal Relatório (NOVO)
         const closeReport = document.getElementById('close-ia-report-modal');
         if(closeReport) closeReport.onclick = () => document.getElementById('ia-report-modal').classList.add('hidden');
     },
 
-    // --- FUNÇÃO EXCLUIR TREINO (NOVO) ---
+    // --- FUNÇÃO EXCLUIR TREINO (MANTIDA DA V18) ---
     deleteWorkout: async (workoutId) => {
         if(confirm("Tem certeza que deseja excluir este treino da sua planilha?")) {
             try {
                 await AppIA.db.ref(`data/${AppIA.user.uid}/workouts/${workoutId}`).remove();
-                // A lista se atualiza automaticamente pelo listener .on()
             } catch(e) {
                 alert("Erro ao excluir: " + e.message);
             }
         }
     },
 
-    // --- ATIVIDADE AVULSA ---
+    // --- ATIVIDADE AVULSA (MANTIDA DA V18) ---
     openLogActivityModal: () => {
         document.getElementById('log-activity-form').reset();
         document.getElementById('log-date').value = new Date().toISOString().split('T')[0];
@@ -155,7 +156,7 @@ const AppIA = {
         } catch(err) { alert("Erro: " + err.message); } finally { btn.disabled = false; }
     },
 
-    // --- FEEDBACK COM DATA FLEXÍVEL ---
+    // --- FEEDBACK COM DATA FLEXÍVEL (MANTIDA DA V17/V18) ---
     openFeedbackModal: (workoutId, title, originalDate) => {
         AppIA.modalState.currentWorkoutId = workoutId;
         document.getElementById('feedback-modal-title').textContent = `Registro: ${title}`;
@@ -165,7 +166,6 @@ const AppIA = {
         document.getElementById('photo-upload-feedback').textContent = '';
         document.getElementById('strava-data-display').classList.add('hidden');
         
-        // --- INJEÇÃO INTELIGENTE DO CAMPO DE DATA ---
         const form = document.getElementById('feedback-form');
         if (!document.getElementById('feedback-date-realized')) {
             const dateGroup = document.createElement('div');
@@ -314,7 +314,7 @@ const AppIA = {
         btn.innerHTML = "<i class='bx bx-refresh'></i> Sincronizar Agora";
     },
 
-    // --- RENDERIZAÇÃO ---
+    // --- RENDERIZAÇÃO (COM BOTÃO DELETE V18) ---
     loadWorkouts: () => {
         AppIA.db.ref(`data/${AppIA.user.uid}/workouts`).orderByChild('date').on('value', snapshot => {
             const list = document.getElementById('workout-list');
@@ -329,7 +329,7 @@ const AppIA = {
                 el.className = 'workout-card';
                 const isDone = w.status === 'realizado';
                 
-                // Botão DELETE (NOVO - SEMPRE VISÍVEL)
+                // Botão DELETE
                 const deleteBtnHtml = `
                     <button class="btn-delete" style="background: #ff4444; color: white; border: none; padding: 8px 12px; border-radius: 4px; cursor: pointer; margin-right: 5px;" title="Excluir Treino">
                         <i class='bx bx-trash'></i>
@@ -341,6 +341,12 @@ const AppIA = {
                     actionButtonHtml = `
                         <button class="btn-open-feedback" style="background: var(--success-color); color: white; border: none; padding: 8px 12px; border-radius: 4px; cursor: pointer; font-size: 0.9rem;">
                             <i class='bx bx-check-circle'></i> Registrar Treino
+                        </button>
+                    `;
+                } else {
+                    actionButtonHtml = `
+                        <button class="btn-open-feedback" style="background: var(--primary-color); color: white; border: none; padding: 8px 12px; border-radius: 4px; cursor: pointer; font-size: 0.9rem;">
+                            <i class='bx bx-edit'></i> Editar
                         </button>
                     `;
                 }
@@ -364,15 +370,10 @@ const AppIA = {
                 `;
                 
                 const btn = el.querySelector('.btn-open-feedback');
-                const btnDel = el.querySelector('.btn-delete'); // Seleciona o botão de deletar
+                const btnDel = el.querySelector('.btn-delete');
 
                 if(btn) btn.addEventListener('click', (e) => { e.stopPropagation(); AppIA.openFeedbackModal(w.id, w.title, w.date); });
-                
-                // Listener do Botão Excluir
-                if(btnDel) btnDel.addEventListener('click', (e) => { 
-                    e.stopPropagation(); 
-                    AppIA.deleteWorkout(w.id); 
-                });
+                if(btnDel) btnDel.addEventListener('click', (e) => { e.stopPropagation(); AppIA.deleteWorkout(w.id); });
 
                 el.addEventListener('click', (e) => {
                      if (!e.target.closest('button') && !e.target.closest('a')) AppIA.openFeedbackModal(w.id, w.title, w.date);
@@ -446,7 +447,7 @@ const AppIA = {
                 body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
             });
 
-            if(!r.ok) throw new Error("Erro na API");
+            if(!r.ok) throw new Error("Erro na API do Google");
             const json = await r.json();
             const textResponse = json.candidates[0].content.parts[0].text;
             let cleanJson = textResponse.replace(/```json/g, '').replace(/```/g, '').trim();
@@ -470,7 +471,7 @@ const AppIA = {
         finally { btn.disabled = false; loading.classList.add('hidden'); }
     },
 
-    // --- CÉREBRO IA 2: ANÁLISE DE PROGRESSO ---
+    // --- CÉREBRO IA 2: ANÁLISE DE PROGRESSO (NOVO - V19) ---
     analyzeProgressWithAI: async () => {
         const btn = document.getElementById('btn-analyze-progress');
         const loading = document.getElementById('ia-loading');
@@ -491,12 +492,15 @@ const AppIA = {
             const prompt = `
             ATUE COMO: Seu Treinador Pessoal Sênior.
             FALE DIRETAMENTE COM O ATLETA (Use "Você").
+            
             DADOS DO ATLETA (Últimos treinos):
             ${JSON.stringify(history)}
+            
             TAREFA: Avaliar o progresso recente.
             1. Analise o Volume e Constância (Ele treinou o que foi pedido?).
             2. Analise a Intensidade e Feedback (Ele sentiu dor? Foi fácil?).
             3. Dê 3 Conselhos Práticos para a próxima semana.
+            
             Gere um relatório curto, motivador e técnico em Texto Corrido (Markdown).
             `;
 

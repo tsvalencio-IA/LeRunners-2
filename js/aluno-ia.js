@@ -1,7 +1,6 @@
 /* =================================================================== */
 /* ALUNO IA - MÓDULO DE CONSULTORIA ONLINE (V26.0 - SENIOR FIX)
-/* CORREÇÃO: Normalização de Status e Data para garantir leitura da IA.
-/* CONTÉM: Logo Strava, Splits, Delete, Upload, Data Flexível e IA Sênior.
+/* CORREÇÃO: Normalização de Status e Forçamento de Contexto para a IA.
 /* =================================================================== */
 
 const AppIA = {
@@ -121,7 +120,16 @@ const AppIA = {
         if(closeReport) closeReport.onclick = () => document.getElementById('ia-report-modal').classList.add('hidden');
     },
 
-    // --- FUNÇÃO EXCLUIR TREINO (V20/25) ---
+    // --- HELPER: NORMALIZAR STATUS (FIX PARA O ERRO DA IA) ---
+    isStatusCompleted: (status) => {
+        if (!status) return false;
+        const s = status.toString().toLowerCase().trim();
+        // Lista de palavras que indicam sucesso, independente de como foi escrito
+        const validos = ['realizado', 'concluido', 'concluído', 'feito', 'done', 'finished', 'executado', 'ok', 'realizado_parcial'];
+        return validos.some(val => s.includes(val));
+    },
+
+    // --- FUNÇÃO EXCLUIR TREINO ---
     deleteWorkout: async (workoutId) => {
         if(confirm("Tem certeza que deseja excluir este treino da sua planilha?")) {
             try {
@@ -132,7 +140,7 @@ const AppIA = {
         }
     },
 
-    // --- ATIVIDADE AVULSA (V20/25) ---
+    // --- ATIVIDADE AVULSA ---
     openLogActivityModal: () => {
         document.getElementById('log-activity-form').reset();
         document.getElementById('log-date').value = new Date().toISOString().split('T')[0];
@@ -163,7 +171,7 @@ const AppIA = {
         } catch(err) { alert("Erro: " + err.message); } finally { btn.disabled = false; }
     },
 
-    // --- FEEDBACK COM DATA FLEXÍVEL (V20/25) ---
+    // --- FEEDBACK COM DATA FLEXÍVEL ---
     openFeedbackModal: (workoutId, title, originalDate) => {
         AppIA.modalState.currentWorkoutId = workoutId;
         document.getElementById('feedback-modal-title').textContent = `Registro: ${title}`;
@@ -316,14 +324,18 @@ const AppIA = {
         const btn = document.getElementById('btn-sync-strava');
         btn.disabled = true;
         btn.textContent = "Sincronizando...";
-        alert("Sincronização iniciada!"); 
-        btn.disabled = false;
-        btn.innerHTML = "<i class='bx bx-refresh'></i> Sincronizar Agora";
+        alert("Sincronização iniciada! Aguarde a atualização da página."); 
+        // A lógica real está no app.js, aqui apenas dispara a UI
+        if(window.opener && window.opener.AppPrincipal) {
+             window.opener.AppPrincipal.handleStravaSyncActivities();
+        } else {
+            // Fallback se não encontrar o controller principal
+             setTimeout(() => { btn.disabled = false; btn.innerHTML = "<i class='bx bx-refresh'></i> Sincronizar Agora"; }, 3000);
+        }
     },
 
-    // --- RENDERIZAÇÃO (V25 - COM SPLITS, DELETE E LOGO) ---
+    // --- RENDERIZAÇÃO ---
     loadWorkouts: () => {
-        // AQUI ESTÁ O SEGREDO: ORDENAÇÃO NO CLIENTE PARA VISUALIZAÇÃO
         AppIA.db.ref(`data/${AppIA.user.uid}/workouts`).orderByChild('date').on('value', snapshot => {
             const list = document.getElementById('workout-list');
             if(!list) return;
@@ -336,7 +348,8 @@ const AppIA = {
                 const w = { id: childSnapshot.key, ...childSnapshot.val() };
                 const el = document.createElement('div');
                 el.className = 'workout-card';
-                const isDone = w.status === 'realizado';
+                // Usando a nova verificação robusta para a UI
+                const isDone = AppIA.isStatusCompleted(w.status);
                 
                 const deleteBtnHtml = `
                     <button class="btn-delete" style="background: #ff4444; color: white; border: none; padding: 8px 12px; border-radius: 4px; cursor: pointer; margin-right: 5px;" title="Excluir Treino">
@@ -366,7 +379,7 @@ const AppIA = {
                         <span class="status-tag ${isDone ? 'realizado' : 'planejado'}">${isDone ? 'Concluído' : 'Planejado'}</span>
                     </div>
                     <div class="workout-card-body">
-                        <p>${w.description}</p>
+                        <p>${w.description || ''}</p>
                         ${w.stravaData ? AppIA.createStravaDataDisplay(w.stravaData) : ''}
                         ${w.imageUrl ? `<img src="${w.imageUrl}" style="width:100%; max-height:200px; object-fit:cover; margin-top:10px; border-radius:8px;">` : ''}
                         ${w.feedback ? `<p style="font-size:0.9rem; font-style:italic; color:#666; margin-top:5px; border-left: 2px solid #ccc; padding-left: 5px;">"${w.feedback}"</p>` : ''}
@@ -387,13 +400,12 @@ const AppIA = {
                      if (!e.target.closest('button') && !e.target.closest('a')) AppIA.openFeedbackModal(w.id, w.title, w.date);
                 });
                 
-                // ORDENAÇÃO VISUAL: PREPEND PARA O MAIS RECENTE EM CIMA
                 list.prepend(el);
             });
         });
     },
 
-    // --- EXIBIÇÃO DE DADOS (V25 - COM SPLITS E LOGO) ---
+    // --- EXIBIÇÃO DE DADOS ---
     createStravaDataDisplay: (stravaData) => {
         if (!stravaData) return '';
         let mapLinkHtml = '';
@@ -421,7 +433,7 @@ const AppIA = {
         `;
     },
 
-    // --- CÉREBRO IA 1: GERAÇÃO DE TREINOS (V26 - DATA BLINDADA) ---
+    // --- CÉREBRO IA 1: GERAÇÃO DE TREINOS ---
     generatePlanWithAI: async () => {
         const btn = document.getElementById('btn-generate-plan');
         const loading = document.getElementById('ia-loading');
@@ -437,16 +449,14 @@ const AppIA = {
                 snap.forEach(c => history.push(c.val()));
             }
             
-            // NORMALIZAÇÃO DE DATA (Garante que strings de data funcionem no sort)
-            history.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-            
-            const recentHistory = history.slice(-20); // Pega 20 últimos REAIS
+            history.sort((a, b) => new Date(a.date) - new Date(b.date));
+            const recentHistory = history.slice(-20); 
 
-            // LIMPEZA E NORMALIZAÇÃO
+            // HIGIENE DE DADOS PARA O PROMPT DE GERAÇÃO
             const cleanHistory = recentHistory.map(w => ({
                 date: w.date,
                 title: w.title,
-                status: (w.status || '').toLowerCase().trim(), // Normalização para IA entender
+                status: AppIA.isStatusCompleted(w.status) ? "CONCLUÍDO" : "NÃO REALIZADO", // Normalização
                 feedback: w.feedback || "",
                 distancia: w.stravaData ? w.stravaData.distancia : "N/A",
                 tempo: w.stravaData ? w.stravaData.tempo : "N/A",
@@ -507,7 +517,7 @@ const AppIA = {
         finally { btn.disabled = false; loading.classList.add('hidden'); }
     },
 
-    // --- CÉREBRO IA 2: ANÁLISE DE PROGRESSO (V26 - CORREÇÃO CRÍTICA DE STATUS/DATA) ---
+    // --- CÉREBRO IA 2: ANÁLISE DE PROGRESSO (CORRIGIDO PARA LER STATUS MISTOS) ---
     analyzeProgressWithAI: async () => {
         const btn = document.getElementById('btn-analyze-progress');
         const loading = document.getElementById('ia-loading');
@@ -519,30 +529,32 @@ const AppIA = {
         loading.classList.remove('hidden');
 
         try {
-            // 1. LÊ TUDO DO BANCO (SEM LIMITES DE QUERY)
+            // 1. LÊ TUDO DO BANCO
             const snap = await AppIA.db.ref(`data/${AppIA.user.uid}/workouts`).once('value');
             if(!snap.exists()) throw new Error("Você precisa de pelo menos 1 treino realizado para analisar.");
             
             let history = [];
             snap.forEach(c => history.push(c.val()));
             
-            // 2. ORDENAÇÃO MANUAL POR DATA (BLINDADA)
-            history.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+            // 2. ORDENAÇÃO MANUAL POR DATA
+            history.sort((a, b) => new Date(a.date) - new Date(b.date));
             
-            // 3. FILTRO E LIMPEZA DE DADOS (DATA HYGIENE)
-            // AQUI ESTÁ A CORREÇÃO: Normaliza status para minúsculas e remove espaços
-            const cleanHistory = history.filter(w => {
-                const s = (w.status || '').toLowerCase().trim(); // Resolve "Realizado", "realizado ", etc.
-                return s === 'realizado' || s === 'realizado_parcial';
-            }).slice(-15).map(w => ({
+            // 3. FILTRO E LIMPEZA ROBUSTA (AQUI ESTAVA O ERRO)
+            // Agora usa a função helper 'isStatusCompleted' que aceita "Concluído", "Realizado", "Done"...
+            const cleanHistory = history.filter(w => AppIA.isStatusCompleted(w.status)).slice(-15).map(w => ({
                 date: w.date,
                 title: w.title,
-                status: w.status,
+                // FORÇA O STATUS "CONCLUÍDO" PARA A IA NÃO SE CONFUNDIR
+                status: "CONCLUÍDO", 
                 feedback: w.feedback || "Sem feedback",
                 distancia: w.stravaData ? w.stravaData.distancia : "N/A",
                 tempo: w.stravaData ? w.stravaData.tempo : "N/A",
                 pace: w.stravaData ? w.stravaData.ritmo : "N/A"
             }));
+
+            if (cleanHistory.length === 0) {
+                throw new Error("Nenhum treino concluído encontrado recentemente. Verifique se marcou como 'Realizado'.");
+            }
 
             const todayStr = new Date().toISOString().split('T')[0];
 
@@ -551,11 +563,11 @@ const AppIA = {
             HOJE É: ${todayStr}.
             FALE DIRETAMENTE COM O ATLETA (Use "Você").
             
-            DADOS DO ATLETA (Últimos treinos realizados, limpos e em ordem cronológica):
+            DADOS DO ATLETA (Últimos treinos REALIZADOS, limpos e em ordem cronológica):
             ${JSON.stringify(cleanHistory)}
             
             TAREFA: Avaliar o progresso recente com base nesses dados reais.
-            1. Analise o Volume e Constância (Verifique as datas ESTRITAMENTE: ele treinou recentemente? Compare as datas com ${todayStr}).
+            1. Analise o Volume e Constância (Verifique as datas: ele treinou recentemente? Compare as datas com ${todayStr}).
             2. Analise a Intensidade e Feedback (O que ele escreveu nos feedbacks?).
             3. Dê 3 Conselhos Práticos para a próxima semana.
             

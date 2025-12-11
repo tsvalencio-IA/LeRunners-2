@@ -1,6 +1,6 @@
 /* =================================================================== */
-/* ALUNO IA - MÓDULO DE CONSULTORIA ONLINE (V25.0 - FINAL FIX)
-/* CORREÇÃO: Força leitura de TODO o histórico para garantir a data correta.
+/* ALUNO IA - MÓDULO DE CONSULTORIA ONLINE (V26.0 - SENIOR FIX)
+/* CORREÇÃO: Normalização de Status e Data para garantir leitura da IA.
 /* CONTÉM: Logo Strava, Splits, Delete, Upload, Data Flexível e IA Sênior.
 /* =================================================================== */
 
@@ -421,7 +421,7 @@ const AppIA = {
         `;
     },
 
-    // --- CÉREBRO IA 1: GERAÇÃO DE TREINOS (V25 - LEITURA TOTAL E ORDENAÇÃO) ---
+    // --- CÉREBRO IA 1: GERAÇÃO DE TREINOS (V26 - DATA BLINDADA) ---
     generatePlanWithAI: async () => {
         const btn = document.getElementById('btn-generate-plan');
         const loading = document.getElementById('ia-loading');
@@ -430,7 +430,6 @@ const AppIA = {
         loading.classList.remove('hidden');
 
         try {
-            // CORREÇÃO CRÍTICA: LÊ TUDO PARA BYPASSAR O ERRO DE ÍNDICE DO FIREBASE
             const snap = await AppIA.db.ref(`data/${AppIA.user.uid}/workouts`).once('value');
             
             let history = [];
@@ -438,15 +437,16 @@ const AppIA = {
                 snap.forEach(c => history.push(c.val()));
             }
             
-            // ORDENAÇÃO MANUAL POR DATA (Javascript Puro)
-            history.sort((a, b) => new Date(a.date) - new Date(b.date));
-            const recentHistory = history.slice(-20); // Pega 20 últimos REAIS após ordenação
+            // NORMALIZAÇÃO DE DATA (Garante que strings de data funcionem no sort)
+            history.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+            
+            const recentHistory = history.slice(-20); // Pega 20 últimos REAIS
 
-            // LIMPEZA (HYGIENE)
+            // LIMPEZA E NORMALIZAÇÃO
             const cleanHistory = recentHistory.map(w => ({
                 date: w.date,
                 title: w.title,
-                status: w.status,
+                status: (w.status || '').toLowerCase().trim(), // Normalização para IA entender
                 feedback: w.feedback || "",
                 distancia: w.stravaData ? w.stravaData.distancia : "N/A",
                 tempo: w.stravaData ? w.stravaData.tempo : "N/A",
@@ -507,7 +507,7 @@ const AppIA = {
         finally { btn.disabled = false; loading.classList.add('hidden'); }
     },
 
-    // --- CÉREBRO IA 2: ANÁLISE DE PROGRESSO (V25 - LEITURA TOTAL + ORDENAÇÃO) ---
+    // --- CÉREBRO IA 2: ANÁLISE DE PROGRESSO (V26 - CORREÇÃO CRÍTICA DE STATUS/DATA) ---
     analyzeProgressWithAI: async () => {
         const btn = document.getElementById('btn-analyze-progress');
         const loading = document.getElementById('ia-loading');
@@ -526,12 +526,15 @@ const AppIA = {
             let history = [];
             snap.forEach(c => history.push(c.val()));
             
-            // 2. ORDENAÇÃO MANUAL POR DATA
-            history.sort((a, b) => new Date(a.date) - new Date(b.date));
+            // 2. ORDENAÇÃO MANUAL POR DATA (BLINDADA)
+            history.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
             
             // 3. FILTRO E LIMPEZA DE DADOS (DATA HYGIENE)
-            // Filtra realizados e remove lixo HTML/Links
-            const cleanHistory = history.filter(w => w.status === 'realizado' || w.status === 'realizado_parcial').slice(-15).map(w => ({
+            // AQUI ESTÁ A CORREÇÃO: Normaliza status para minúsculas e remove espaços
+            const cleanHistory = history.filter(w => {
+                const s = (w.status || '').toLowerCase().trim(); // Resolve "Realizado", "realizado ", etc.
+                return s === 'realizado' || s === 'realizado_parcial';
+            }).slice(-15).map(w => ({
                 date: w.date,
                 title: w.title,
                 status: w.status,
@@ -552,7 +555,7 @@ const AppIA = {
             ${JSON.stringify(cleanHistory)}
             
             TAREFA: Avaliar o progresso recente com base nesses dados reais.
-            1. Analise o Volume e Constância (Verifique as datas: ele treinou recentemente? Compare as datas com ${todayStr}).
+            1. Analise o Volume e Constância (Verifique as datas ESTRITAMENTE: ele treinou recentemente? Compare as datas com ${todayStr}).
             2. Analise a Intensidade e Feedback (O que ele escreveu nos feedbacks?).
             3. Dê 3 Conselhos Práticos para a próxima semana.
             

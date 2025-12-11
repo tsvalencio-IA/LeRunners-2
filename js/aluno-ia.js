@@ -1,7 +1,7 @@
 /* =================================================================== */
-/* ALUNO IA - MÓDULO DE CONSULTORIA ONLINE (V23.0 - DATA HYGIENE)
-/* CORREÇÃO: Limpeza profunda dos dados antes de enviar para a IA.
-/* CONTÉM: Logo Strava, Delete, Upload, Splits e Inteligência Real.
+/* ALUNO IA - MÓDULO DE CONSULTORIA ONLINE (V25.0 - FINAL FIX)
+/* CORREÇÃO: Força leitura de TODO o histórico para garantir a data correta.
+/* CONTÉM: Logo Strava, Splits, Delete, Upload, Data Flexível e IA Sênior.
 /* =================================================================== */
 
 const AppIA = {
@@ -27,33 +27,34 @@ const AppIA = {
             const loginForm = document.getElementById('login-form');
             const regForm = document.getElementById('register-form');
 
-            loader.classList.add('hidden');
+            if(loader) loader.classList.add('hidden');
 
             if (user) {
                 AppIA.db.ref('users/' + user.uid).once('value', snapshot => {
                     if (snapshot.exists()) {
                         AppIA.user = user;
-                        authContainer.classList.add('hidden');
-                        appContainer.classList.remove('hidden');
-                        document.getElementById('user-name-display').textContent = snapshot.val().name;
+                        if(authContainer) authContainer.classList.add('hidden');
+                        if(appContainer) appContainer.classList.remove('hidden');
+                        if(document.getElementById('user-name-display')) 
+                            document.getElementById('user-name-display').textContent = snapshot.val().name;
                         
                         AppIA.checkStravaConnection();
                         AppIA.loadWorkouts(); 
                     } else {
                         AppIA.db.ref('pendingApprovals/' + user.uid).once('value', pendingSnap => {
-                            authContainer.classList.remove('hidden');
-                            appContainer.classList.add('hidden');
-                            loginForm.classList.add('hidden');
-                            regForm.classList.add('hidden');
-                            pendingView.classList.remove('hidden'); 
+                            if(authContainer) authContainer.classList.remove('hidden');
+                            if(appContainer) appContainer.classList.add('hidden');
+                            if(loginForm) loginForm.classList.add('hidden');
+                            if(regForm) regForm.classList.add('hidden');
+                            if(pendingView) pendingView.classList.remove('hidden'); 
                         });
                     }
                 });
             } else {
-                authContainer.classList.remove('hidden');
-                appContainer.classList.add('hidden');
-                pendingView.classList.add('hidden');
-                loginForm.classList.remove('hidden');
+                if(authContainer) authContainer.classList.remove('hidden');
+                if(appContainer) appContainer.classList.add('hidden');
+                if(pendingView) pendingView.classList.add('hidden');
+                if(loginForm) loginForm.classList.remove('hidden');
             }
         });
 
@@ -62,17 +63,21 @@ const AppIA = {
     },
 
     setupAuthListeners: () => {
-        document.getElementById('toggleToRegister').onclick = (e) => { e.preventDefault(); document.getElementById('login-form').classList.add('hidden'); document.getElementById('register-form').classList.remove('hidden'); };
-        document.getElementById('toggleToLogin').onclick = (e) => { e.preventDefault(); document.getElementById('register-form').classList.add('hidden'); document.getElementById('login-form').classList.remove('hidden'); };
+        const toReg = document.getElementById('toggleToRegister');
+        const toLog = document.getElementById('toggleToLogin');
+        if(toReg) toReg.onclick = (e) => { e.preventDefault(); document.getElementById('login-form').classList.add('hidden'); document.getElementById('register-form').classList.remove('hidden'); };
+        if(toLog) toLog.onclick = (e) => { e.preventDefault(); document.getElementById('register-form').classList.add('hidden'); document.getElementById('login-form').classList.remove('hidden'); };
 
-        document.getElementById('login-form').addEventListener('submit', (e) => {
+        const loginF = document.getElementById('login-form');
+        if(loginF) loginF.addEventListener('submit', (e) => {
             e.preventDefault();
             const email = document.getElementById('loginEmail').value;
             const pass = document.getElementById('loginPassword').value;
             AppIA.auth.signInWithEmailAndPassword(email, pass).catch(err => document.getElementById('login-error').textContent = "Erro: " + err.message);
         });
 
-        document.getElementById('register-form').addEventListener('submit', (e) => {
+        const regF = document.getElementById('register-form');
+        if(regF) regF.addEventListener('submit', (e) => {
             e.preventDefault();
             const name = document.getElementById('registerName').value;
             const email = document.getElementById('registerEmail').value;
@@ -82,11 +87,14 @@ const AppIA = {
                 .catch(err => document.getElementById('register-error').textContent = err.message);
         });
 
-        document.getElementById('btn-logout').onclick = () => AppIA.auth.signOut();
-        document.getElementById('btn-logout-pending').onclick = () => AppIA.auth.signOut();
+        const btnOut = document.getElementById('btn-logout');
+        if(btnOut) btnOut.onclick = () => AppIA.auth.signOut();
+        const btnOutP = document.getElementById('btn-logout-pending');
+        if(btnOutP) btnOutP.onclick = () => AppIA.auth.signOut();
         
         // Listeners dos botões de IA
-        document.getElementById('btn-generate-plan').onclick = AppIA.generatePlanWithAI;
+        const btnGen = document.getElementById('btn-generate-plan');
+        if(btnGen) btnGen.onclick = AppIA.generatePlanWithAI;
         const btnAnalyze = document.getElementById('btn-analyze-progress');
         if(btnAnalyze) btnAnalyze.onclick = AppIA.analyzeProgressWithAI;
     },
@@ -113,7 +121,7 @@ const AppIA = {
         if(closeReport) closeReport.onclick = () => document.getElementById('ia-report-modal').classList.add('hidden');
     },
 
-    // --- FUNÇÃO EXCLUIR TREINO (V20/23) ---
+    // --- FUNÇÃO EXCLUIR TREINO (V20/25) ---
     deleteWorkout: async (workoutId) => {
         if(confirm("Tem certeza que deseja excluir este treino da sua planilha?")) {
             try {
@@ -124,7 +132,7 @@ const AppIA = {
         }
     },
 
-    // --- ATIVIDADE AVULSA (V20/23) ---
+    // --- ATIVIDADE AVULSA (V20/25) ---
     openLogActivityModal: () => {
         document.getElementById('log-activity-form').reset();
         document.getElementById('log-date').value = new Date().toISOString().split('T')[0];
@@ -155,7 +163,7 @@ const AppIA = {
         } catch(err) { alert("Erro: " + err.message); } finally { btn.disabled = false; }
     },
 
-    // --- FEEDBACK COM DATA FLEXÍVEL (V20/23) ---
+    // --- FEEDBACK COM DATA FLEXÍVEL (V20/25) ---
     openFeedbackModal: (workoutId, title, originalDate) => {
         AppIA.modalState.currentWorkoutId = workoutId;
         document.getElementById('feedback-modal-title').textContent = `Registro: ${title}`;
@@ -269,15 +277,15 @@ const AppIA = {
             const status = document.getElementById('status-strava');
             if (snapshot.exists()) {
                 AppIA.stravaData = snapshot.val();
-                btnConnect.classList.add('hidden');
-                btnSync.classList.remove('hidden');
-                status.textContent = "✅ Strava Conectado.";
-                btnSync.onclick = AppIA.syncStravaActivities;
+                if(btnConnect) btnConnect.classList.add('hidden');
+                if(btnSync) btnSync.classList.remove('hidden');
+                if(status) status.textContent = "✅ Strava Conectado.";
+                if(btnSync) btnSync.onclick = AppIA.syncStravaActivities;
             } else {
-                btnConnect.classList.remove('hidden');
-                btnSync.classList.add('hidden');
-                status.textContent = "";
-                btnConnect.onclick = () => {
+                if(btnConnect) btnConnect.classList.remove('hidden');
+                if(btnSync) btnSync.classList.add('hidden');
+                if(status) status.textContent = "";
+                if(btnConnect) btnConnect.onclick = () => {
                     const c = window.STRAVA_PUBLIC_CONFIG;
                     const redirect = window.location.href.split('?')[0]; 
                     window.location.href = `https://www.strava.com/oauth/authorize?client_id=${c.clientID}&response_type=code&redirect_uri=${redirect}&approval_prompt=force&scope=read_all,activity:read_all`;
@@ -313,10 +321,12 @@ const AppIA = {
         btn.innerHTML = "<i class='bx bx-refresh'></i> Sincronizar Agora";
     },
 
-    // --- RENDERIZAÇÃO (V20/23 - COM SPLITS, DELETE E LOGO) ---
+    // --- RENDERIZAÇÃO (V25 - COM SPLITS, DELETE E LOGO) ---
     loadWorkouts: () => {
+        // AQUI ESTÁ O SEGREDO: ORDENAÇÃO NO CLIENTE PARA VISUALIZAÇÃO
         AppIA.db.ref(`data/${AppIA.user.uid}/workouts`).orderByChild('date').on('value', snapshot => {
             const list = document.getElementById('workout-list');
+            if(!list) return;
             list.innerHTML = "";
             if (!snapshot.exists()) {
                 list.innerHTML = `<p style="text-align:center; padding:1rem; color:#666;">Você ainda não tem treinos.</p>`;
@@ -376,12 +386,14 @@ const AppIA = {
                 el.addEventListener('click', (e) => {
                      if (!e.target.closest('button') && !e.target.closest('a')) AppIA.openFeedbackModal(w.id, w.title, w.date);
                 });
+                
+                // ORDENAÇÃO VISUAL: PREPEND PARA O MAIS RECENTE EM CIMA
                 list.prepend(el);
             });
         });
     },
 
-    // --- CORREÇÃO V20/23 (SPLITS + LOGO OBRIGATÓRIA) ---
+    // --- EXIBIÇÃO DE DADOS (V25 - COM SPLITS E LOGO) ---
     createStravaDataDisplay: (stravaData) => {
         if (!stravaData) return '';
         let mapLinkHtml = '';
@@ -409,27 +421,28 @@ const AppIA = {
         `;
     },
 
-    // --- CÉREBRO IA 1: GERAÇÃO (V23 - DATA HYGIENE E ORDENAÇÃO) ---
+    // --- CÉREBRO IA 1: GERAÇÃO DE TREINOS (V25 - LEITURA TOTAL E ORDENAÇÃO) ---
     generatePlanWithAI: async () => {
         const btn = document.getElementById('btn-generate-plan');
         const loading = document.getElementById('ia-loading');
-        document.getElementById('ia-loading-text').textContent = "Analisando volume, intensidade e carga...";
+        if(document.getElementById('ia-loading-text')) document.getElementById('ia-loading-text').textContent = "Analisando volume, intensidade e carga...";
         btn.disabled = true;
         loading.classList.remove('hidden');
 
         try {
-            // LÊ TUDO
+            // CORREÇÃO CRÍTICA: LÊ TUDO PARA BYPASSAR O ERRO DE ÍNDICE DO FIREBASE
             const snap = await AppIA.db.ref(`data/${AppIA.user.uid}/workouts`).once('value');
+            
             let history = [];
             if(snap.exists()) {
                 snap.forEach(c => history.push(c.val()));
             }
             
-            // ORDENA POR DATA
+            // ORDENAÇÃO MANUAL POR DATA (Javascript Puro)
             history.sort((a, b) => new Date(a.date) - new Date(b.date));
-            const recentHistory = history.slice(-20); // Pega 20 últimos
+            const recentHistory = history.slice(-20); // Pega 20 últimos REAIS após ordenação
 
-            // LIMPEZA DE DADOS (HYGIENE)
+            // LIMPEZA (HYGIENE)
             const cleanHistory = recentHistory.map(w => ({
                 date: w.date,
                 title: w.title,
@@ -470,7 +483,7 @@ const AppIA = {
                 body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
             });
 
-            if(!r.ok) throw new Error("Erro na API");
+            if(!r.ok) throw new Error("Erro na API do Google");
             const json = await r.json();
             const textResponse = json.candidates[0].content.parts[0].text;
             let cleanJson = textResponse.replace(/```json/g, '').replace(/```/g, '').trim();
@@ -487,21 +500,21 @@ const AppIA = {
                 };
             });
             await AppIA.db.ref().update(updates);
-            if (cleanHistory.length > 0) alert("✅ Planilha gerada com sucesso! Treinos distribuídos na semana.");
+            if (cleanHistory.length > 0) alert("✅ Planilha gerada com sucesso!");
             else alert("✅ Protocolo de Teste gerado!");
 
         } catch (e) { alert("Erro na IA: " + e.message); } 
         finally { btn.disabled = false; loading.classList.add('hidden'); }
     },
 
-    // --- CÉREBRO IA 2: ANÁLISE DE PROGRESSO (V23 - DATA HYGIENE E ORDENAÇÃO) ---
+    // --- CÉREBRO IA 2: ANÁLISE DE PROGRESSO (V25 - LEITURA TOTAL + ORDENAÇÃO) ---
     analyzeProgressWithAI: async () => {
         const btn = document.getElementById('btn-analyze-progress');
         const loading = document.getElementById('ia-loading');
         const modal = document.getElementById('ia-report-modal');
         const content = document.getElementById('ia-report-content');
         
-        document.getElementById('ia-loading-text').textContent = "Fisiologista está analisando seu histórico...";
+        if(document.getElementById('ia-loading-text')) document.getElementById('ia-loading-text').textContent = "Fisiologista está analisando seu histórico...";
         btn.disabled = true;
         loading.classList.remove('hidden');
 
@@ -513,14 +526,12 @@ const AppIA = {
             let history = [];
             snap.forEach(c => history.push(c.val()));
             
-            // 2. ORDENAÇÃO MANUAL POR DATA (Javascript puro)
+            // 2. ORDENAÇÃO MANUAL POR DATA
             history.sort((a, b) => new Date(a.date) - new Date(b.date));
             
-            // 3. FILTRO: SÓ TREINOS REALIZADOS (Para análise de progresso)
-            const doneHistory = history.filter(w => w.status === 'realizado' || w.status === 'realizado_parcial');
-            
-            // 4. LIMPEZA DE DADOS (DATA HYGIENE) - REMOVE LIXO
-            const cleanHistory = doneHistory.slice(-15).map(w => ({
+            // 3. FILTRO E LIMPEZA DE DADOS (DATA HYGIENE)
+            // Filtra realizados e remove lixo HTML/Links
+            const cleanHistory = history.filter(w => w.status === 'realizado' || w.status === 'realizado_parcial').slice(-15).map(w => ({
                 date: w.date,
                 title: w.title,
                 status: w.status,

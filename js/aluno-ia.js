@@ -1,6 +1,6 @@
 /* =================================================================== */
-/* ALUNO IA - MÓDULO V41.0 (BRUTE FORCE DATE FIX)
-/* PERITO: Força leitura total e ordenação local por Timestamp.
+/* ALUNO IA - MÓDULO V42.0 (ARQUITETURA ESPELHO)
+/* GARANTIA: A IA lê da memória visual, não do banco. Se aparece na tela, a IA vê.
 /* =================================================================== */
 
 const AppIA = {
@@ -8,6 +8,8 @@ const AppIA = {
     db: null,
     user: null,
     stravaData: null,
+    // NOVO: Cache de memória para garantir que a IA veja o mesmo que o usuário
+    workoutsCache: [], 
     modalState: { isOpen: false, currentWorkoutId: null },
 
     // --- 1. INICIALIZAÇÃO ---
@@ -34,9 +36,7 @@ const AppIA = {
                         AppIA.user = user;
                         if(authContainer) authContainer.classList.add('hidden');
                         if(appContainer) appContainer.classList.remove('hidden');
-                        
-                        const nameDisplay = document.getElementById('user-name-display');
-                        if(nameDisplay) nameDisplay.textContent = snapshot.val().name;
+                        document.getElementById('user-name-display').textContent = snapshot.val().name;
                         
                         AppIA.checkStravaConnection();
                         AppIA.loadWorkouts(); 
@@ -63,116 +63,74 @@ const AppIA = {
     setupAuthListeners: () => {
         const toReg = document.getElementById('toggleToRegister');
         const toLog = document.getElementById('toggleToLogin');
-        
-        if(toReg) toReg.onclick = (e) => { 
-            e.preventDefault(); 
-            document.getElementById('login-form').classList.add('hidden'); 
-            document.getElementById('register-form').classList.remove('hidden'); 
-        };
-        if(toLog) toLog.onclick = (e) => { 
-            e.preventDefault(); 
-            document.getElementById('register-form').classList.add('hidden'); 
-            document.getElementById('login-form').classList.remove('hidden'); 
-        };
+        if(toReg) toReg.onclick = (e) => { e.preventDefault(); document.getElementById('login-form').classList.add('hidden'); document.getElementById('register-form').classList.remove('hidden'); };
+        if(toLog) toLog.onclick = (e) => { e.preventDefault(); document.getElementById('register-form').classList.add('hidden'); document.getElementById('login-form').classList.remove('hidden'); };
 
         const loginF = document.getElementById('login-form');
         if(loginF) loginF.addEventListener('submit', (e) => {
             e.preventDefault();
-            const email = document.getElementById('loginEmail').value;
-            const pass = document.getElementById('loginPassword').value;
-            AppIA.auth.signInWithEmailAndPassword(email, pass).catch(err => alert("Erro Login: " + err.message));
+            AppIA.auth.signInWithEmailAndPassword(document.getElementById('loginEmail').value, document.getElementById('loginPassword').value)
+                .catch(err => alert("Erro Login: " + err.message));
         });
 
         const regF = document.getElementById('register-form');
         if(regF) regF.addEventListener('submit', (e) => {
             e.preventDefault();
-            const name = document.getElementById('registerName').value;
-            const email = document.getElementById('registerEmail').value;
-            const pass = document.getElementById('registerPassword').value;
-            AppIA.auth.createUserWithEmailAndPassword(email, pass)
-                .then((cred) => {
-                    AppIA.db.ref('pendingApprovals/' + cred.user.uid).set({ 
-                        name, email, requestDate: new Date().toISOString(), origin: "Consultoria IA" 
-                    });
-                })
+            AppIA.auth.createUserWithEmailAndPassword(document.getElementById('registerEmail').value, document.getElementById('registerPassword').value)
+                .then((cred) => AppIA.db.ref('pendingApprovals/' + cred.user.uid).set({ name: document.getElementById('registerName').value, email: document.getElementById('registerEmail').value }))
                 .catch(err => alert("Erro Registro: " + err.message));
         });
 
-        const btnOut = document.getElementById('btn-logout');
-        if(btnOut) btnOut.onclick = () => AppIA.auth.signOut();
-        const btnOutP = document.getElementById('btn-logout-pending');
-        if(btnOutP) btnOutP.onclick = () => AppIA.auth.signOut();
-
-        const btnGen = document.getElementById('btn-generate-plan');
-        if(btnGen) btnGen.onclick = AppIA.generatePlanWithAI;
-        const btnAnalyze = document.getElementById('btn-analyze-progress');
-        if(btnAnalyze) btnAnalyze.onclick = AppIA.analyzeProgressWithAI;
+        document.getElementById('btn-logout').onclick = () => AppIA.auth.signOut();
+        document.getElementById('btn-logout-pending').onclick = () => AppIA.auth.signOut();
+        document.getElementById('btn-generate-plan').onclick = AppIA.generatePlanWithAI;
+        document.getElementById('btn-analyze-progress').onclick = AppIA.analyzeProgressWithAI;
     },
 
-    // --- 3. MODAIS ---
     setupModalListeners: () => {
-        const closeBtn = document.getElementById('close-feedback-modal');
-        const form = document.getElementById('feedback-form');
-        const fileInput = document.getElementById('photo-upload-input');
-        if(closeBtn) closeBtn.onclick = AppIA.closeFeedbackModal;
-        if(form) form.addEventListener('submit', AppIA.handleFeedbackSubmit);
-        if(fileInput) fileInput.addEventListener('change', AppIA.handlePhotoAnalysis);
-
-        const btnLog = document.getElementById('btn-log-manual');
-        const closeLog = document.getElementById('close-log-activity-modal');
-        const formLog = document.getElementById('log-activity-form');
-        if(btnLog) btnLog.onclick = AppIA.openLogActivityModal;
-        if(closeLog) closeLog.onclick = AppIA.closeLogActivityModal;
-        if(formLog) formLog.onsubmit = AppIA.handleLogActivitySubmit;
-
-        const closeReport = document.getElementById('close-ia-report-modal');
-        if(closeReport) closeReport.onclick = () => document.getElementById('ia-report-modal').classList.add('hidden');
+        document.getElementById('close-feedback-modal').onclick = AppIA.closeFeedbackModal;
+        document.getElementById('feedback-form').addEventListener('submit', AppIA.handleFeedbackSubmit);
+        document.getElementById('photo-upload-input').addEventListener('change', AppIA.handlePhotoAnalysis);
+        
+        document.getElementById('btn-log-manual').onclick = AppIA.openLogActivityModal;
+        document.getElementById('close-log-activity-modal').onclick = AppIA.closeLogActivityModal;
+        document.getElementById('log-activity-form').onsubmit = AppIA.handleLogActivitySubmit;
+        
+        document.getElementById('close-ia-report-modal').onclick = () => document.getElementById('ia-report-modal').classList.add('hidden');
     },
 
-    // --- 4. ENGINE DE DATA (BRUTE FORCE) ---
-    // Converte e Normaliza TUDO para Timestamp numérico
+    // --- 3. DATA ENGINE (ROBUSTO) ---
     getTimestamp: (dateStr) => {
         if (!dateStr) return 0;
         try {
-            // Remove lixo
             let s = dateStr.toString().trim().replace(/[\s\.]/g, '-');
-            
-            // Se for DD/MM/YYYY ou DD-MM-YYYY
             if (s.match(/^\d{2}[\/-]\d{2}[\/-]\d{4}$/)) {
                 const p = s.split(/[\/-]/);
-                // Mês em JS começa em 0, mas Date string usa 1-12. 
-                // Melhor formato: YYYY-MM-DD
                 return new Date(`${p[2]}-${p[1]}-${p[0]}`).getTime();
             }
-            
-            // Se for YYYY-MM-DD
-            if (s.match(/^\d{4}-\d{2}-\d{2}$/)) {
-                return new Date(s).getTime();
-            }
-            
             return new Date(s).getTime();
         } catch (e) { return 0; }
     },
-
+    
     getReadableDate: (dateStr) => {
-        // Apenas para mostrar bonito no alerta
         let ts = AppIA.getTimestamp(dateStr);
-        if(!ts) return dateStr;
-        return new Date(ts).toLocaleDateString('pt-BR');
+        return ts ? new Date(ts).toLocaleDateString('pt-BR') : dateStr;
     },
 
-    // --- 5. RENDERIZAÇÃO ---
+    // --- 4. RENDERIZAÇÃO + CACHE (A MÁGICA ACONTECE AQUI) ---
     loadWorkouts: () => {
         const list = document.getElementById('workout-list');
         if(!list) return;
         
         list.innerHTML = "<p style='text-align:center; padding:1rem;'>Carregando...</p>";
         
-        // Pega TUDO
         AppIA.db.ref(`data/${AppIA.user.uid}/workouts`).on('value', snapshot => {
             list.innerHTML = ""; 
+            // 1. Limpa o Cache da IA
+            AppIA.workoutsCache = []; 
+            
             if(!snapshot.exists()) { 
-                list.innerHTML = "<p style='text-align:center; padding:1rem; color:#666;'>Nenhum treino encontrado.</p>"; 
+                list.innerHTML = "<p style='text-align:center;'>Nenhum treino.</p>"; 
                 return; 
             }
             
@@ -181,15 +139,16 @@ const AppIA = {
                 arr.push({ id: childSnapshot.key, ...childSnapshot.val() });
             });
 
-            // Ordena pelo Timestamp (Crescente)
+            // Ordena
             arr.sort((a,b) => AppIA.getTimestamp(a.date) - AppIA.getTimestamp(b.date));
             
-            // Renderiza (Prepend inverte -> Recente no topo)
+            // 2. Popula o Cache (Cópia exata do que vai pra tela)
+            AppIA.workoutsCache = arr;
+
+            // Renderiza na tela
             arr.forEach(w => {
-                try {
-                    const card = AppIA.createWorkoutCard(w);
-                    list.prepend(card); 
-                } catch (err) { console.error(err); }
+                const card = AppIA.createWorkoutCard(w);
+                list.prepend(card); 
             });
         });
     },
@@ -197,151 +156,108 @@ const AppIA = {
     createWorkoutCard: (w) => {
         const el = document.createElement('div');
         el.className = 'workout-card';
-        
-        const status = (w.status || 'planejado').toLowerCase();
-        const isDone = status.includes('realizado') || status.includes('concluido') || status.includes('feito');
+        const s = (w.status || 'planejado').toLowerCase();
+        const isDone = s.includes('realizado') || s.includes('concluido') || s.includes('feito');
 
-        const deleteBtnHtml = `<button class="btn-delete" style="background:#ff4444; color:white; border:none; padding:6px 10px; border-radius:4px; cursor:pointer; margin-right:5px;"><i class='bx bx-trash'></i></button>`;
-        const actionButtonHtml = isDone ? 
-            `<button class="btn-open-feedback" style="background:var(--primary-color); color:white; border:none; padding:6px 10px; border-radius:4px; cursor:pointer;"><i class='bx bx-edit'></i> Editar</button>` :
-            `<button class="btn-open-feedback" style="background:var(--success-color); color:white; border:none; padding:6px 10px; border-radius:4px; cursor:pointer;"><i class='bx bx-check-circle'></i> Registrar</button>`;
+        const btnHtml = isDone ? 
+            `<button class="btn-open-feedback" style="background:var(--primary-color); color:white; border:none; padding:6px 10px; border-radius:4px;"><i class='bx bx-edit'></i> Editar</button>` :
+            `<button class="btn-open-feedback" style="background:var(--success-color); color:white; border:none; padding:6px 10px; border-radius:4px;"><i class='bx bx-check-circle'></i> Registrar</button>`;
 
         el.innerHTML = `
-            <div class="workout-card-header" style="display:flex; justify-content:space-between; align-items:center;">
-                <div><strong style="font-size:1.1em;">${w.date}</strong> <span style="margin-left:5px; color:#555;">${w.title}</span></div>
+            <div class="workout-card-header">
+                <div><strong style="font-size:1.1em;">${w.date}</strong> <span style="color:#555;">${w.title}</span></div>
                 <span class="status-tag" style="background:${isDone ? '#28a745' : '#ffc107'}; color:${isDone?'white':'#333'}; padding:2px 8px; border-radius:12px; font-size:0.8rem;">${isDone ? 'Concluído' : 'Planejado'}</span>
             </div>
-            <div class="workout-card-body" style="margin-top:10px;">
+            <div class="workout-card-body">
                 <p>${w.description || ''}</p>
                 ${w.stravaData ? AppIA.createStravaDataDisplay(w.stravaData) : ''}
-                ${w.imageUrl ? `<img src="${w.imageUrl}" style="width:100%; max-height:250px; object-fit:cover; margin-top:10px; border-radius:8px;">` : ''}
-                ${w.feedback ? `<p style="font-size:0.9rem; font-style:italic; color:#666; margin-top:10px; background:#f9f9f9; padding:8px; border-left:3px solid #ccc;">" ${w.feedback} "</p>` : ''}
+                ${w.imageUrl ? `<img src="${w.imageUrl}" style="width:100%; margin-top:10px; border-radius:8px;">` : ''}
+                ${w.feedback ? `<p style="font-size:0.9rem; font-style:italic; background:#f9f9f9; padding:8px;">"${w.feedback}"</p>` : ''}
             </div>
-            <div style="margin-top:15px; border-top:1px solid #eee; padding-top:10px; display:flex; justify-content:flex-end;">
-                ${deleteBtnHtml} ${actionButtonHtml}
+            <div style="margin-top:10px; display:flex; justify-content:flex-end; gap:5px;">
+                <button class="btn-delete" style="background:#ff4444; color:white; border:none; padding:6px 10px; border-radius:4px;"><i class='bx bx-trash'></i></button>
+                ${btnHtml}
             </div>
         `;
 
-        const btnFeed = el.querySelector('.btn-open-feedback');
-        const btnDel = el.querySelector('.btn-delete');
-        if(btnFeed) btnFeed.onclick = (e) => { e.stopPropagation(); AppIA.openFeedbackModal(w.id, w.title, w.date); };
-        if(btnDel) btnDel.onclick = (e) => { e.stopPropagation(); AppIA.deleteWorkout(w.id); };
+        el.querySelector('.btn-open-feedback').onclick = (e) => { e.stopPropagation(); AppIA.openFeedbackModal(w.id, w.title, w.date); };
+        el.querySelector('.btn-delete').onclick = (e) => { e.stopPropagation(); AppIA.deleteWorkout(w.id); };
         el.onclick = (e) => { if (!e.target.closest('button')) AppIA.openFeedbackModal(w.id, w.title, w.date); };
-
         return el;
     },
 
     createStravaDataDisplay: (stravaData) => {
         if (!stravaData) return '';
-        let mapLinkHtml = stravaData.mapLink ? `<p style="margin-top:5px;"><a href="${stravaData.mapLink}" target="_blank" style="color:#fc4c02; font-weight:bold; text-decoration:none;">🗺️ Ver no Strava</a></p>` : '';
-        let splitsHtml = '';
-        if (stravaData.splits && Array.isArray(stravaData.splits) && stravaData.splits.length > 0) {
-            let rows = stravaData.splits.map(s => `<tr><td style="padding:2px 5px;">Km ${s.km}</td><td style="padding:2px 5px;"><strong>${s.pace}</strong></td><td style="color:#777; font-size:0.8em;">(${s.ele}m)</td></tr>`).join('');
-            splitsHtml = `<div style="margin-top:10px; padding-top:5px; border-top:1px dashed #ccc; font-size:0.85rem; color:#555;"><strong style="display:block; margin-bottom:5px;">🏁 Parciais:</strong><table style="width:100%; border-collapse:collapse;">${rows}</table></div>`;
+        let splits = '';
+        if (stravaData.splits) {
+            splits = stravaData.splits.map(s => `<tr><td>${s.km}</td><td>${s.pace}</td></tr>`).join('');
+            splits = `<table style="width:100%; font-size:0.8rem;">${splits}</table>`;
         }
-        return `<fieldset class="strava-data-display" style="border:1px solid #fc4c02; background:#fff5f0; padding:10px; border-radius:5px; margin-top:10px;"><legend style="color:#fc4c02; font-weight:bold; font-size:0.9rem;"><img src="img/strava.png" alt="Strava" style="height:20px; vertical-align:middle; margin-right:5px;">Dados</legend><div style="font-family:monospace; font-weight:bold; font-size:1rem; color:#333;">Dist: ${stravaData.distancia||"N/A"} | Tempo: ${stravaData.tempo||"N/A"} | Pace: ${stravaData.ritmo||"N/A"}</div>${mapLinkHtml}${splitsHtml}</fieldset>`;
+        return `<fieldset style="background:#fff5f0; border:1px solid #fc4c02; padding:10px; margin-top:10px;"><legend style="color:#fc4c02; font-weight:bold;"><img src="img/strava.png" height="20"> Strava</legend><div>Dist: ${stravaData.distancia} | Pace: ${stravaData.ritmo}</div>${splits}</fieldset>`;
     },
 
-    // --- 6. CÉREBRO IA: ANÁLISE (CORRIGIDA) ---
+    // --- 5. CÉREBRO IA: ANÁLISE (LÊ DO CACHE, NÃO DO BANCO) ---
     analyzeProgressWithAI: async () => {
         const btn = document.getElementById('btn-analyze-progress');
         const loading = document.getElementById('ia-loading');
         
-        if(document.getElementById('ia-loading-text')) document.getElementById('ia-loading-text').textContent = "Consultando todo o histórico...";
         btn.disabled = true; loading.classList.remove('hidden');
 
         try {
-            // Puxa TUDO (não confia em filtros do banco)
-            const snap = await AppIA.db.ref(`data/${AppIA.user.uid}/workouts`).once('value');
-            if(!snap.exists()) throw new Error("Sem treinos.");
-            
-            let history = [];
-            snap.forEach(c => history.push(c.val()));
-            
-            // 1. CONVERSÃO
-            const preparedHistory = history.map(w => {
+            // AQUI É A MUDANÇA: Usamos o Cache que já está carregado na tela
+            // Se aparece na tela, está no workoutsCache.
+            let history = AppIA.workoutsCache;
+
+            if (!history || history.length === 0) throw new Error("A lista de treinos parece vazia na tela.");
+
+            // Ordena (Garante Antigo -> Novo)
+            history.sort((a,b) => AppIA.getTimestamp(a.date) - AppIA.getTimestamp(b.date));
+
+            // Pega os últimos 15
+            const lastWorkouts = history.slice(-15).map(w => {
                 let status = (w.status || '').toLowerCase();
                 let isDone = status.includes('realizado') || status.includes('concluido');
-                
                 return {
-                    originalDate: w.date,
-                    ts: AppIA.getTimestamp(w.date), // Timestamp numérico real
-                    title: w.title,
+                    data: AppIA.getReadableDate(w.date),
+                    treino: w.title,
                     isDone: isDone,
                     feedback: w.feedback || "",
-                    stats: w.stravaData ? `${w.stravaData.distancia}` : ""
+                    strava: w.stravaData ? w.stravaData.distancia : "N/A"
                 };
             });
 
-            // 2. ORDENAÇÃO NUMÉRICA (Infalível: Antigo -> Novo)
-            preparedHistory.sort((a, b) => a.ts - b.ts);
-
-            // 3. SELEÇÃO
-            const lastWorkouts = preparedHistory.slice(-15);
-
-            // 4. DEBUG NO ALERTA (Aqui você vai ver 10/12 no final da lista)
-            const debugList = lastWorkouts.map(w => `${AppIA.getReadableDate(w.originalDate)} - ${w.title} (${w.isDone?'FEITO':'PENDENTE'})`).join('\n');
-            alert(`🔍 ENVIANDO PARA IA:\n\n${debugList}`);
+            // DEBUG: Confirme que 10/12 aparece aqui
+            const debugText = lastWorkouts.map(w => `[${w.data}] ${w.treino} (${w.isDone?'FEITO':'PENDENTE'})`).join('\n');
+            alert(`🔍 IA VAI LER DA TELA:\n\n${debugText}`);
 
             const todayStr = new Date().toLocaleDateString('pt-BR');
-            
-            const prompt = `
-            ATUE COMO: Treinador de Corrida. HOJE: ${todayStr}.
-            
-            HISTÓRICO (Cronológico - O último da lista é o mais recente):
-            ${JSON.stringify(lastWorkouts)}
-            
-            OBS: O campo "ts" é o timestamp da data. Confie nele para a ordem.
-            
-            MISSÃO:
-            1. Qual foi EXATAMENTE o último treino marcado como "isDone": true? (Data e Nome).
-            2. Analise os treinos de Dezembro.
-            3. Dê feedback.
-            `;
+            const prompt = `ATUE COMO: Treinador. HOJE: ${todayStr}. 
+            DADOS REAIS (Lidos da tela do aluno): ${JSON.stringify(lastWorkouts)}.
+            O ÚLTIMO DA LISTA É O MAIS RECENTE.
+            MISSÃO: Identifique o último treino FEITO e analise.`;
 
             const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${window.GEMINI_API_KEY}`, {
                 method: 'POST', headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
             });
-            
-            if(!r.ok) throw new Error("Erro na API da IA.");
             const json = await r.json();
-            
             document.getElementById('ia-report-content').textContent = json.candidates[0].content.parts[0].text; 
             document.getElementById('ia-report-modal').classList.remove('hidden');
 
-        } catch(e) { 
-            alert("Erro na análise: " + e.message); 
-        } finally { 
-            btn.disabled = false; loading.classList.add('hidden'); 
-        }
+        } catch(e) { alert("Erro: " + e.message); } finally { btn.disabled = false; loading.classList.add('hidden'); }
     },
 
-    // --- 7. GERAÇÃO DE PLANILHA ---
+    // --- 6. GERAÇÃO DE PLANILHA ---
     generatePlanWithAI: async () => {
         const btn = document.getElementById('btn-generate-plan');
         const loading = document.getElementById('ia-loading');
         btn.disabled = true; loading.classList.remove('hidden');
-
         try {
-            const snap = await AppIA.db.ref(`data/${AppIA.user.uid}/workouts`).once('value');
-            let history = [];
-            if(snap.exists()) snap.forEach(c => history.push(c.val()));
+            // Usa o cache aqui também para consistência
+            let history = AppIA.workoutsCache;
+            const recent = history.slice(-15).map(w => ({ date: w.date, title: w.title }));
             
-            const preparedHistory = history.map(w => ({
-                date: w.date,
-                ts: AppIA.getTimestamp(w.date),
-                title: w.title,
-                status: (w.status || '').toLowerCase().includes('realizado') ? "FEITO" : "PENDENTE"
-            }));
-            preparedHistory.sort((a, b) => a.ts - b.ts);
-            
-            const recent = preparedHistory.slice(-15);
-            const todayStr = new Date().toISOString().split('T')[0];
-            
-            const prompt = `ATUE COMO: Treinador. HOJE: ${todayStr}. HISTÓRICO: ${JSON.stringify(recent)}. 
-            TAREFA: Gere 3 treinos futuros a partir de amanhã.
-            SAÍDA JSON: [ { "date": "YYYY-MM-DD", "title": "...", "description": "..." } ]`;
+            const prompt = `ATUE COMO: Treinador. HISTÓRICO: ${JSON.stringify(recent)}. Gere 3 treinos futuros. SAÍDA JSON: [ { "date": "YYYY-MM-DD", "title": "...", "description": "..." } ]`;
 
             const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${window.GEMINI_API_KEY}`, {
                 method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -350,56 +266,49 @@ const AppIA = {
             const json = await r.json();
             const text = json.candidates[0].content.parts[0].text.replace(/```json/g, '').replace(/```/g, '').trim();
             const newW = JSON.parse(text);
-
             const updates = {};
             newW.forEach(w => {
                 const k = AppIA.db.ref().push().key;
                 updates[`data/${AppIA.user.uid}/workouts/${k}`] = { ...w, status: 'planejado', createdBy: 'IA', createdAt: new Date().toISOString() };
             });
             await AppIA.db.ref().update(updates);
-            alert("Planilha Atualizada!");
+            alert("Planilha Criada!");
         } catch (e) { alert(e.message); } finally { btn.disabled = false; loading.classList.add('hidden'); }
     },
 
-    // --- 8. FUNÇÕES GERAIS ---
+    // --- 7. FUNÇÕES GERAIS ---
     deleteWorkout: async (workoutId) => {
-        if(confirm("Apagar treino?")) {
-            try { 
-                await AppIA.db.ref(`data/${AppIA.user.uid}/workouts/${workoutId}`).remove(); 
-                await AppIA.db.ref(`publicWorkouts/${workoutId}`).remove(); 
-            } catch(e){ alert(e.message); }
+        if(confirm("Apagar?")) {
+            await AppIA.db.ref(`data/${AppIA.user.uid}/workouts/${workoutId}`).remove();
+            await AppIA.db.ref(`publicWorkouts/${workoutId}`).remove();
         }
     },
 
     openFeedbackModal: (workoutId, title, originalDate) => {
         AppIA.modalState.currentWorkoutId = workoutId;
-        document.getElementById('feedback-modal-title').textContent = title || "Treino";
+        document.getElementById('feedback-modal-title').textContent = title;
         document.getElementById('workout-status').value = 'realizado';
-        document.getElementById('workout-feedback-text').value = ''; 
         document.getElementById('photo-upload-input').value = null;
-        const stravaDisplay = document.getElementById('strava-data-display');
-        if(stravaDisplay) stravaDisplay.classList.add('hidden');
+        document.getElementById('strava-data-display').classList.add('hidden');
         document.getElementById('feedback-modal').classList.remove('hidden');
         
         const form = document.getElementById('feedback-form');
         if (!document.getElementById('feedback-date-realized')) {
             const d = document.createElement('div'); d.className = 'form-group';
-            d.innerHTML = `<label style="display:block; font-weight:bold; margin-bottom:5px;">Data Realizada</label><input type="date" id="feedback-date-realized" style="width:100%; padding:8px; border:1px solid #ccc; border-radius:4px;">`;
-            const s = form.querySelector('.form-group'); s.parentNode.insertBefore(d, s.nextSibling);
+            d.innerHTML = `<label>Data Realizada</label><input type="date" id="feedback-date-realized" style="width:100%;">`;
+            form.prepend(d); 
         }
         
-        // Garante data ISO (YYYY-MM-DD) para o input
         const ts = AppIA.getTimestamp(originalDate);
-        const isoDate = ts ? new Date(ts).toISOString().split('T')[0] : new Date().toISOString().split('T')[0];
-        document.getElementById('feedback-date-realized').value = isoDate;
+        const iso = ts ? new Date(ts).toISOString().split('T')[0] : new Date().toISOString().split('T')[0];
+        document.getElementById('feedback-date-realized').value = iso;
     },
     
-    closeFeedbackModal: (e) => { if(e) e.preventDefault(); document.getElementById('feedback-modal').classList.add('hidden'); },
+    closeFeedbackModal: () => document.getElementById('feedback-modal').classList.add('hidden'),
     
     handleFeedbackSubmit: async (e) => {
         e.preventDefault();
-        const btn = document.getElementById('save-feedback-btn');
-        btn.textContent = "Salvando..."; btn.disabled = true;
+        const btn = document.getElementById('save-feedback-btn'); btn.disabled = true;
         try {
             const updates = {
                 status: document.getElementById('workout-status').value,
@@ -415,33 +324,29 @@ const AppIA = {
             }
             if(AppIA.stravaData) updates.stravaData = AppIA.stravaData;
             await AppIA.db.ref(`data/${AppIA.user.uid}/workouts/${AppIA.modalState.currentWorkoutId}`).update(updates);
-            AppIA.closeFeedbackModal(); alert("Salvo!");
-        } catch(err) { alert(err.message); } finally { btn.textContent = "Salvar"; btn.disabled = false; }
+            document.getElementById('feedback-modal').classList.add('hidden');
+            alert("Salvo!");
+        } catch(err) { alert(err.message); } finally { btn.disabled = false; }
     },
 
     handlePhotoAnalysis: async (e) => {
         const file = e.target.files[0]; if (!file) return;
-        const feedbackEl = document.getElementById('photo-upload-feedback'); feedbackEl.textContent = "Lendo...";
         try {
-            const base64 = await AppIA.fileToBase64(file);
-            const prompt = `Analise foto. JSON: { "distancia": "X km", "tempo": "HH:MM:SS", "ritmo": "X:XX /km" }`;
+            const base64 = await new Promise((r,j)=>{const d=new FileReader();d.onload=()=>r(d.result.split(',')[1]);d.readAsDataURL(file)});
             const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${window.GEMINI_API_KEY}`, {
-                method: 'POST', headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ contents: [{ parts: [{ text: prompt }, { inlineData: { mimeType: file.type, data: base64 } }] }] })
+                method: 'POST', headers: {'Content-Type':'application/json'},
+                body: JSON.stringify({contents:[{parts:[{text:"Analise foto. JSON: {distancia, tempo, ritmo}"},{inlineData:{mimeType:file.type,data:base64}}]}]})
             });
             const d = await r.json();
-            const text = d.candidates[0].content.parts[0].text.replace(/```json/g, '').replace(/```/g, '').trim();
-            const data = JSON.parse(text);
-            AppIA.stravaData = data; 
-            const display = document.getElementById('strava-data-display');
-            if(display) { display.classList.remove('hidden'); display.innerHTML = `<legend>Foto</legend><p>Dist: ${data.distancia} | Pace: ${data.ritmo}</p>`; }
-            feedbackEl.textContent = "Ok!";
-        } catch (err) { feedbackEl.textContent = "Erro leitura."; }
+            const text = d.candidates[0].content.parts[0].text.replace(/```json/g,'').replace(/```/g,'').trim();
+            AppIA.stravaData = JSON.parse(text);
+            const disp = document.getElementById('strava-data-display');
+            disp.classList.remove('hidden');
+            disp.innerHTML = `<legend>Foto</legend>${AppIA.stravaData.distancia}`;
+        } catch(e) { alert("Erro IA"); }
     },
 
-    fileToBase64: (file) => new Promise((r, j) => { const reader = new FileReader(); reader.onload = () => r(reader.result.split(',')[1]); reader.onerror = j; reader.readAsDataURL(file); }),
-    
-    // --- 9. STRAVA CONNECT & CALLBACK ---
+    // Strava e Manual
     checkStravaConnection: () => {
         AppIA.db.ref(`users/${AppIA.user.uid}/stravaAuth`).on('value', snapshot => {
             const btnConnect = document.getElementById('btn-connect-strava');
@@ -460,41 +365,22 @@ const AppIA = {
             }
         });
     },
-
     handleStravaCallback: async (code) => {
         try {
             const checkUser = setInterval(async () => {
                 const user = firebase.auth().currentUser;
-                if (user) { 
-                    clearInterval(checkUser); 
-                    const token = await user.getIdToken(); 
-                    await fetch(window.STRAVA_PUBLIC_CONFIG.vercelAPI, { 
-                        method: 'POST', 
-                        headers: {'Content-Type': 'application/json', 'Authorization': `Bearer ${token}`}, 
-                        body: JSON.stringify({code}) 
-                    }); 
-                    window.location.href = "aluno-ia.html"; 
-                }
+                if (user) { clearInterval(checkUser); const token = await user.getIdToken(); await fetch(window.STRAVA_PUBLIC_CONFIG.vercelAPI, { method: 'POST', headers: {'Content-Type': 'application/json', 'Authorization': `Bearer ${token}`}, body: JSON.stringify({code}) }); window.location.href = "aluno-ia.html"; }
             }, 500);
         } catch(e) { alert("Erro Strava."); }
     },
     
-    // --- 10. ATIVIDADE MANUAL ---
     openLogActivityModal: () => document.getElementById('log-activity-modal').classList.remove('hidden'),
     closeLogActivityModal: () => document.getElementById('log-activity-modal').classList.add('hidden'),
-    
     handleLogActivitySubmit: async (e) => {
         e.preventDefault();
-        const data = { 
-            date: document.getElementById('log-date').value, 
-            title: document.getElementById('log-title').value, 
-            description: document.getElementById('log-description').value, 
-            status: 'realizado', 
-            createdBy: 'MANUAL', 
-            createdAt: new Date().toISOString() 
-        };
+        const data = { date: document.getElementById('log-date').value, title: document.getElementById('log-title').value, description: document.getElementById('log-description').value, status: 'realizado', createdBy: 'MANUAL', createdAt: new Date().toISOString() };
         await AppIA.db.ref(`data/${AppIA.user.uid}/workouts`).push(data); 
-        AppIA.closeLogActivityModal();
+        document.getElementById('log-activity-modal').classList.add('hidden');
     }
 };
 

@@ -1,6 +1,6 @@
 /* =================================================================== */
-/* ALUNO IA - MÓDULO V40.0 (FINAL: ORDENAÇÃO ISO FORÇADA)
-/* GARANTIA: Converte "2025 12 10" para "2025-12-10" antes da IA ler.
+/* ALUNO IA - MÓDULO V41.0 (BRUTE FORCE DATE FIX)
+/* PERITO: Força leitura total e ordenação local por Timestamp.
 /* =================================================================== */
 
 const AppIA = {
@@ -59,7 +59,7 @@ const AppIA = {
         if (urlParams.get('code')) AppIA.handleStravaCallback(urlParams.get('code'));
     },
 
-    // --- 2. LISTENERS DE AUTENTICAÇÃO ---
+    // --- 2. LISTENERS ---
     setupAuthListeners: () => {
         const toReg = document.getElementById('toggleToRegister');
         const toLog = document.getElementById('toggleToLogin');
@@ -129,33 +129,46 @@ const AppIA = {
         if(closeReport) closeReport.onclick = () => document.getElementById('ia-report-modal').classList.add('hidden');
     },
 
-    // --- 4. ENGINE DE DATAS (CORREÇÃO ABSOLUTA) ---
-    // Transforma qualquer formato maluco ("2025 12 10") em ISO padrão ("2025-12-10")
-    getCleanDateISO: (dateStr) => {
-        if (!dateStr) return "1970-01-01";
+    // --- 4. ENGINE DE DATA (BRUTE FORCE) ---
+    // Converte e Normaliza TUDO para Timestamp numérico
+    getTimestamp: (dateStr) => {
+        if (!dateStr) return 0;
         try {
-            let s = dateStr.toString().trim();
-            // 1. Substitui espaços e pontos por hífen
-            s = s.replace(/[\s\.]/g, '-');
+            // Remove lixo
+            let s = dateStr.toString().trim().replace(/[\s\.]/g, '-');
             
-            // 2. Se for DD/MM/YYYY, inverte
+            // Se for DD/MM/YYYY ou DD-MM-YYYY
             if (s.match(/^\d{2}[\/-]\d{2}[\/-]\d{4}$/)) {
                 const p = s.split(/[\/-]/);
-                return `${p[2]}-${p[1]}-${p[0]}`; 
+                // Mês em JS começa em 0, mas Date string usa 1-12. 
+                // Melhor formato: YYYY-MM-DD
+                return new Date(`${p[2]}-${p[1]}-${p[0]}`).getTime();
             }
-            // 3. Assume que agora está YYYY-MM-DD
-            return s; 
-        } catch (e) { return "1970-01-01"; }
+            
+            // Se for YYYY-MM-DD
+            if (s.match(/^\d{4}-\d{2}-\d{2}$/)) {
+                return new Date(s).getTime();
+            }
+            
+            return new Date(s).getTime();
+        } catch (e) { return 0; }
     },
 
-    // --- 5. RENDERIZAÇÃO DA LISTA ---
+    getReadableDate: (dateStr) => {
+        // Apenas para mostrar bonito no alerta
+        let ts = AppIA.getTimestamp(dateStr);
+        if(!ts) return dateStr;
+        return new Date(ts).toLocaleDateString('pt-BR');
+    },
+
+    // --- 5. RENDERIZAÇÃO ---
     loadWorkouts: () => {
         const list = document.getElementById('workout-list');
         if(!list) return;
         
         list.innerHTML = "<p style='text-align:center; padding:1rem;'>Carregando...</p>";
         
-        // Pega tudo do banco
+        // Pega TUDO
         AppIA.db.ref(`data/${AppIA.user.uid}/workouts`).on('value', snapshot => {
             list.innerHTML = ""; 
             if(!snapshot.exists()) { 
@@ -163,25 +176,20 @@ const AppIA = {
                 return; 
             }
             
-            // Transforma em Array para ordenar na memória
             let arr = [];
             snapshot.forEach(childSnapshot => {
                 arr.push({ id: childSnapshot.key, ...childSnapshot.val() });
             });
 
-            // Ordena usando a Data ISO Limpa (Antigo -> Recente)
-            arr.sort((a,b) => {
-                const dA = AppIA.getCleanDateISO(a.date);
-                const dB = AppIA.getCleanDateISO(b.date);
-                return dA.localeCompare(dB);
-            });
+            // Ordena pelo Timestamp (Crescente)
+            arr.sort((a,b) => AppIA.getTimestamp(a.date) - AppIA.getTimestamp(b.date));
             
-            // Exibe (Prepend inverte visualmente: Recente no topo)
+            // Renderiza (Prepend inverte -> Recente no topo)
             arr.forEach(w => {
                 try {
                     const card = AppIA.createWorkoutCard(w);
                     list.prepend(card); 
-                } catch (err) { console.error("Erro render:", err); }
+                } catch (err) { console.error(err); }
             });
         });
     },
@@ -234,66 +242,61 @@ const AppIA = {
         return `<fieldset class="strava-data-display" style="border:1px solid #fc4c02; background:#fff5f0; padding:10px; border-radius:5px; margin-top:10px;"><legend style="color:#fc4c02; font-weight:bold; font-size:0.9rem;"><img src="img/strava.png" alt="Strava" style="height:20px; vertical-align:middle; margin-right:5px;">Dados</legend><div style="font-family:monospace; font-weight:bold; font-size:1rem; color:#333;">Dist: ${stravaData.distancia||"N/A"} | Tempo: ${stravaData.tempo||"N/A"} | Pace: ${stravaData.ritmo||"N/A"}</div>${mapLinkHtml}${splitsHtml}</fieldset>`;
     },
 
-    // --- 6. CÉREBRO IA: ANÁLISE (CORRIGIDA COM DEBUG) ---
+    // --- 6. CÉREBRO IA: ANÁLISE (CORRIGIDA) ---
     analyzeProgressWithAI: async () => {
         const btn = document.getElementById('btn-analyze-progress');
         const loading = document.getElementById('ia-loading');
-        const modal = document.getElementById('ia-report-modal');
-        const content = document.getElementById('ia-report-content');
         
         if(document.getElementById('ia-loading-text')) document.getElementById('ia-loading-text').textContent = "Consultando todo o histórico...";
         btn.disabled = true; loading.classList.remove('hidden');
 
         try {
+            // Puxa TUDO (não confia em filtros do banco)
             const snap = await AppIA.db.ref(`data/${AppIA.user.uid}/workouts`).once('value');
             if(!snap.exists()) throw new Error("Sem treinos.");
             
             let history = [];
             snap.forEach(c => history.push(c.val()));
             
-            // 1. PREPARAÇÃO (Força data ISO para ordenar corretamente)
+            // 1. CONVERSÃO
             const preparedHistory = history.map(w => {
                 let status = (w.status || '').toLowerCase();
                 let isDone = status.includes('realizado') || status.includes('concluido');
                 
                 return {
-                    originalDate: w.date, // Como está no banco (ex: "2025 12 10")
-                    isoDate: AppIA.getCleanDateISO(w.date), // Normalizado ("2025-12-10")
+                    originalDate: w.date,
+                    ts: AppIA.getTimestamp(w.date), // Timestamp numérico real
                     title: w.title,
                     isDone: isDone,
-                    feedback: w.feedback || "Sem feedback",
-                    stats: w.stravaData ? `${w.stravaData.distancia} em ${w.stravaData.tempo}` : "Sem GPS"
+                    feedback: w.feedback || "",
+                    stats: w.stravaData ? `${w.stravaData.distancia}` : ""
                 };
             });
 
-            // 2. ORDENAÇÃO POR DATA ISO (Crescente: Jan -> Dez)
-            // Isso garante que Dezembro fique no FINAL do array
-            preparedHistory.sort((a, b) => a.isoDate.localeCompare(b.isoDate));
+            // 2. ORDENAÇÃO NUMÉRICA (Infalível: Antigo -> Novo)
+            preparedHistory.sort((a, b) => a.ts - b.ts);
 
-            // 3. SELEÇÃO (Pega os últimos 15 itens da lista ordenada)
+            // 3. SELEÇÃO
             const lastWorkouts = preparedHistory.slice(-15);
 
-            // 4. DIAGNÓSTICO VISUAL (Para você ver o que a IA está recebendo)
-            const debugText = lastWorkouts.map(w => `[${w.isoDate}] ${w.title} (${w.isDone ? 'FEITO' : 'PENDENTE'})`).join('\n');
-            alert(`🔍 ENVIANDO ESTES TREINOS À IA (Verifique se 10/12 está aqui):\n\n${debugText}`);
+            // 4. DEBUG NO ALERTA (Aqui você vai ver 10/12 no final da lista)
+            const debugList = lastWorkouts.map(w => `${AppIA.getReadableDate(w.originalDate)} - ${w.title} (${w.isDone?'FEITO':'PENDENTE'})`).join('\n');
+            alert(`🔍 ENVIANDO PARA IA:\n\n${debugList}`);
 
             const todayStr = new Date().toLocaleDateString('pt-BR');
             
             const prompt = `
             ATUE COMO: Treinador de Corrida. HOJE: ${todayStr}.
             
-            LISTA DE TREINOS (ORDEM CRONOLÓGICA - O ÚLTIMO É O MAIS RECENTE):
-            ${JSON.stringify(lastWorkouts, null, 2)}
+            HISTÓRICO (Cronológico - O último da lista é o mais recente):
+            ${JSON.stringify(lastWorkouts)}
             
-            INSTRUÇÃO TÉCNICA:
-            1. Olhe para o FINAL da lista JSON acima. O item mais abaixo é o treino mais novo.
-            2. Se houver treinos com data em Dezembro (2025-12-XX) e "isDone": true, use-os como referência principal.
-            3. Ignore o fato de que a data pode parecer futura se hoje for antes de 2025 no seu relógio interno, confie nos dados fornecidos.
+            OBS: O campo "ts" é o timestamp da data. Confie nele para a ordem.
             
             MISSÃO:
-            - Confirme qual foi o último treino FEITO.
-            - Analise o volume e consistência.
-            - Dê conselhos.
+            1. Qual foi EXATAMENTE o último treino marcado como "isDone": true? (Data e Nome).
+            2. Analise os treinos de Dezembro.
+            3. Dê feedback.
             `;
 
             const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${window.GEMINI_API_KEY}`, {
@@ -304,8 +307,8 @@ const AppIA = {
             if(!r.ok) throw new Error("Erro na API da IA.");
             const json = await r.json();
             
-            content.textContent = json.candidates[0].content.parts[0].text; 
-            modal.classList.remove('hidden');
+            document.getElementById('ia-report-content').textContent = json.candidates[0].content.parts[0].text; 
+            document.getElementById('ia-report-modal').classList.remove('hidden');
 
         } catch(e) { 
             alert("Erro na análise: " + e.message); 
@@ -314,7 +317,7 @@ const AppIA = {
         }
     },
 
-    // --- 7. GERAÇÃO DE PLANILHA (Ordenação Fixada) ---
+    // --- 7. GERAÇÃO DE PLANILHA ---
     generatePlanWithAI: async () => {
         const btn = document.getElementById('btn-generate-plan');
         const loading = document.getElementById('ia-loading');
@@ -326,11 +329,12 @@ const AppIA = {
             if(snap.exists()) snap.forEach(c => history.push(c.val()));
             
             const preparedHistory = history.map(w => ({
-                date: AppIA.getCleanDateISO(w.date),
+                date: w.date,
+                ts: AppIA.getTimestamp(w.date),
                 title: w.title,
                 status: (w.status || '').toLowerCase().includes('realizado') ? "FEITO" : "PENDENTE"
             }));
-            preparedHistory.sort((a, b) => a.date.localeCompare(b.date));
+            preparedHistory.sort((a, b) => a.ts - b.ts);
             
             const recent = preparedHistory.slice(-15);
             const todayStr = new Date().toISOString().split('T')[0];
@@ -384,8 +388,10 @@ const AppIA = {
             const s = form.querySelector('.form-group'); s.parentNode.insertBefore(d, s.nextSibling);
         }
         
-        // Garante data ISO no input
-        document.getElementById('feedback-date-realized').value = AppIA.getCleanDateISO(originalDate);
+        // Garante data ISO (YYYY-MM-DD) para o input
+        const ts = AppIA.getTimestamp(originalDate);
+        const isoDate = ts ? new Date(ts).toISOString().split('T')[0] : new Date().toISOString().split('T')[0];
+        document.getElementById('feedback-date-realized').value = isoDate;
     },
     
     closeFeedbackModal: (e) => { if(e) e.preventDefault(); document.getElementById('feedback-modal').classList.add('hidden'); },
@@ -435,7 +441,7 @@ const AppIA = {
 
     fileToBase64: (file) => new Promise((r, j) => { const reader = new FileReader(); reader.onload = () => r(reader.result.split(',')[1]); reader.onerror = j; reader.readAsDataURL(file); }),
     
-    // --- 9. STRAVA CONNECT ---
+    // --- 9. STRAVA CONNECT & CALLBACK ---
     checkStravaConnection: () => {
         AppIA.db.ref(`users/${AppIA.user.uid}/stravaAuth`).on('value', snapshot => {
             const btnConnect = document.getElementById('btn-connect-strava');
@@ -454,23 +460,41 @@ const AppIA = {
             }
         });
     },
+
     handleStravaCallback: async (code) => {
         try {
             const checkUser = setInterval(async () => {
                 const user = firebase.auth().currentUser;
-                if (user) { clearInterval(checkUser); const token = await user.getIdToken(); await fetch(window.STRAVA_PUBLIC_CONFIG.vercelAPI, { method: 'POST', headers: {'Content-Type': 'application/json', 'Authorization': `Bearer ${token}`}, body: JSON.stringify({code}) }); window.location.href = "aluno-ia.html"; }
+                if (user) { 
+                    clearInterval(checkUser); 
+                    const token = await user.getIdToken(); 
+                    await fetch(window.STRAVA_PUBLIC_CONFIG.vercelAPI, { 
+                        method: 'POST', 
+                        headers: {'Content-Type': 'application/json', 'Authorization': `Bearer ${token}`}, 
+                        body: JSON.stringify({code}) 
+                    }); 
+                    window.location.href = "aluno-ia.html"; 
+                }
             }, 500);
         } catch(e) { alert("Erro Strava."); }
     },
     
-    // --- 10. MANUAL ---
+    // --- 10. ATIVIDADE MANUAL ---
     openLogActivityModal: () => document.getElementById('log-activity-modal').classList.remove('hidden'),
     closeLogActivityModal: () => document.getElementById('log-activity-modal').classList.add('hidden'),
     
     handleLogActivitySubmit: async (e) => {
         e.preventDefault();
-        const data = { date: document.getElementById('log-date').value, title: document.getElementById('log-title').value, description: document.getElementById('log-description').value, status: 'realizado', createdBy: 'MANUAL', createdAt: new Date().toISOString() };
-        await AppIA.db.ref(`data/${AppIA.user.uid}/workouts`).push(data); AppIA.closeLogActivityModal();
+        const data = { 
+            date: document.getElementById('log-date').value, 
+            title: document.getElementById('log-title').value, 
+            description: document.getElementById('log-description').value, 
+            status: 'realizado', 
+            createdBy: 'MANUAL', 
+            createdAt: new Date().toISOString() 
+        };
+        await AppIA.db.ref(`data/${AppIA.user.uid}/workouts`).push(data); 
+        AppIA.closeLogActivityModal();
     }
 };
 

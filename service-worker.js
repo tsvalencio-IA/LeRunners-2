@@ -1,17 +1,19 @@
 /* =================================================================== */
-/* SERVICE WORKER - V5.0 (FORCE UPDATE - LEAK FIX)
+/* SERVICE WORKER - V6.0 (FORCE UPDATE - CRITICAL FIX)
 /* =================================================================== */
 
-const CACHE_NAME = 'lerunners-cache-v5.0-KEY-FIX'; // Versão alterada para obrigar reload
+const CACHE_NAME = 'lerunners-cache-v6.0-CRITICAL-FIX'; // Versão alterada para obrigar reload
 
 const FILES_TO_CACHE = [
     './',
     './index.html',
     './app.html',
+    './aluno-ia.html',
     './css/styles.css',
     './js/config.js',
     './js/app.js',
     './js/panels.js',
+    './js/aluno-ia.js', // ESSENCIAL PARA A CORREÇÃO
     './manifest.json',
     './img/logo-192.png',
     './img/logo-512.png',

@@ -1,6 +1,6 @@
 /* =================================================================== */
-/* ALUNO IA - MÓDULO DE CONSULTORIA ONLINE (V19.0 - ANALYTICS FINAL)
-/* CONTÉM: TUDO DA V18 + GERAÇÃO DE RELATÓRIO DE PROGRESSO (COACH IA)
+/* ALUNO IA - MÓDULO DE CONSULTORIA ONLINE (V20.0 - SPLITS RESTORED)
+/* CONTÉM: FISIOLOGISTA, UPLOAD BLINDADO, ANALYTICS, LOGO STRAVA, SPLITS
 /* =================================================================== */
 
 const AppIA = {
@@ -84,10 +84,8 @@ const AppIA = {
         document.getElementById('btn-logout').onclick = () => AppIA.auth.signOut();
         document.getElementById('btn-logout-pending').onclick = () => AppIA.auth.signOut();
         
-        // --- LISTENERS DOS BOTÕES DA IA ---
+        // Listeners dos botões de IA
         document.getElementById('btn-generate-plan').onclick = AppIA.generatePlanWithAI;
-        
-        // NOVO: Botão de Análise de Progresso (Se existir no HTML)
         const btnAnalyze = document.getElementById('btn-analyze-progress');
         if(btnAnalyze) btnAnalyze.onclick = AppIA.analyzeProgressWithAI;
     },
@@ -109,12 +107,12 @@ const AppIA = {
         if(closeLog) closeLog.onclick = AppIA.closeLogActivityModal;
         if(formLog) formLog.onsubmit = AppIA.handleLogActivitySubmit;
 
-        // Modal Relatório (NOVO)
+        // Modal Relatório
         const closeReport = document.getElementById('close-ia-report-modal');
         if(closeReport) closeReport.onclick = () => document.getElementById('ia-report-modal').classList.add('hidden');
     },
 
-    // --- FUNÇÃO EXCLUIR TREINO (MANTIDA DA V18) ---
+    // --- FUNÇÃO EXCLUIR TREINO ---
     deleteWorkout: async (workoutId) => {
         if(confirm("Tem certeza que deseja excluir este treino da sua planilha?")) {
             try {
@@ -125,7 +123,7 @@ const AppIA = {
         }
     },
 
-    // --- ATIVIDADE AVULSA (MANTIDA DA V18) ---
+    // --- ATIVIDADE AVULSA ---
     openLogActivityModal: () => {
         document.getElementById('log-activity-form').reset();
         document.getElementById('log-date').value = new Date().toISOString().split('T')[0];
@@ -156,7 +154,7 @@ const AppIA = {
         } catch(err) { alert("Erro: " + err.message); } finally { btn.disabled = false; }
     },
 
-    // --- FEEDBACK COM DATA FLEXÍVEL (MANTIDA DA V17/V18) ---
+    // --- FEEDBACK COM DATA FLEXÍVEL ---
     openFeedbackModal: (workoutId, title, originalDate) => {
         AppIA.modalState.currentWorkoutId = workoutId;
         document.getElementById('feedback-modal-title').textContent = `Registro: ${title}`;
@@ -314,7 +312,7 @@ const AppIA = {
         btn.innerHTML = "<i class='bx bx-refresh'></i> Sincronizar Agora";
     },
 
-    // --- RENDERIZAÇÃO (COM BOTÃO DELETE V18) ---
+    // --- RENDERIZAÇÃO (COM SPLITS + DELETE + AÇÕES) ---
     loadWorkouts: () => {
         AppIA.db.ref(`data/${AppIA.user.uid}/workouts`).orderByChild('date').on('value', snapshot => {
             const list = document.getElementById('workout-list');
@@ -329,7 +327,6 @@ const AppIA = {
                 el.className = 'workout-card';
                 const isDone = w.status === 'realizado';
                 
-                // Botão DELETE
                 const deleteBtnHtml = `
                     <button class="btn-delete" style="background: #ff4444; color: white; border: none; padding: 8px 12px; border-radius: 4px; cursor: pointer; margin-right: 5px;" title="Excluir Treino">
                         <i class='bx bx-trash'></i>
@@ -383,21 +380,36 @@ const AppIA = {
         });
     },
 
+    // --- CORREÇÃO V20.0: EXIBIÇÃO DE SPLITS (KM A KM) ---
     createStravaDataDisplay: (stravaData) => {
         if (!stravaData) return '';
+        
         let mapLinkHtml = '';
         if (stravaData.mapLink) {
             mapLinkHtml = `<p style="margin-top:5px;"><a href="${stravaData.mapLink}" target="_blank" style="color: #fc4c02; font-weight: bold; text-decoration: none;">🗺️ Ver no Strava</a></p>`;
         }
+
+        // LÓGICA DE SPLITS RESTAURADA
+        let splitsHtml = '';
+        if (stravaData.splits && Array.isArray(stravaData.splits) && stravaData.splits.length > 0) {
+            splitsHtml = `<div style="margin-top:10px; padding-top:5px; border-top:1px dashed #ccc; font-size:0.85rem; color:#555;">
+                <strong>Parciais:</strong><br>`;
+            stravaData.splits.forEach(s => {
+                splitsHtml += `Km ${s.km}: ${s.pace} <span style="font-size:0.8em; color:#999;">(${s.ele}m)</span><br>`;
+            });
+            splitsHtml += `</div>`;
+        }
+
         return `
             <fieldset class="strava-data-display" style="border: 1px solid #fc4c02; background: #fff5f0; padding: 10px; border-radius: 5px; margin-top: 10px;">
                 <legend style="color: #fc4c02; font-weight: bold; font-size: 0.9rem;">
                     <img src="img/strava.png" alt="Powered by Strava" style="height: 20px; vertical-align: middle; margin-right: 5px;">
                     Dados do Treino
                 </legend>
-                <div style="font-family:monospace;">
+                <div style="font-family:monospace; font-weight:bold; font-size:1rem;">
                     Dist: ${stravaData.distancia || "N/A"} | Tempo: ${stravaData.tempo || "N/A"} | Pace: ${stravaData.ritmo || "N/A"}
                 </div>
+                ${splitsHtml}
                 ${mapLinkHtml}
             </fieldset>
         `;
@@ -447,7 +459,7 @@ const AppIA = {
                 body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
             });
 
-            if(!r.ok) throw new Error("Erro na API do Google");
+            if(!r.ok) throw new Error("Erro na API");
             const json = await r.json();
             const textResponse = json.candidates[0].content.parts[0].text;
             let cleanJson = textResponse.replace(/```json/g, '').replace(/```/g, '').trim();
@@ -471,7 +483,7 @@ const AppIA = {
         finally { btn.disabled = false; loading.classList.add('hidden'); }
     },
 
-    // --- CÉREBRO IA 2: ANÁLISE DE PROGRESSO (NOVO - V19) ---
+    // --- CÉREBRO IA 2: ANÁLISE DE PROGRESSO ---
     analyzeProgressWithAI: async () => {
         const btn = document.getElementById('btn-analyze-progress');
         const loading = document.getElementById('ia-loading');
@@ -492,15 +504,12 @@ const AppIA = {
             const prompt = `
             ATUE COMO: Seu Treinador Pessoal Sênior.
             FALE DIRETAMENTE COM O ATLETA (Use "Você").
-            
             DADOS DO ATLETA (Últimos treinos):
             ${JSON.stringify(history)}
-            
             TAREFA: Avaliar o progresso recente.
             1. Analise o Volume e Constância (Ele treinou o que foi pedido?).
             2. Analise a Intensidade e Feedback (Ele sentiu dor? Foi fácil?).
             3. Dê 3 Conselhos Práticos para a próxima semana.
-            
             Gere um relatório curto, motivador e técnico em Texto Corrido (Markdown).
             `;
 

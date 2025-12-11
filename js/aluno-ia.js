@@ -1,6 +1,7 @@
 /* =================================================================== */
-/* ALUNO IA - MÓDULO DE PRODUÇÃO (V32.0 - STABLE)
-/* CONTÉM: LOGIN FUNCIONAL + RENDERIZAÇÃO BLINDADA + IA CORRIGIDA
+/* ALUNO IA - MÓDULO PERITO (V33.0 - FIX DATA + UI COMPLETA)
+/* DIAGNÓSTICO: Correção de datas com espaços ("2025 12 10") e Strava.
+/* ESTADO: Visualização completa (Logos, Fotos, Botões) + IA precisa.
 /* =================================================================== */
 
 const AppIA = {
@@ -16,11 +17,9 @@ const AppIA = {
         AppIA.auth = firebase.auth();
         AppIA.db = firebase.database();
 
-        // Configura os ouvintes de botões (Login, Logout, Modais)
         AppIA.setupAuthListeners();
         AppIA.setupModalListeners(); 
         
-        // Monitora Estado de Autenticação
         AppIA.auth.onAuthStateChanged(user => {
             const loader = document.getElementById('loader');
             const authContainer = document.getElementById('auth-container');
@@ -31,10 +30,8 @@ const AppIA = {
             if(loader) loader.classList.add('hidden');
 
             if (user) {
-                // Usuário Logado: Verificar se tem perfil aprovado
                 AppIA.db.ref('users/' + user.uid).once('value', snapshot => {
                     if (snapshot.exists()) {
-                        // APROVADO: Entra no App
                         AppIA.user = user;
                         if(authContainer) authContainer.classList.add('hidden');
                         if(appContainer) appContainer.classList.remove('hidden');
@@ -43,9 +40,8 @@ const AppIA = {
                         if(nameDisplay) nameDisplay.textContent = snapshot.val().name;
                         
                         AppIA.checkStravaConnection();
-                        AppIA.loadWorkouts(); // Carrega lista de treinos
+                        AppIA.loadWorkouts(); 
                     } else {
-                        // PENDENTE: Mostra tela de espera
                         if(authContainer) authContainer.classList.remove('hidden');
                         if(appContainer) appContainer.classList.add('hidden');
                         if(loginForm) loginForm.classList.add('hidden');
@@ -53,7 +49,6 @@ const AppIA = {
                     }
                 });
             } else {
-                // DESLOGADO: Mostra Login
                 if(authContainer) authContainer.classList.remove('hidden');
                 if(appContainer) appContainer.classList.add('hidden');
                 if(pendingView) pendingView.classList.add('hidden');
@@ -61,14 +56,12 @@ const AppIA = {
             }
         });
 
-        // Callback do Strava (se vier do redirecionamento)
         const urlParams = new URLSearchParams(window.location.search);
         if (urlParams.get('code')) AppIA.handleStravaCallback(urlParams.get('code'));
     },
 
-    // --- 2. LISTENERS DE AUTENTICAÇÃO (LOGIN/REGISTRO) ---
+    // --- 2. LISTENERS (Login, Logout, Botões IA) ---
     setupAuthListeners: () => {
-        // Alternar entre Login e Cadastro
         const toReg = document.getElementById('toggleToRegister');
         const toLog = document.getElementById('toggleToLogin');
         
@@ -83,58 +76,42 @@ const AppIA = {
             document.getElementById('login-form').classList.remove('hidden'); 
         };
 
-        // SUBMIT LOGIN (Reinserido)
         const loginF = document.getElementById('login-form');
         if(loginF) loginF.addEventListener('submit', (e) => {
             e.preventDefault();
             const email = document.getElementById('loginEmail').value;
             const pass = document.getElementById('loginPassword').value;
-            AppIA.auth.signInWithEmailAndPassword(email, pass)
-                .catch(err => {
-                    const errEl = document.getElementById('login-error');
-                    if(errEl) errEl.textContent = "Erro: " + err.message;
-                    else alert("Erro: " + err.message);
-                });
+            AppIA.auth.signInWithEmailAndPassword(email, pass).catch(err => alert("Erro Login: " + err.message));
         });
 
-        // SUBMIT REGISTRO (Reinserido)
         const regF = document.getElementById('register-form');
         if(regF) regF.addEventListener('submit', (e) => {
             e.preventDefault();
             const name = document.getElementById('registerName').value;
             const email = document.getElementById('registerEmail').value;
             const pass = document.getElementById('registerPassword').value;
-            
             AppIA.auth.createUserWithEmailAndPassword(email, pass)
                 .then((cred) => {
-                    // Cria pendência no banco
                     AppIA.db.ref('pendingApprovals/' + cred.user.uid).set({ 
                         name, email, requestDate: new Date().toISOString(), origin: "Consultoria IA" 
                     });
                 })
-                .catch(err => {
-                    const errEl = document.getElementById('register-error');
-                    if(errEl) errEl.textContent = "Erro: " + err.message;
-                    else alert("Erro: " + err.message);
-                });
+                .catch(err => alert("Erro Registro: " + err.message));
         });
 
-        // BOTÕES DE LOGOUT
         const btnOut = document.getElementById('btn-logout');
         if(btnOut) btnOut.onclick = () => AppIA.auth.signOut();
         const btnOutP = document.getElementById('btn-logout-pending');
         if(btnOutP) btnOutP.onclick = () => AppIA.auth.signOut();
 
-        // BOTÕES DE IA
         const btnGen = document.getElementById('btn-generate-plan');
         if(btnGen) btnGen.onclick = AppIA.generatePlanWithAI;
         const btnAnalyze = document.getElementById('btn-analyze-progress');
         if(btnAnalyze) btnAnalyze.onclick = AppIA.analyzeProgressWithAI;
     },
 
-    // --- 3. LISTENERS DE MODAIS ---
+    // --- 3. MODAIS ---
     setupModalListeners: () => {
-        // Feedback
         const closeBtn = document.getElementById('close-feedback-modal');
         const form = document.getElementById('feedback-form');
         const fileInput = document.getElementById('photo-upload-input');
@@ -142,7 +119,6 @@ const AppIA = {
         if(form) form.addEventListener('submit', AppIA.handleFeedbackSubmit);
         if(fileInput) fileInput.addEventListener('change', AppIA.handlePhotoAnalysis);
 
-        // Atividade Manual
         const btnLog = document.getElementById('btn-log-manual');
         const closeLog = document.getElementById('close-log-activity-modal');
         const formLog = document.getElementById('log-activity-form');
@@ -150,29 +126,34 @@ const AppIA = {
         if(closeLog) closeLog.onclick = AppIA.closeLogActivityModal;
         if(formLog) formLog.onsubmit = AppIA.handleLogActivitySubmit;
 
-        // Relatório
         const closeReport = document.getElementById('close-ia-report-modal');
         if(closeReport) closeReport.onclick = () => document.getElementById('ia-report-modal').classList.add('hidden');
     },
 
-    // --- 4. HELPERS DE SEGURANÇA (DATA E STATUS) ---
-    
-    // Converte qualquer data bagunçada para número (para ordenar corretamente)
+    // --- 4. DATA ENGINE (O CORRETOR UNIVERSAL) ---
+    // Corrige datas como "2025 12 10", "2025.12.10" ou "10/12/2025"
     parseDateScore: (dateStr) => {
         if (!dateStr) return 0;
         try {
-            // Formato ISO (YYYY-MM-DD)
-            if (dateStr.match(/^\d{4}-\d{2}-\d{2}$/)) return new Date(dateStr).getTime();
-            // Formato BR (DD/MM/YYYY)
-            if (dateStr.match(/^\d{2}\/\d{2}\/\d{4}$/)) {
-                const [dia, mes, ano] = dateStr.split('/');
-                return new Date(`${ano}-${mes}-${dia}`).getTime();
+            // Limpa espaços e pontos, troca por hífen (Fix da Imagem 1)
+            let cleanStr = dateStr.toString().trim().replace(/[\s\.]/g, '-');
+            
+            // Se virou formato ISO (YYYY-MM-DD)
+            if (cleanStr.match(/^\d{4}-\d{2}-\d{2}$/)) {
+                return new Date(cleanStr).getTime();
             }
-            return new Date(dateStr).getTime();
+            // Se for formato BR (DD/MM/YYYY) ou DD-MM-YYYY
+            if (cleanStr.match(/^\d{2}[\/-]\d{2}[\/-]\d{4}$/)) {
+                const parts = cleanStr.split(/[\/-]/);
+                return new Date(`${parts[2]}-${parts[1]}-${parts[0]}`).getTime();
+            }
+            // Tentativa final genérica
+            const ts = new Date(cleanStr).getTime();
+            return isNaN(ts) ? 0 : ts;
         } catch (e) { return 0; }
     },
 
-    // Verifica status sem quebrar se for null
+    // Status Flexível
     isStatusCompleted: (status) => {
         if (!status) return false;
         try {
@@ -182,7 +163,7 @@ const AppIA = {
         } catch (e) { return false; }
     },
 
-    // --- 5. RENDERIZAÇÃO DA LISTA (BLINDADA) ---
+    // --- 5. RENDERIZAÇÃO (AGORA VÊ TUDO) ---
     loadWorkouts: () => {
         AppIA.db.ref(`data/${AppIA.user.uid}/workouts`).on('value', snapshot => {
             const list = document.getElementById('workout-list');
@@ -197,23 +178,22 @@ const AppIA = {
             let arr = [];
             snapshot.forEach(s => arr.push({id: s.key, ...s.val()}));
             
-            // Ordenação (Mais recente primeiro)
+            // Ordena (Mais antigo -> Mais recente)
+            // IMPORTANTE: Prepend inverte depois, deixando o mais recente no topo visualmente
             arr.sort((a,b) => AppIA.parseDateScore(a.date) - AppIA.parseDateScore(b.date));
             
-            // Loop Seguro: Se um card falhar, não trava os outros
             arr.forEach(w => {
                 try {
                     const el = document.createElement('div');
                     el.className = 'workout-card';
                     const isDone = AppIA.isStatusCompleted(w.status);
                     
-                    // Botões
                     const deleteBtnHtml = `<button class="btn-delete" style="background:#ff4444; color:white; border:none; padding:6px 10px; border-radius:4px; cursor:pointer; margin-right:5px;"><i class='bx bx-trash'></i></button>`;
                     const actionButtonHtml = isDone ? 
                         `<button class="btn-open-feedback" style="background:var(--primary-color); color:white; border:none; padding:6px 10px; border-radius:4px; cursor:pointer;"><i class='bx bx-edit'></i> Editar</button>` :
                         `<button class="btn-open-feedback" style="background:var(--success-color); color:white; border:none; padding:6px 10px; border-radius:4px; cursor:pointer;"><i class='bx bx-check-circle'></i> Registrar</button>`;
 
-                    // HTML Completo (com Strava, Foto, Splits)
+                    // UI COMPLETA MANTIDA
                     el.innerHTML = `
                         <div class="workout-card-header" style="display:flex; justify-content:space-between; align-items:center;">
                             <div><strong style="font-size:1.1em;">${w.date}</strong> <span style="margin-left:5px; color:#555;">${w.title}</span></div>
@@ -230,42 +210,45 @@ const AppIA = {
                         </div>
                     `;
                     
-                    // Eventos
                     const btnFeed = el.querySelector('.btn-open-feedback');
                     const btnDel = el.querySelector('.btn-delete');
                     if(btnFeed) btnFeed.onclick = (e) => { e.stopPropagation(); AppIA.openFeedbackModal(w.id, w.title, w.date); };
                     if(btnDel) btnDel.onclick = (e) => { e.stopPropagation(); AppIA.deleteWorkout(w.id); };
                     el.onclick = (e) => { if (!e.target.closest('button')) AppIA.openFeedbackModal(w.id, w.title, w.date); };
 
-                    list.prepend(el);
+                    list.prepend(el); // Joga para o topo da lista
                     
                 } catch (err) { 
-                    console.error("Erro ao renderizar item ignorado:", err); 
+                    console.error("Erro render item:", err, w); 
                 }
             });
         });
     },
 
-    // Helper Visual Strava (Completo)
+    // --- 6. RENDERIZAÇÃO STRAVA SEGURA ---
     createStravaDataDisplay: (stravaData) => {
         if (!stravaData) return '';
+        
         let mapLinkHtml = stravaData.mapLink ? `<p style="margin-top:5px;"><a href="${stravaData.mapLink}" target="_blank" style="color:#fc4c02; font-weight:bold; text-decoration:none;">🗺️ Ver no Strava</a></p>` : '';
+        
+        // Verifica se Splits existe e é array antes de tentar ler (Evita crash)
         let splitsHtml = '';
         if (stravaData.splits && Array.isArray(stravaData.splits) && stravaData.splits.length > 0) {
             let rows = stravaData.splits.map(s => `<tr><td style="padding:2px 5px;">Km ${s.km}</td><td style="padding:2px 5px;"><strong>${s.pace}</strong></td><td style="color:#777; font-size:0.8em;">(${s.ele}m)</td></tr>`).join('');
             splitsHtml = `<div style="margin-top:10px; padding-top:5px; border-top:1px dashed #ccc; font-size:0.85rem; color:#555;"><strong style="display:block; margin-bottom:5px;">🏁 Parciais:</strong><table style="width:100%; border-collapse:collapse;">${rows}</table></div>`;
         }
+        
         return `<fieldset class="strava-data-display" style="border:1px solid #fc4c02; background:#fff5f0; padding:10px; border-radius:5px; margin-top:10px;"><legend style="color:#fc4c02; font-weight:bold; font-size:0.9rem;"><img src="img/strava.png" alt="Strava" style="height:20px; vertical-align:middle; margin-right:5px;">Dados</legend><div style="font-family:monospace; font-weight:bold; font-size:1rem; color:#333;">Dist: ${stravaData.distancia||"N/A"} | Tempo: ${stravaData.tempo||"N/A"} | Pace: ${stravaData.ritmo||"N/A"}</div>${mapLinkHtml}${splitsHtml}</fieldset>`;
     },
 
-    // --- 6. CÉREBRO IA: ANÁLISE ---
+    // --- 7. CÉREBRO IA: ANÁLISE CORRIGIDA ---
     analyzeProgressWithAI: async () => {
         const btn = document.getElementById('btn-analyze-progress');
         const loading = document.getElementById('ia-loading');
         const modal = document.getElementById('ia-report-modal');
         const content = document.getElementById('ia-report-content');
         
-        if(document.getElementById('ia-loading-text')) document.getElementById('ia-loading-text').textContent = "Buscando histórico...";
+        if(document.getElementById('ia-loading-text')) document.getElementById('ia-loading-text').textContent = "Lendo todo o histórico...";
         btn.disabled = true; loading.classList.remove('hidden');
 
         try {
@@ -275,22 +258,25 @@ const AppIA = {
             let history = [];
             snap.forEach(c => history.push(c.val()));
             
-            // Ordenação
+            // Ordenação Universal (A correção de data aqui garante que a IA veja Dezembro depois de Novembro)
             history.sort((a, b) => AppIA.parseDateScore(a.date) - AppIA.parseDateScore(b.date));
             
-            // Filtra REALIZADOS e normaliza
+            // Filtra
             const cleanHistory = history.filter(w => AppIA.isStatusCompleted(w.status)).map(w => ({
-                date: w.date, title: w.title, status: "CONCLUÍDO",
+                date: w.date, 
+                title: w.title, 
+                status: "CONCLUÍDO",
                 feedback: w.feedback || "Sem feedback",
                 distancia: w.stravaData ? w.stravaData.distancia : "N/A",
                 pace: w.stravaData ? w.stravaData.ritmo : "N/A"
             }));
 
-            if (cleanHistory.length === 0) throw new Error("A IA não achou treinos realizados.");
+            if (cleanHistory.length === 0) throw new Error("Nenhum treino marcado como realizado.");
 
+            // Pega os últimos 10
             const ultimos = cleanHistory.slice(-10);
             const todayStr = new Date().toLocaleDateString('pt-BR');
-            const prompt = `ATUE COMO: Treinador. HOJE: ${todayStr}. DADOS: ${JSON.stringify(ultimos)}. MISSÃO: 1. Confirme último treino. 2. Analise consistência. 3. Dê 3 dicas para semana.`;
+            const prompt = `ATUE COMO: Treinador. HOJE: ${todayStr}. DADOS: ${JSON.stringify(ultimos)}. O ÚLTIMO ITEM DA LISTA É O MAIS RECENTE. Analise o último treino feito e dê feedback sobre a consistência.`;
 
             const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${window.GEMINI_API_KEY}`, {
                 method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -304,7 +290,7 @@ const AppIA = {
         } catch(e) { alert(e.message); } finally { btn.disabled = false; loading.classList.add('hidden'); }
     },
 
-    // --- 7. CÉREBRO IA: GERAÇÃO ---
+    // --- 8. GERAÇÃO DE PLANILHA ---
     generatePlanWithAI: async () => {
         const btn = document.getElementById('btn-generate-plan');
         const loading = document.getElementById('ia-loading');
@@ -315,6 +301,7 @@ const AppIA = {
             const snap = await AppIA.db.ref(`data/${AppIA.user.uid}/workouts`).once('value');
             let history = [];
             if(snap.exists()) snap.forEach(c => history.push(c.val()));
+            
             history.sort((a, b) => AppIA.parseDateScore(a.date) - AppIA.parseDateScore(b.date));
             
             const recent = history.slice(-15).map(w => ({
@@ -322,7 +309,7 @@ const AppIA = {
                 distancia: w.stravaData ? w.stravaData.distancia : "N/A"
             }));
             const todayStr = new Date().toISOString().split('T')[0];
-            const prompt = `ATUE COMO: Treinador. HOJE: ${todayStr}. HISTÓRICO: ${JSON.stringify(recent)}. TAREFA: 3 treinos futuros. SAÍDA JSON: [ { "date": "YYYY-MM-DD", "title": "...", "description": "..." } ]`;
+            const prompt = `ATUE COMO: Treinador. HOJE: ${todayStr}. HISTÓRICO: ${JSON.stringify(recent)}. Gere 3 treinos futuros. SAÍDA JSON: [ { "date": "YYYY-MM-DD", "title": "...", "description": "..." } ]`;
 
             const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${window.GEMINI_API_KEY}`, {
                 method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -342,7 +329,7 @@ const AppIA = {
         } catch (e) { alert(e.message); } finally { btn.disabled = false; loading.classList.add('hidden'); }
     },
 
-    // --- 8. FUNÇÕES GERAIS E MODAIS ---
+    // --- 9. FUNÇÕES GERAIS ---
     deleteWorkout: async (workoutId) => {
         if(confirm("Apagar treino?")) {
             try { 
@@ -368,7 +355,13 @@ const AppIA = {
             d.innerHTML = `<label style="display:block; font-weight:bold; margin-bottom:5px;">Data Realizada</label><input type="date" id="feedback-date-realized" style="width:100%; padding:8px; border:1px solid #ccc; border-radius:4px;">`;
             const s = form.querySelector('.form-group'); s.parentNode.insertBefore(d, s.nextSibling);
         }
-        document.getElementById('feedback-date-realized').value = originalDate || new Date().toISOString().split('T')[0];
+        // Correção de data no Modal também
+        let safeDate = originalDate ? originalDate.replace(/ /g, '-').replace(/\./g, '-') : new Date().toISOString().split('T')[0];
+        // Se ainda estiver em formato BR (DD/MM), tenta inverter para o input date aceitar (YYYY-MM-DD)
+        if(safeDate.match(/^\d{2}[\/-]\d{2}[\/-]\d{4}$/)) {
+            const p = safeDate.split(/[\/-]/); safeDate = `${p[2]}-${p[1]}-${p[0]}`;
+        }
+        document.getElementById('feedback-date-realized').value = safeDate;
     },
     
     closeFeedbackModal: (e) => { if(e) e.preventDefault(); document.getElementById('feedback-modal').classList.add('hidden'); },
@@ -418,7 +411,7 @@ const AppIA = {
 
     fileToBase64: (file) => new Promise((r, j) => { const reader = new FileReader(); reader.onload = () => r(reader.result.split(',')[1]); reader.onerror = j; reader.readAsDataURL(file); }),
     
-    // --- 9. STRAVA / AVULSO ---
+    // --- 10. STRAVA CONNECT ---
     checkStravaConnection: () => {
         AppIA.db.ref(`users/${AppIA.user.uid}/stravaAuth`).on('value', snapshot => {
             const btnConnect = document.getElementById('btn-connect-strava');
@@ -446,6 +439,7 @@ const AppIA = {
         } catch(e) { alert("Erro Strava."); }
     },
     
+    // Manual
     openLogActivityModal: () => document.getElementById('log-activity-modal').classList.remove('hidden'),
     closeLogActivityModal: () => document.getElementById('log-activity-modal').classList.add('hidden'),
     handleLogActivitySubmit: async (e) => {

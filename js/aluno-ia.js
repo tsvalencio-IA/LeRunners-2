@@ -1,6 +1,8 @@
 /* =================================================================== */
-/* ALUNO IA - MÓDULO V42.0 (ARQUITETURA ESPELHO)
-/* GARANTIA: A IA lê da memória visual, não do banco. Se aparece na tela, a IA vê.
+/* ALUNO IA - MÓDULO V43.0 (CORREÇÃO DE FUSO E LAYOUT)
+/* 1. DATA: Envia string pura para a IA (Evita virar dia anterior).
+/* 2. LAYOUT: Tabela de Splits alinhada com CSS fixo.
+/* 3. IA: Prompt ajustado para analisar evolução, não apenas o último.
 /* =================================================================== */
 
 const AppIA = {
@@ -8,8 +10,7 @@ const AppIA = {
     db: null,
     user: null,
     stravaData: null,
-    // NOVO: Cache de memória para garantir que a IA veja o mesmo que o usuário
-    workoutsCache: [], 
+    workoutsCache: [], // Cache espelho da tela
     modalState: { isOpen: false, currentWorkoutId: null },
 
     // --- 1. INICIALIZAÇÃO ---
@@ -25,9 +26,7 @@ const AppIA = {
             const loader = document.getElementById('loader');
             const authContainer = document.getElementById('auth-container');
             const appContainer = document.getElementById('app-container');
-            const pendingView = document.getElementById('pending-view');
-            const loginForm = document.getElementById('login-form');
-
+            
             if(loader) loader.classList.add('hidden');
 
             if (user) {
@@ -41,17 +40,12 @@ const AppIA = {
                         AppIA.checkStravaConnection();
                         AppIA.loadWorkouts(); 
                     } else {
-                        if(authContainer) authContainer.classList.remove('hidden');
-                        if(appContainer) appContainer.classList.add('hidden');
-                        if(loginForm) loginForm.classList.add('hidden');
-                        if(pendingView) pendingView.classList.remove('hidden'); 
+                        document.getElementById('pending-view').classList.remove('hidden'); 
                     }
                 });
             } else {
                 if(authContainer) authContainer.classList.remove('hidden');
                 if(appContainer) appContainer.classList.add('hidden');
-                if(pendingView) pendingView.classList.add('hidden');
-                if(loginForm) loginForm.classList.remove('hidden');
             }
         });
 
@@ -99,7 +93,7 @@ const AppIA = {
         document.getElementById('close-ia-report-modal').onclick = () => document.getElementById('ia-report-modal').classList.add('hidden');
     },
 
-    // --- 3. DATA ENGINE (ROBUSTO) ---
+    // --- 3. DATA ENGINE (CORRIGIDO PARA FUSO) ---
     getTimestamp: (dateStr) => {
         if (!dateStr) return 0;
         try {
@@ -108,16 +102,29 @@ const AppIA = {
                 const p = s.split(/[\/-]/);
                 return new Date(`${p[2]}-${p[1]}-${p[0]}`).getTime();
             }
+            // Adiciona T12:00:00 para evitar que o fuso jogue para o dia anterior
+            if (s.match(/^\d{4}-\d{2}-\d{2}$/)) {
+                return new Date(s + 'T12:00:00').getTime();
+            }
             return new Date(s).getTime();
         } catch (e) { return 0; }
     },
     
+    // Formata a data para Exibição (Visual)
     getReadableDate: (dateStr) => {
-        let ts = AppIA.getTimestamp(dateStr);
-        return ts ? new Date(ts).toLocaleDateString('pt-BR') : dateStr;
+        // Retorna a string original limpa para evitar conversão de fuso
+        // Se a string original é "2025-12-10", retorna "10/12/2025" via split string, não via Date object
+        try {
+            let s = dateStr.toString().trim().replace(/[\s\.]/g, '-');
+            if (s.match(/^\d{4}-\d{2}-\d{2}$/)) {
+                const p = s.split('-');
+                return `${p[2]}/${p[1]}/${p[0]}`;
+            }
+            return s; 
+        } catch(e) { return dateStr; }
     },
 
-    // --- 4. RENDERIZAÇÃO + CACHE (A MÁGICA ACONTECE AQUI) ---
+    // --- 4. RENDERIZAÇÃO ---
     loadWorkouts: () => {
         const list = document.getElementById('workout-list');
         if(!list) return;
@@ -126,7 +133,6 @@ const AppIA = {
         
         AppIA.db.ref(`data/${AppIA.user.uid}/workouts`).on('value', snapshot => {
             list.innerHTML = ""; 
-            // 1. Limpa o Cache da IA
             AppIA.workoutsCache = []; 
             
             if(!snapshot.exists()) { 
@@ -139,13 +145,9 @@ const AppIA = {
                 arr.push({ id: childSnapshot.key, ...childSnapshot.val() });
             });
 
-            // Ordena
             arr.sort((a,b) => AppIA.getTimestamp(a.date) - AppIA.getTimestamp(b.date));
-            
-            // 2. Popula o Cache (Cópia exata do que vai pra tela)
             AppIA.workoutsCache = arr;
 
-            // Renderiza na tela
             arr.forEach(w => {
                 const card = AppIA.createWorkoutCard(w);
                 list.prepend(card); 
@@ -163,6 +165,7 @@ const AppIA = {
             `<button class="btn-open-feedback" style="background:var(--primary-color); color:white; border:none; padding:6px 10px; border-radius:4px;"><i class='bx bx-edit'></i> Editar</button>` :
             `<button class="btn-open-feedback" style="background:var(--success-color); color:white; border:none; padding:6px 10px; border-radius:4px;"><i class='bx bx-check-circle'></i> Registrar</button>`;
 
+        // Usa a data original para exibição para não mudar o dia
         el.innerHTML = `
             <div class="workout-card-header">
                 <div><strong style="font-size:1.1em;">${w.date}</strong> <span style="color:#555;">${w.title}</span></div>
@@ -186,17 +189,44 @@ const AppIA = {
         return el;
     },
 
+    // --- CORREÇÃO VISUAL DA TABELA ---
     createStravaDataDisplay: (stravaData) => {
         if (!stravaData) return '';
         let splits = '';
-        if (stravaData.splits) {
-            splits = stravaData.splits.map(s => `<tr><td>${s.km}</td><td>${s.pace}</td></tr>`).join('');
-            splits = `<table style="width:100%; font-size:0.8rem;">${splits}</table>`;
+        
+        // CSS INLINE PARA FORÇAR ALINHAMENTO PERFEITO
+        if (stravaData.splits && Array.isArray(stravaData.splits)) {
+            let rows = stravaData.splits.map(s => `
+                <tr style="border-bottom: 1px solid #eee;">
+                    <td style="padding:4px; width:30%;">Km ${s.km}</td>
+                    <td style="padding:4px; width:30%; font-weight:bold; text-align:center;">${s.pace}</td>
+                    <td style="padding:4px; width:40%; text-align:right; color:#777; font-size:0.9em;">(${s.ele}m)</td>
+                </tr>`).join('');
+            
+            splits = `
+                <div style="margin-top:15px; padding-top:10px; border-top:1px dashed #ccc;">
+                    <strong style="display:block; margin-bottom:5px; font-size:0.85rem; color:#555;">🏁 Parciais:</strong>
+                    <table style="width:100%; border-collapse:collapse; font-size:0.9rem;">
+                        ${rows}
+                    </table>
+                </div>`;
         }
-        return `<fieldset style="background:#fff5f0; border:1px solid #fc4c02; padding:10px; margin-top:10px;"><legend style="color:#fc4c02; font-weight:bold;"><img src="img/strava.png" height="20"> Strava</legend><div>Dist: ${stravaData.distancia} | Pace: ${stravaData.ritmo}</div>${splits}</fieldset>`;
+        
+        return `
+            <fieldset class="strava-data-display" style="border:1px solid #fc4c02; background:#fff5f0; padding:10px; border-radius:5px; margin-top:10px;">
+                <legend style="color:#fc4c02; font-weight:bold; font-size:0.9rem;">
+                    <img src="img/strava.png" alt="Strava" style="height:20px; vertical-align:middle; margin-right:5px;">Dados
+                </legend>
+                <div style="font-family:monospace; font-weight:bold; font-size:1rem; color:#333; margin-bottom:5px;">
+                    Dist: ${stravaData.distancia} | Tempo: ${stravaData.tempo} | Pace: ${stravaData.ritmo}
+                </div>
+                ${stravaData.mapLink ? `<a href="${stravaData.mapLink}" target="_blank" style="font-size:0.85rem; color:#fc4c02; text-decoration:underline;">🗺️ Ver no Strava</a>` : ''}
+                ${splits}
+            </fieldset>
+        `;
     },
 
-    // --- 5. CÉREBRO IA: ANÁLISE (LÊ DO CACHE, NÃO DO BANCO) ---
+    // --- 5. CÉREBRO IA: CORREÇÃO DE DATA E COMANDO ---
     analyzeProgressWithAI: async () => {
         const btn = document.getElementById('btn-analyze-progress');
         const loading = document.getElementById('ia-loading');
@@ -204,37 +234,45 @@ const AppIA = {
         btn.disabled = true; loading.classList.remove('hidden');
 
         try {
-            // AQUI É A MUDANÇA: Usamos o Cache que já está carregado na tela
-            // Se aparece na tela, está no workoutsCache.
             let history = AppIA.workoutsCache;
+            if (!history || history.length === 0) throw new Error("A lista de treinos parece vazia.");
 
-            if (!history || history.length === 0) throw new Error("A lista de treinos parece vazia na tela.");
-
-            // Ordena (Garante Antigo -> Novo)
             history.sort((a,b) => AppIA.getTimestamp(a.date) - AppIA.getTimestamp(b.date));
 
             // Pega os últimos 15
             const lastWorkouts = history.slice(-15).map(w => {
                 let status = (w.status || '').toLowerCase();
                 let isDone = status.includes('realizado') || status.includes('concluido');
+                
+                // DATA PURA: Envia a String exata ("2025-12-10") sem conversão de fuso
+                // Isso impede a IA de calcular fuso e voltar um dia
+                let rawDate = w.date.toString().replace(/ /g, '-').replace(/\./g, '-');
+                if(rawDate.match(/^\d{2}[\/-]\d{2}[\/-]\d{4}$/)) { // Se tiver BR, inverte para ISO (padrão mundial)
+                    const p = rawDate.split(/[\/-]/); rawDate = `${p[2]}-${p[1]}-${p[0]}`;
+                }
+
                 return {
-                    data: AppIA.getReadableDate(w.date),
+                    data: rawDate, // DATA CORRIGIDA
                     treino: w.title,
-                    isDone: isDone,
-                    feedback: w.feedback || "",
-                    strava: w.stravaData ? w.stravaData.distancia : "N/A"
+                    status: isDone ? "REALIZADO" : "PENDENTE",
+                    distancia: w.stravaData ? w.stravaData.distancia : "N/A",
+                    pace: w.stravaData ? w.stravaData.ritmo : "N/A",
+                    feedback: w.feedback || ""
                 };
             });
 
-            // DEBUG: Confirme que 10/12 aparece aqui
-            const debugText = lastWorkouts.map(w => `[${w.data}] ${w.treino} (${w.isDone?'FEITO':'PENDENTE'})`).join('\n');
-            alert(`🔍 IA VAI LER DA TELA:\n\n${debugText}`);
-
-            const todayStr = new Date().toLocaleDateString('pt-BR');
-            const prompt = `ATUE COMO: Treinador. HOJE: ${todayStr}. 
-            DADOS REAIS (Lidos da tela do aluno): ${JSON.stringify(lastWorkouts)}.
-            O ÚLTIMO DA LISTA É O MAIS RECENTE.
-            MISSÃO: Identifique o último treino FEITO e analise.`;
+            // Prompt ajustado para analisar HISTÓRICO, não só o último
+            const prompt = `
+            ATUE COMO: Treinador de Corrida.
+            
+            HISTÓRICO RECENTE (Cronológico - O último item é o mais recente):
+            ${JSON.stringify(lastWorkouts)}
+            
+            MISSÃO:
+            1. Analise o último treino REALIZADO (Confirme a data exata que está no JSON, não converta fuso).
+            2. Analise a evolução dos últimos 5 treinos realizados. O volume está subindo ou descendo?
+            3. Dê uma recomendação para a próxima semana.
+            `;
 
             const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${window.GEMINI_API_KEY}`, {
                 method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -253,10 +291,8 @@ const AppIA = {
         const loading = document.getElementById('ia-loading');
         btn.disabled = true; loading.classList.remove('hidden');
         try {
-            // Usa o cache aqui também para consistência
             let history = AppIA.workoutsCache;
             const recent = history.slice(-15).map(w => ({ date: w.date, title: w.title }));
-            
             const prompt = `ATUE COMO: Treinador. HISTÓRICO: ${JSON.stringify(recent)}. Gere 3 treinos futuros. SAÍDA JSON: [ { "date": "YYYY-MM-DD", "title": "...", "description": "..." } ]`;
 
             const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${window.GEMINI_API_KEY}`, {
@@ -299,9 +335,12 @@ const AppIA = {
             form.prepend(d); 
         }
         
-        const ts = AppIA.getTimestamp(originalDate);
-        const iso = ts ? new Date(ts).toISOString().split('T')[0] : new Date().toISOString().split('T')[0];
-        document.getElementById('feedback-date-realized').value = iso;
+        // Garante data ISO (YYYY-MM-DD) para input, sem fuso
+        let s = originalDate.toString().trim().replace(/[\s\.]/g, '-');
+        if(s.match(/^\d{2}[\/-]\d{2}[\/-]\d{4}$/)) {
+             const p = s.split(/[\/-]/); s = `${p[2]}-${p[1]}-${p[0]}`;
+        }
+        document.getElementById('feedback-date-realized').value = s;
     },
     
     closeFeedbackModal: () => document.getElementById('feedback-modal').classList.add('hidden'),

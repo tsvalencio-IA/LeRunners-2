@@ -1,6 +1,6 @@
 /* =================================================================== */
-/* ALUNO IA - MÓDULO DE CONSULTORIA ONLINE (V20.0 - SPLITS RESTORED)
-/* CONTÉM: FISIOLOGISTA, UPLOAD BLINDADO, ANALYTICS, LOGO STRAVA, SPLITS
+/* ALUNO IA - MÓDULO DE CONSULTORIA ONLINE (V22.0 - ORDER FIX)
+/* CORREÇÃO: Força ordenação por data no cliente para IA ler Dezembro
 /* =================================================================== */
 
 const AppIA = {
@@ -112,7 +112,7 @@ const AppIA = {
         if(closeReport) closeReport.onclick = () => document.getElementById('ia-report-modal').classList.add('hidden');
     },
 
-    // --- FUNÇÃO EXCLUIR TREINO ---
+    // --- FUNÇÃO EXCLUIR TREINO (V20) ---
     deleteWorkout: async (workoutId) => {
         if(confirm("Tem certeza que deseja excluir este treino da sua planilha?")) {
             try {
@@ -123,7 +123,7 @@ const AppIA = {
         }
     },
 
-    // --- ATIVIDADE AVULSA ---
+    // --- ATIVIDADE AVULSA (V20) ---
     openLogActivityModal: () => {
         document.getElementById('log-activity-form').reset();
         document.getElementById('log-date').value = new Date().toISOString().split('T')[0];
@@ -154,7 +154,7 @@ const AppIA = {
         } catch(err) { alert("Erro: " + err.message); } finally { btn.disabled = false; }
     },
 
-    // --- FEEDBACK COM DATA FLEXÍVEL ---
+    // --- FEEDBACK COM DATA FLEXÍVEL (V20) ---
     openFeedbackModal: (workoutId, title, originalDate) => {
         AppIA.modalState.currentWorkoutId = workoutId;
         document.getElementById('feedback-modal-title').textContent = `Registro: ${title}`;
@@ -312,7 +312,7 @@ const AppIA = {
         btn.innerHTML = "<i class='bx bx-refresh'></i> Sincronizar Agora";
     },
 
-    // --- RENDERIZAÇÃO (COM SPLITS + DELETE + AÇÕES) ---
+    // --- RENDERIZAÇÃO (V20 - COM SPLITS E DELETE) ---
     loadWorkouts: () => {
         AppIA.db.ref(`data/${AppIA.user.uid}/workouts`).orderByChild('date').on('value', snapshot => {
             const list = document.getElementById('workout-list');
@@ -380,26 +380,19 @@ const AppIA = {
         });
     },
 
-    // --- CORREÇÃO V20.0: EXIBIÇÃO DE SPLITS (KM A KM) ---
+    // --- CORREÇÃO V20 (SPLITS + LOGO) ---
     createStravaDataDisplay: (stravaData) => {
         if (!stravaData) return '';
-        
         let mapLinkHtml = '';
         if (stravaData.mapLink) {
             mapLinkHtml = `<p style="margin-top:5px;"><a href="${stravaData.mapLink}" target="_blank" style="color: #fc4c02; font-weight: bold; text-decoration: none;">🗺️ Ver no Strava</a></p>`;
         }
-
-        // LÓGICA DE SPLITS RESTAURADA
         let splitsHtml = '';
         if (stravaData.splits && Array.isArray(stravaData.splits) && stravaData.splits.length > 0) {
-            splitsHtml = `<div style="margin-top:10px; padding-top:5px; border-top:1px dashed #ccc; font-size:0.85rem; color:#555;">
-                <strong>Parciais:</strong><br>`;
-            stravaData.splits.forEach(s => {
-                splitsHtml += `Km ${s.km}: ${s.pace} <span style="font-size:0.8em; color:#999;">(${s.ele}m)</span><br>`;
-            });
+            splitsHtml = `<div style="margin-top:10px; padding-top:5px; border-top:1px dashed #ccc; font-size:0.85rem; color:#555;"><strong>Parciais:</strong><br>`;
+            stravaData.splits.forEach(s => { splitsHtml += `Km ${s.km}: ${s.pace} <span style="font-size:0.8em; color:#999;">(${s.ele}m)</span><br>`; });
             splitsHtml += `</div>`;
         }
-
         return `
             <fieldset class="strava-data-display" style="border: 1px solid #fc4c02; background: #fff5f0; padding: 10px; border-radius: 5px; margin-top: 10px;">
                 <legend style="color: #fc4c02; font-weight: bold; font-size: 0.9rem;">
@@ -415,7 +408,7 @@ const AppIA = {
         `;
     },
 
-    // --- CÉREBRO IA 1: GERAÇÃO DE TREINOS (V14 RESTAURADA) ---
+    // --- CÉREBRO IA 1: GERAÇÃO (V21 - CORREÇÃO DE ORDENAÇÃO) ---
     generatePlanWithAI: async () => {
         const btn = document.getElementById('btn-generate-plan');
         const loading = document.getElementById('ia-loading');
@@ -424,32 +417,38 @@ const AppIA = {
         loading.classList.remove('hidden');
 
         try {
-            const snap = await AppIA.db.ref(`data/${AppIA.user.uid}/workouts`).orderByChild('date').limitToLast(20).once('value');
+            // CORREÇÃO CRÍTICA: LÊ TUDO E ORDENA NO CLIENTE
+            const snap = await AppIA.db.ref(`data/${AppIA.user.uid}/workouts`).once('value');
+            
             let history = [];
-            if(snap.exists()) snap.forEach(c => history.push(c.val()));
+            if(snap.exists()) {
+                snap.forEach(c => history.push(c.val()));
+            }
+            
+            // ORDENAÇÃO MANUAL POR DATA
+            history.sort((a, b) => new Date(a.date) - new Date(b.date));
+            const recentHistory = history.slice(-15);
             
             const tomorrow = new Date();
             tomorrow.setDate(tomorrow.getDate() + 1);
             const dateStr = tomorrow.toISOString().split('T')[0];
-            let prompt = "";
+            const todayStr = new Date().toISOString().split('T')[0];
 
-            if (history.length === 0) {
+            let prompt = "";
+            if (recentHistory.length === 0) {
                 prompt = `ATUE COMO: Fisiologista Sênior. OBJETIVO: Criar Teste de Nivelamento para ${dateStr}. SAÍDA: JSON Array com 1 treino.`;
             } else {
                 prompt = `
                 ATUE COMO: Fisiologista Sênior e Treinador de Elite (Nível Olímpico).
-                CONTEXTO: Você é um sistema inteligente (tipo Garmin Coach) que adapta o treino baseando-se na resposta biológica do atleta.
+                CONTEXTO: Hoje é ${todayStr}. Você é um sistema inteligente (tipo Garmin Coach).
                 HISTÓRICO RECENTE DO ATLETA (JSON):
-                ${JSON.stringify(history)}
+                ${JSON.stringify(recentHistory)}
                 SUA MISSÃO (MICRO-CICLO SEMANAL):
-                1. ANÁLISE DE CARGA: Verifique a Carga Aguda vs Crônica. Se houver relatos de dor/cansaço nos feedbacks, prescreva semana regenerativa.
-                2. SOBRECARGA PROGRESSIVA: Se o atleta estiver bem, aumente o volume em no máximo 10%.
-                3. DISTRIBUIÇÃO TEMPORAL (CRÍTICO):
-                   - O objetivo é gerar 3 a 4 treinos para os PRÓXIMOS 7 DIAS.
-                   - OBRIGATÓRIO: Intercale dias de descanso (OFF). Não agende 4 dias seguidos de corrida.
-                SAÍDA: Gere a planilha a partir de ${dateStr}.
-                FORMATO JSON OBRIGATÓRIO (Array):
-                [ { "date": "YYYY-MM-DD", "title": "...", "description": "...", "structure": { "tipo": "Qualidade", "distancia": "X km" } } ]
+                1. ANÁLISE DE CARGA: Verifique a Carga Aguda vs Crônica dos últimos treinos reais.
+                2. DISTRIBUIÇÃO TEMPORAL: Gere 3 a 4 treinos para os PRÓXIMOS 7 DIAS a partir de ${dateStr}.
+                3. OBRIGATÓRIO: Intercale dias de descanso (OFF).
+                SAÍDA: JSON Array.
+                FORMATO: [ { "date": "YYYY-MM-DD", "title": "...", "description": "...", "structure": { "tipo": "Qualidade", "distancia": "X km" } } ]
                 IMPORTANTE: Responda APENAS o JSON.
                 `;
             }
@@ -459,7 +458,7 @@ const AppIA = {
                 body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
             });
 
-            if(!r.ok) throw new Error("Erro na API");
+            if(!r.ok) throw new Error("Erro na API do Google");
             const json = await r.json();
             const textResponse = json.candidates[0].content.parts[0].text;
             let cleanJson = textResponse.replace(/```json/g, '').replace(/```/g, '').trim();
@@ -476,14 +475,14 @@ const AppIA = {
                 };
             });
             await AppIA.db.ref().update(updates);
-            if (history.length > 0) alert("✅ Planilha gerada com sucesso! Treinos distribuídos na semana.");
+            if (recentHistory.length > 0) alert("✅ Planilha gerada com sucesso! Treinos distribuídos na semana.");
             else alert("✅ Protocolo de Teste gerado!");
 
         } catch (e) { alert("Erro na IA: " + e.message); } 
         finally { btn.disabled = false; loading.classList.add('hidden'); }
     },
 
-    // --- CÉREBRO IA 2: ANÁLISE DE PROGRESSO ---
+    // --- CÉREBRO IA 2: ANÁLISE DE PROGRESSO (V21 - CORREÇÃO DE ORDENAÇÃO) ---
     analyzeProgressWithAI: async () => {
         const btn = document.getElementById('btn-analyze-progress');
         const loading = document.getElementById('ia-loading');
@@ -495,17 +494,24 @@ const AppIA = {
         loading.classList.remove('hidden');
 
         try {
-            const snap = await AppIA.db.ref(`data/${AppIA.user.uid}/workouts`).orderByChild('date').limitToLast(15).once('value');
+            // CORREÇÃO CRÍTICA: LÊ TUDO E ORDENA NO CLIENTE
+            const snap = await AppIA.db.ref(`data/${AppIA.user.uid}/workouts`).once('value');
             if(!snap.exists()) throw new Error("Você precisa de pelo menos 1 treino realizado para analisar.");
             
             let history = [];
             snap.forEach(c => history.push(c.val()));
+            
+            // ORDENAÇÃO E CORTE MANUAL
+            history.sort((a, b) => new Date(a.date) - new Date(b.date));
+            const recentHistory = history.slice(-15);
+            const todayStr = new Date().toISOString().split('T')[0];
 
             const prompt = `
             ATUE COMO: Seu Treinador Pessoal Sênior.
+            HOJE É: ${todayStr}.
             FALE DIRETAMENTE COM O ATLETA (Use "Você").
             DADOS DO ATLETA (Últimos treinos):
-            ${JSON.stringify(history)}
+            ${JSON.stringify(recentHistory)}
             TAREFA: Avaliar o progresso recente.
             1. Analise o Volume e Constância (Ele treinou o que foi pedido?).
             2. Analise a Intensidade e Feedback (Ele sentiu dor? Foi fácil?).

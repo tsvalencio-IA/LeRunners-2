@@ -1,5 +1,6 @@
 /* =================================================================== */
-/* PAINEL DA NUTRICIONISTA CLÍNICA E ESPORTIVA - V2.0 PRONTUÁRIO EHR
+/* PAINEL DA NUTRICIONISTA CLÍNICA E ESPORTIVA - V2.1 PRONTUÁRIO EHR
+/* BLINDAGEM ANTI-CRASH (DEFENSIVE PROGRAMMING)
 /* ARQUIVO COMPLETO, DEFINITIVO E SEM ABREVIAÇÕES (Diretiva *177)
 /* =================================================================== */
 
@@ -44,17 +45,22 @@ const AppNutri = {
                 AppNutri.db.ref('users/' + user.uid).once('value', snapshot => {
                     if (snapshot.exists()) {
                         AppNutri.userData = snapshot.val(); 
-                        document.getElementById('user-name-display').textContent = AppNutri.userData.name;
                         
-                        authContainer.classList.add('hidden');
-                        pendingView.classList.add('hidden');
-                        appContainer.classList.remove('hidden');
+                        // Proteção contra cache Vercel
+                        const nameDisplay = document.getElementById('user-name-display');
+                        if(nameDisplay) nameDisplay.textContent = AppNutri.userData.name;
+                        
+                        if(authContainer) authContainer.classList.add('hidden');
+                        if(pendingView) pendingView.classList.add('hidden');
+                        if(appContainer) appContainer.classList.remove('hidden');
                         
                         // Definição de Role (Admin Nutri vs Paciente)
                         const email = AppNutri.userData.email.toLowerCase();
-                        AppNutri.isNutri = (email.includes('daiana') || email.includes('nutri') || AppNutri.userData.role === 'nutri');
+                        AppNutri.isNutri = (email.includes('daiane') || email.includes('nutri') || AppNutri.userData.role === 'nutri');
                         
-                        document.getElementById('user-role-display').textContent = AppNutri.isNutri ? "Nutricionista Clínica" : "Paciente / Atleta";
+                        // Proteção contra cache Vercel
+                        const roleDisplay = document.getElementById('user-role-display');
+                        if(roleDisplay) roleDisplay.textContent = AppNutri.isNutri ? "Nutricionista Clínica" : "Paciente / Atleta";
 
                         if (AppNutri.isNutri) {
                             AppNutri.initNutriView();
@@ -64,9 +70,9 @@ const AppNutri = {
                     } else {
                         AppNutri.db.ref('pendingApprovals/' + user.uid).once('value', pendSnap => {
                             if(pendSnap.exists()) {
-                                authContainer.classList.add('hidden');
-                                appContainer.classList.add('hidden');
-                                pendingView.classList.remove('hidden');
+                                if(authContainer) authContainer.classList.add('hidden');
+                                if(appContainer) appContainer.classList.add('hidden');
+                                if(pendingView) pendingView.classList.remove('hidden');
                             } else {
                                 AppNutri.auth.signOut();
                             }
@@ -74,9 +80,9 @@ const AppNutri = {
                     }
                 });
             } else {
-                authContainer.classList.remove('hidden');
-                appContainer.classList.add('hidden');
-                pendingView.classList.add('hidden');
+                if(authContainer) authContainer.classList.remove('hidden');
+                if(appContainer) appContainer.classList.add('hidden');
+                if(pendingView) pendingView.classList.add('hidden');
             }
         });
 
@@ -89,47 +95,65 @@ const AppNutri = {
         const toReg = document.getElementById('toggleToRegister');
         const toLog = document.getElementById('toggleToLogin');
         
-        if(toReg) toReg.onclick = (e) => { e.preventDefault(); document.getElementById('login-form').classList.add('hidden'); document.getElementById('register-form').classList.remove('hidden'); };
-        if(toLog) toLog.onclick = (e) => { e.preventDefault(); document.getElementById('register-form').classList.add('hidden'); document.getElementById('login-form').classList.remove('hidden'); };
+        if(toReg) toReg.onclick = (e) => { e.preventDefault(); document.getElementById('login-form')?.classList.add('hidden'); document.getElementById('register-form')?.classList.remove('hidden'); };
+        if(toLog) toLog.onclick = (e) => { e.preventDefault(); document.getElementById('register-form')?.classList.add('hidden'); document.getElementById('login-form')?.classList.remove('hidden'); };
 
-        document.getElementById('login-form').onsubmit = (e) => {
-            e.preventDefault();
-            AppNutri.auth.signInWithEmailAndPassword(document.getElementById('loginEmail').value, document.getElementById('loginPassword').value).catch(err => alert("Erro Login: " + err.message));
-        };
+        const loginForm = document.getElementById('login-form');
+        if(loginForm) {
+            loginForm.onsubmit = (e) => {
+                e.preventDefault();
+                AppNutri.auth.signInWithEmailAndPassword(document.getElementById('loginEmail').value, document.getElementById('loginPassword').value).catch(err => alert("Erro Login: " + err.message));
+            };
+        }
 
-        document.getElementById('register-form').onsubmit = (e) => {
-            e.preventDefault();
-            const email = document.getElementById('registerEmail').value;
-            const pass = document.getElementById('registerPassword').value;
-            const name = document.getElementById('registerName').value;
-            AppNutri.auth.createUserWithEmailAndPassword(email, pass).then((cred) => {
-                AppNutri.db.ref('pendingApprovals/' + cred.user.uid).set({ name: name, email: email, requestDate: new Date().toISOString() });
-            }).catch(err => alert("Erro Registro: " + err.message));
-        };
+        const regForm = document.getElementById('register-form');
+        if(regForm) {
+            regForm.onsubmit = (e) => {
+                e.preventDefault();
+                const email = document.getElementById('registerEmail').value;
+                const pass = document.getElementById('registerPassword').value;
+                const name = document.getElementById('registerName').value;
+                AppNutri.auth.createUserWithEmailAndPassword(email, pass).then((cred) => {
+                    AppNutri.db.ref('pendingApprovals/' + cred.user.uid).set({ name: name, email: email, requestDate: new Date().toISOString() });
+                }).catch(err => alert("Erro Registro: " + err.message));
+            };
+        }
 
-        document.getElementById('btn-logout').onclick = () => AppNutri.auth.signOut();
-        document.getElementById('btn-logout-pending').onclick = () => AppNutri.auth.signOut();
+        const btnLogout = document.getElementById('btn-logout');
+        if(btnLogout) btnLogout.onclick = () => AppNutri.auth.signOut();
+        
+        const btnLogoutPend = document.getElementById('btn-logout-pending');
+        if(btnLogoutPend) btnLogoutPend.onclick = () => AppNutri.auth.signOut();
     },
 
     setupModals: () => {
-        // Modal Comida (Paciente)
-        document.getElementById('btn-log-food').onclick = () => {
-            document.getElementById('food-form').reset();
-            document.getElementById('food-ia-feedback').textContent = "";
-            document.getElementById('food-modal').classList.remove('hidden');
-        };
-        document.getElementById('close-food-modal').onclick = () => document.getElementById('food-modal').classList.add('hidden');
-        document.getElementById('food-form').onsubmit = AppNutri.handleSaveFoodLog;
+        const btnLogFood = document.getElementById('btn-log-food');
+        if(btnLogFood) {
+            btnLogFood.onclick = () => {
+                document.getElementById('food-form')?.reset();
+                const fdBack = document.getElementById('food-ia-feedback');
+                if(fdBack) fdBack.textContent = "";
+                document.getElementById('food-modal')?.classList.remove('hidden');
+            };
+        }
+        
+        const closeFoodModal = document.getElementById('close-food-modal');
+        if(closeFoodModal) closeFoodModal.onclick = () => document.getElementById('food-modal')?.classList.add('hidden');
+        
+        const foodForm = document.getElementById('food-form');
+        if(foodForm) foodForm.onsubmit = AppNutri.handleSaveFoodLog;
 
-        // Modal Relatório IA (Nutri)
-        document.getElementById('close-nutri-report-modal').onclick = () => document.getElementById('nutri-report-modal').classList.add('hidden');
-        document.getElementById('btn-nutri-ia').onclick = AppNutri.generateNutriIAReport;
+        const closeNutriReport = document.getElementById('close-nutri-report-modal');
+        if(closeNutriReport) closeNutriReport.onclick = () => document.getElementById('nutri-report-modal')?.classList.add('hidden');
+        
+        const btnNutriIa = document.getElementById('btn-nutri-ia');
+        if(btnNutriIa) btnNutriIa.onclick = AppNutri.generateNutriIAReport;
     },
 
     // --- 3. VISÃO PACIENTE ---
     initPatientView: () => {
-        document.getElementById('patient-view').classList.remove('hidden');
-        document.getElementById('nutri-view').classList.add('hidden');
+        document.getElementById('patient-view')?.classList.remove('hidden');
+        document.getElementById('nutri-view')?.classList.add('hidden');
 
         AppNutri.checkStravaConnection();
         AppNutri.loadClinicalData(AppNutri.user.uid, true);
@@ -262,7 +286,7 @@ const AppNutri = {
 
         btn.disabled = true;
         btn.textContent = "Processando IA Clínica...";
-        feedbackEl.textContent = "Lendo ingredientes e calculando macros...";
+        if(feedbackEl) feedbackEl.textContent = "Lendo ingredientes e calculando macros...";
 
         try {
             const f = new FormData(); f.append('file', file); f.append('upload_preset', window.CLOUDINARY_CONFIG.uploadPreset); f.append('folder', `lerunners/nutri/${AppNutri.user.uid}`);
@@ -300,11 +324,11 @@ const AppNutri = {
                 timestamp: new Date().toISOString(), date: new Date().toISOString().split('T')[0]
             });
 
-            document.getElementById('food-modal').classList.add('hidden');
+            document.getElementById('food-modal')?.classList.add('hidden');
             alert("Refeição auditada pela IA com sucesso!");
 
         } catch (err) {
-            feedbackEl.textContent = "Erro na IA: " + err.message;
+            if(feedbackEl) feedbackEl.textContent = "Erro na IA: " + err.message;
         } finally {
             btn.disabled = false; btn.textContent = "Analisar e Salvar";
         }
@@ -321,8 +345,10 @@ const AppNutri = {
                 const goalEl = document.getElementById('patient-goal-display');
                 if (goalEl) goalEl.textContent = data.goal || "Definição pendente.";
             } else {
-                document.getElementById('clin-goal').value = data.goal;
-                document.getElementById('clin-anamnesis').value = data.anamnesis;
+                const clinGoal = document.getElementById('clin-goal');
+                const clinAna = document.getElementById('clin-anamnesis');
+                if(clinGoal) clinGoal.value = data.goal;
+                if(clinAna) clinAna.value = data.anamnesis;
             }
         });
 
@@ -343,6 +369,7 @@ const AppNutri = {
     renderMeasurementsList: (measurements, isPatientView, uid) => {
         if (isPatientView) {
             const container = document.getElementById('patient-measurements-display');
+            if(!container) return;
             if (measurements.length === 0) {
                 container.innerHTML = `<div style="grid-column:1/-1; text-align:center; color:#888;">Nenhuma medida registrada.</div>`;
                 return;
@@ -358,6 +385,7 @@ const AppNutri = {
             `;
         } else {
             const tbody = document.getElementById('clinical-measurements-list');
+            if(!tbody) return;
             tbody.innerHTML = "";
             if (measurements.length === 0) {
                 tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; color:#888;">Sem histórico de medidas.</td></tr>`;
@@ -388,16 +416,19 @@ const AppNutri = {
             AppNutri.currentPatientData.diet = dietText;
             if (isPatientView) {
                 const container = document.getElementById('patient-diet-content');
+                if(!container) return;
                 if (dietText !== "") container.innerHTML = `<div style="white-space:pre-wrap; line-height:1.6; color:#333;">${dietText}</div>`;
                 else container.innerHTML = '<p style="color:#666; font-style:italic; margin:0;">Sem prescrição ativa.</p>';
             } else {
-                document.getElementById('clin-diet-text').value = dietText;
+                const clinDiet = document.getElementById('clin-diet-text');
+                if(clinDiet) clinDiet.value = dietText;
             }
         });
     },
 
     loadPatientFoodLogs: (uid, isPatientView) => {
         const listEl = document.getElementById(isPatientView ? 'patient-food-list' : 'nutri-logs-content');
+        if(!listEl) return;
         
         AppNutri.db.ref(`nutriData/${uid}/logs`).on('value', snapshot => {
             AppNutri.currentPatientData.logs = [];
@@ -459,6 +490,8 @@ const AppNutri = {
 
     loadPatientWorkoutsStrava: (uid) => {
         const listEl = document.getElementById('nutri-strava-content');
+        if(!listEl) return;
+
         AppNutri.db.ref(`data/${uid}/workouts`).on('value', snapshot => {
             AppNutri.currentPatientData.workouts = [];
             listEl.innerHTML = "";
@@ -492,20 +525,23 @@ const AppNutri = {
 
     // --- 7. VISÃO NUTRICIONISTA (DASHBOARD) ---
     initNutriView: () => {
-        document.getElementById('nutri-view').classList.remove('hidden');
-        document.getElementById('patient-view').classList.add('hidden');
+        document.getElementById('nutri-view')?.classList.remove('hidden');
+        document.getElementById('patient-view')?.classList.add('hidden');
         
         AppNutri.loadAllPatients();
 
         // Troca de Pacientes
-        document.getElementById('nutri-patient-select').onchange = (e) => {
-            const uid = e.target.value;
-            if (uid) AppNutri.selectPatient(uid);
-            else {
-                document.getElementById('nutri-patient-dashboard').classList.add('hidden');
-                AppNutri.selectedPatientId = null;
-            }
-        };
+        const patientSelect = document.getElementById('nutri-patient-select');
+        if(patientSelect) {
+            patientSelect.onchange = (e) => {
+                const uid = e.target.value;
+                if (uid) AppNutri.selectPatient(uid);
+                else {
+                    document.getElementById('nutri-patient-dashboard')?.classList.add('hidden');
+                    AppNutri.selectedPatientId = null;
+                }
+            };
+        }
 
         // Lógica das Abas Clínicas
         const tabs = [
@@ -516,67 +552,90 @@ const AppNutri = {
         ];
 
         tabs.forEach(t => {
-            document.getElementById(t.btn).onclick = () => {
-                tabs.forEach(x => {
-                    document.getElementById(x.btn).classList.remove('active');
-                    document.getElementById(x.content).classList.add('hidden');
-                });
-                document.getElementById(t.btn).classList.add('active');
-                document.getElementById(t.content).classList.remove('hidden');
-            };
+            const btnEl = document.getElementById(t.btn);
+            if(btnEl) {
+                btnEl.onclick = () => {
+                    tabs.forEach(x => {
+                        document.getElementById(x.btn)?.classList.remove('active');
+                        document.getElementById(x.content)?.classList.add('hidden');
+                    });
+                    document.getElementById(t.btn)?.classList.add('active');
+                    document.getElementById(t.content)?.classList.remove('hidden');
+                };
+            }
         });
 
         // Eventos de Salvamento Clínico
-        document.getElementById('btn-save-clinical').onclick = async () => {
-            if(!AppNutri.selectedPatientId) return;
-            const btn = document.getElementById('btn-save-clinical'); btn.disabled = true; btn.innerHTML = "Salvando...";
-            const goal = document.getElementById('clin-goal').value;
-            const anamnesis = document.getElementById('clin-anamnesis').value;
-            try {
-                await AppNutri.db.ref(`nutriData/${AppNutri.selectedPatientId}/clinical`).set({ goal, anamnesis });
-                alert("Resumo clínico atualizado.");
-            } catch(e){ alert(e.message); } finally { btn.disabled = false; btn.innerHTML = "<i class='bx bx-save'></i> Salvar Dados Clínicos"; }
-        };
+        const btnSaveClinical = document.getElementById('btn-save-clinical');
+        if(btnSaveClinical) {
+            btnSaveClinical.onclick = async () => {
+                if(!AppNutri.selectedPatientId) return;
+                const btn = document.getElementById('btn-save-clinical'); btn.disabled = true; btn.innerHTML = "Salvando...";
+                const goal = document.getElementById('clin-goal').value;
+                const anamnesis = document.getElementById('clin-anamnesis').value;
+                try {
+                    await AppNutri.db.ref(`nutriData/${AppNutri.selectedPatientId}/clinical`).set({ goal, anamnesis });
+                    alert("Resumo clínico atualizado.");
+                } catch(e){ alert(e.message); } finally { btn.disabled = false; btn.innerHTML = "<i class='bx bx-save'></i> Salvar Dados Clínicos"; }
+            };
+        }
 
         // Eventos de Nova Avaliação (Medidas)
-        document.getElementById('btn-add-measurement').onclick = () => {
-            document.getElementById('form-measurement').classList.remove('hidden');
-            document.getElementById('med-date').value = new Date().toISOString().split('T')[0];
-        };
-        document.getElementById('btn-cancel-measurement').onclick = () => document.getElementById('form-measurement').classList.add('hidden');
-        
-        document.getElementById('btn-save-measurement').onclick = async () => {
-            if(!AppNutri.selectedPatientId) return;
-            const date = document.getElementById('med-date').value;
-            if(!date) return alert("Data obrigatória.");
-            const payload = {
-                date: date,
-                weight: document.getElementById('med-weight').value,
-                bf: document.getElementById('med-bf').value,
-                waist: document.getElementById('med-waist').value,
-                abdomen: document.getElementById('med-abdomen').value,
-                timestamp: new Date().toISOString()
+        const btnAddMeasurement = document.getElementById('btn-add-measurement');
+        if(btnAddMeasurement) {
+            btnAddMeasurement.onclick = () => {
+                document.getElementById('form-measurement')?.classList.remove('hidden');
+                const medDate = document.getElementById('med-date');
+                if(medDate) medDate.value = new Date().toISOString().split('T')[0];
             };
-            await AppNutri.db.ref(`nutriData/${AppNutri.selectedPatientId}/measurements`).push(payload);
-            document.getElementById('form-measurement').classList.add('hidden');
-            // Limpa form
-            ['med-weight','med-bf','med-waist','med-abdomen'].forEach(id => document.getElementById(id).value = '');
-        };
+        }
+        
+        const btnCancelMeasurement = document.getElementById('btn-cancel-measurement');
+        if(btnCancelMeasurement) btnCancelMeasurement.onclick = () => document.getElementById('form-measurement')?.classList.add('hidden');
+        
+        const btnSaveMeasurement = document.getElementById('btn-save-measurement');
+        if(btnSaveMeasurement) {
+            btnSaveMeasurement.onclick = async () => {
+                if(!AppNutri.selectedPatientId) return;
+                const date = document.getElementById('med-date').value;
+                if(!date) return alert("Data obrigatória.");
+                const payload = {
+                    date: date,
+                    weight: document.getElementById('med-weight').value,
+                    bf: document.getElementById('med-bf').value,
+                    waist: document.getElementById('med-waist').value,
+                    abdomen: document.getElementById('med-abdomen').value,
+                    timestamp: new Date().toISOString()
+                };
+                await AppNutri.db.ref(`nutriData/${AppNutri.selectedPatientId}/measurements`).push(payload);
+                document.getElementById('form-measurement')?.classList.add('hidden');
+                // Limpa form
+                ['med-weight','med-bf','med-waist','med-abdomen'].forEach(id => {
+                    const el = document.getElementById(id);
+                    if(el) el.value = '';
+                });
+            };
+        }
 
         // Evento de Dieta
-        document.getElementById('btn-save-diet').onclick = async () => {
-            if(!AppNutri.selectedPatientId) return;
-            const btn = document.getElementById('btn-save-diet'); btn.disabled = true; btn.innerHTML = "Salvando...";
-            const content = document.getElementById('clin-diet-text').value;
-            try {
-                await AppNutri.db.ref(`nutriData/${AppNutri.selectedPatientId}/diet`).set(content);
-                alert("Dieta enviada ao App do Paciente!");
-            } catch(e){ alert(e.message); } finally { btn.disabled = false; btn.innerHTML = "<i class='bx bx-check-double'></i> Atualizar Dieta no App do Paciente"; }
-        };
+        const btnSaveDiet = document.getElementById('btn-save-diet');
+        if(btnSaveDiet) {
+            btnSaveDiet.onclick = async () => {
+                if(!AppNutri.selectedPatientId) return;
+                const btn = document.getElementById('btn-save-diet'); btn.disabled = true; btn.innerHTML = "Salvando...";
+                const content = document.getElementById('clin-diet-text').value;
+                try {
+                    await AppNutri.db.ref(`nutriData/${AppNutri.selectedPatientId}/diet`).set(content);
+                    alert("Dieta enviada ao App do Paciente!");
+                } catch(e){ alert(e.message); } finally { btn.disabled = false; btn.innerHTML = "<i class='bx bx-check-double'></i> Atualizar Dieta no App do Paciente"; }
+            };
+        }
     },
 
     loadAllPatients: () => {
         const select = document.getElementById('nutri-patient-select');
+        if(!select) return;
+
         AppNutri.db.ref('users').on('value', snapshot => {
             AppNutri.patients = snapshot.val() || {};
             select.innerHTML = "<option value=''>-- Acessar Prontuário de... --</option>";
@@ -592,8 +651,9 @@ const AppNutri = {
 
     selectPatient: (uid) => {
         AppNutri.selectedPatientId = uid;
-        document.getElementById('nutri-patient-dashboard').classList.remove('hidden');
-        document.getElementById('clinical-patient-name').textContent = AppNutri.patients[uid].name;
+        document.getElementById('nutri-patient-dashboard')?.classList.remove('hidden');
+        const clinName = document.getElementById('clinical-patient-name');
+        if(clinName) clinName.textContent = AppNutri.patients[uid].name;
         
         // Abastece o Prontuário
         AppNutri.loadClinicalData(uid, false);
@@ -608,7 +668,8 @@ const AppNutri = {
 
         const btn = document.getElementById('btn-nutri-ia');
         const loading = document.getElementById('nutri-ia-loading');
-        btn.disabled = true; loading.classList.remove('hidden');
+        if(btn) btn.disabled = true; 
+        if(loading) loading.classList.remove('hidden');
 
         try {
             const pacName = AppNutri.patients[AppNutri.selectedPatientId].name;
@@ -661,13 +722,15 @@ const AppNutri = {
             if(!rGemini.ok) throw new Error("Falha na API Gemini.");
             const dGemini = await rGemini.json();
             
-            document.getElementById('nutri-report-content').textContent = dGemini.candidates[0].content.parts[0].text;
-            document.getElementById('nutri-report-modal').classList.remove('hidden');
+            const reportContent = document.getElementById('nutri-report-content');
+            if(reportContent) reportContent.textContent = dGemini.candidates[0].content.parts[0].text;
+            document.getElementById('nutri-report-modal')?.classList.remove('hidden');
 
         } catch (err) {
             console.error(err); alert("Erro ao gerar diagnóstico da IA: " + err.message);
         } finally {
-            btn.disabled = false; loading.classList.add('hidden');
+            if(btn) btn.disabled = false; 
+            if(loading) loading.classList.add('hidden');
         }
     }
 };

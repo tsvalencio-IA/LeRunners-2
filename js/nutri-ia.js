@@ -1,5 +1,5 @@
 /* =================================================================== */
-/* PAINEL DA NUTRICIONISTA (DAIANA) E PACIENTES - V1.0 INTEGRADA
+/* PAINEL DA NUTRICIONISTA (DAIANE CAMPOS) E PACIENTES - V1.0 INTEGRADA
 /* ARQUIVO COMPLETO, DEFINITIVO E SEM ABREVIAÇÕES (Diretiva *177)
 /* =================================================================== */
 
@@ -48,7 +48,7 @@ const AppNutri = {
                         // VERIFICAÇÃO DE ROLE (É a Daiana/Nutri ou é Paciente?)
                         // Checagem flexível baseada no email ou numa role definida.
                         const email = AppNutri.userData.email.toLowerCase();
-                        AppNutri.isNutri = (email.includes('daiana') || AppNutri.userData.role === 'nutri');
+                        AppNutri.isNutri = (email.includes('daiane') || AppNutri.userData.role === 'nutri');
                         
                         if (AppNutri.isNutri) {
                             AppNutri.initNutriView();

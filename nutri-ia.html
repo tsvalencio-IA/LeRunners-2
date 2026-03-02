@@ -1,0 +1,277 @@
+
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>LeRunners IA - Painel de Nutrição (Daiana)</title>
+    
+    <link rel="stylesheet" href="css/styles.css">
+    <link href='https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css' rel='stylesheet'>
+    <link rel="manifest" href="manifest.json">
+
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
+
+    <style>
+        /* Estilos complementares específicos para o Painel Nutri */
+        .nutri-theme { --primary-color: #2e7d32; --secondary-color: #4caf50; }
+        .nutri-header { background: #2e7d32; color: white; padding: 15px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 5px rgba(0,0,0,0.1); position: sticky; top: 0; z-index: 100; }
+        .nutri-header h3 { margin: 0; color: white; display: flex; align-items: center; gap: 8px; }
+        
+        .food-card { background: white; border-radius: 10px; padding: 15px; margin-bottom: 15px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); border-left: 4px solid #4caf50; }
+        .food-image { width: 100%; max-height: 250px; object-fit: cover; border-radius: 8px; margin-top: 10px; }
+        .macro-badge { display: inline-block; padding: 4px 8px; border-radius: 12px; font-size: 0.8rem; font-weight: bold; margin-right: 5px; margin-top: 5px; }
+        .macro-kcal { background: #fff3e0; color: #e65100; }
+        .macro-carb { background: #e3f2fd; color: #1565c0; }
+        .macro-prot { background: #ffebee; color: #c62828; }
+        .macro-fat { background: #f1f8e9; color: #33691e; }
+
+        .diet-plan-box { background: #f9fbe7; border: 1px solid #cddc39; padding: 15px; border-radius: 8px; margin-bottom: 20px; }
+        .diet-meal { border-bottom: 1px dashed #ccc; padding: 10px 0; }
+        .diet-meal:last-child { border-bottom: none; }
+        
+        .chat-message { margin-bottom: 10px; padding: 10px; border-radius: 8px; max-width: 85%; }
+        .chat-nutri { background: #e8f5e9; margin-left: auto; border-bottom-right-radius: 0; }
+        .chat-patient { background: #f5f5f5; margin-right: auto; border-bottom-left-radius: 0; }
+    </style>
+</head>
+<body class="nutri-theme">
+
+    <!-- LOADER -->
+    <div id="loader" style="position:fixed; top:0; left:0; width:100%; height:100%; background:white; z-index:9999; display:flex; justify-content:center; align-items:center; flex-direction:column;">
+        <img src="img/logo-192.png" style="width:80px; margin-bottom:15px;">
+        <div class="spinner" style="border-top-color: #2e7d32;"></div>
+        <p style="color:#666; margin-top:10px;">Carregando Módulo Nutrição...</p>
+    </div>
+
+    <!-- TELA DE AUTENTICAÇÃO -->
+    <div id="auth-container" class="hidden" style="padding:20px; max-width:400px; margin:0 auto; margin-top:50px;">
+        <div style="text-align:center; margin-bottom:30px;">
+            <img src="img/logo-192.png" style="width:100px;">
+            <h2 style="color:#2e7d32;">LeRunners <span style="background:#4caf50; color:white; padding:2px 6px; border-radius:4px; font-size:0.6em;">Nutri</span></h2>
+            <p style="color:#666; font-size:0.9rem;">Acompanhamento Nutricional</p>
+        </div>
+
+        <form id="login-form">
+            <div class="form-group">
+                <label>Email</label>
+                <input type="email" id="loginEmail" required placeholder="seu@email.com" style="width:100%; padding:10px; border:1px solid #ccc; border-radius:5px;">
+            </div>
+            <div class="form-group">
+                <label>Senha</label>
+                <input type="password" id="loginPassword" required placeholder="******" style="width:100%; padding:10px; border:1px solid #ccc; border-radius:5px;">
+            </div>
+            <button type="submit" style="background:#2e7d32; color:white; width:100%; padding:12px; border:none; border-radius:5px; font-weight:bold; cursor:pointer;">Entrar</button>
+            <p style="text-align:center; margin-top:15px; font-size:0.9rem;">
+                Não tem conta? <a href="#" id="toggleToRegister" style="color:#2e7d32;">Cadastre-se</a>
+            </p>
+        </form>
+
+        <form id="register-form" class="hidden">
+            <div class="form-group">
+                <label>Nome Completo</label>
+                <input type="text" id="registerName" required placeholder="Seu Nome" style="width:100%; padding:10px; border:1px solid #ccc; border-radius:5px;">
+            </div>
+            <div class="form-group">
+                <label>Email</label>
+                <input type="email" id="registerEmail" required style="width:100%; padding:10px; border:1px solid #ccc; border-radius:5px;">
+            </div>
+            <div class="form-group">
+                <label>Senha</label>
+                <input type="password" id="registerPassword" required style="width:100%; padding:10px; border:1px solid #ccc; border-radius:5px;">
+            </div>
+            <button type="submit" style="background:#2e7d32; color:white; width:100%; padding:12px; border:none; border-radius:5px; font-weight:bold; cursor:pointer;">Criar Conta</button>
+            <p style="text-align:center; margin-top:15px; font-size:0.9rem;">
+                Já tem conta? <a href="#" id="toggleToLogin" style="color:#2e7d32;">Fazer Login</a>
+            </p>
+        </form>
+    </div>
+
+    <!-- PENDENTE -->
+    <div id="pending-view" class="hidden" style="text-align:center; padding:50px 20px;">
+        <i class='bx bx-time-five' style="font-size:4rem; color:#f0ad4e;"></i>
+        <h2 style="color:#333;">Aguardando Aprovação</h2>
+        <p style="color:#666;">Seu cadastro foi enviado para a administração da LeRunners.</p>
+        <button id="btn-logout-pending" style="margin-top:20px; padding:10px 20px; background:#666; color:white; border:none; border-radius:5px;">Sair</button>
+    </div>
+
+    <!-- CONTAINER PRINCIPAL -->
+    <div id="app-container" class="hidden">
+        
+        <header class="nutri-header">
+            <h3><i class='bx bx-leaf'></i> LeRunners Nutri</h3>
+            <div style="display:flex; align-items:center; gap:10px;">
+                <span id="user-name-display" style="font-size:0.9rem; font-weight:bold;">Usuário</span>
+                <button id="btn-logout" style="background:#c62828; color:white; border:none; border-radius:4px; padding:6px 10px; cursor:pointer;"><i class='bx bx-log-out'></i></button>
+            </div>
+        </header>
+
+        <main style="padding:15px; max-width:900px; margin:0 auto;">
+
+            <!-- ========================================== -->
+            <!-- VISÃO: PACIENTE (ALUNO)                    -->
+            <!-- ========================================== -->
+            <div id="patient-view" class="hidden">
+                
+                <!-- CARD STRAVA -->
+                <div class="food-card" style="border-left-color: #fc4c02; background: #fff5f0;">
+                    <h4 style="margin-top:0; color:#fc4c02;"><i class='bx bxl-strava'></i> Gasto Calórico (Strava)</h4>
+                    <p style="font-size:0.9em; color:#666;">Sincronize seus treinos para a Nutri avaliar seu gasto energético.</p>
+                    
+                    <button id="btn-connect-strava" class="hidden" style="background:#fc4c02; color:white; width:100%; padding:10px; border:none; border-radius:5px; font-weight:bold; cursor:pointer;">
+                        <i class='bx bxl-strava'></i> Conectar Strava
+                    </button>
+                    
+                    <button id="btn-sync-strava" class="hidden" style="background:#2e7d32; color:white; width:100%; padding:10px; border:none; border-radius:5px; font-weight:bold; cursor:pointer;">
+                        <i class='bx bx-refresh'></i> SINCRONIZAR TREINOS
+                    </button>
+                    <div id="status-strava" style="margin-top:10px; font-size:0.85em; color:#2e7d32; font-weight:bold;"></div>
+                </div>
+
+                <!-- CARD DIETA ATUAL -->
+                <div class="diet-plan-box">
+                    <h3 style="margin-top:0; color:#33691e;"><i class='bx bx-restaurant'></i> Minha Dieta Prescrita</h3>
+                    <div id="patient-diet-content">
+                        <p style="color:#666; font-style:italic;">Aguardando prescrição da Nutricionista Daiana...</p>
+                    </div>
+                </div>
+
+                <!-- DIÁRIO ALIMENTAR -->
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
+                    <h3 style="color:#2e7d32; margin:0;"><i class='bx bx-camera'></i> Diário Alimentar</h3>
+                    <button id="btn-log-food" style="background:#4caf50; color:white; border:none; padding:8px 12px; border-radius:5px; cursor:pointer; font-weight:bold;">
+                        <i class='bx bx-plus'></i> Postar Refeição
+                    </button>
+                </div>
+                
+                <div id="patient-food-list">
+                    <!-- Lista de refeições injetada via JS -->
+                </div>
+
+            </div>
+
+            <!-- ========================================== -->
+            <!-- VISÃO: NUTRICIONISTA (DAIANA)              -->
+            <!-- ========================================== -->
+            <div id="nutri-view" class="hidden">
+                
+                <div style="background: white; border-radius: 10px; padding: 15px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); margin-bottom: 20px;">
+                    <h3 style="margin-top:0; color:#2e7d32;"><i class='bx bx-group'></i> Selecionar Paciente</h3>
+                    <select id="nutri-patient-select" style="width:100%; padding:12px; border:1px solid #ccc; border-radius:5px; font-size:1rem; background:#f9f9f9;">
+                        <option value="">Carregando pacientes...</option>
+                    </select>
+                </div>
+
+                <!-- PAINEL DO PACIENTE SELECIONADO -->
+                <div id="nutri-patient-dashboard" class="hidden">
+                    
+                    <div style="display:flex; gap:10px; margin-bottom:20px;">
+                        <button id="btn-nutri-ia" style="flex:1; background:#000080; color:white; border:none; padding:12px; border-radius:5px; cursor:pointer; font-weight:bold; display:flex; align-items:center; justify-content:center; gap:5px;">
+                            <i class='bx bx-brain'></i> IA: Avaliar Paciente
+                        </button>
+                        <button id="btn-edit-diet" style="flex:1; background:#2e7d32; color:white; border:none; padding:12px; border-radius:5px; cursor:pointer; font-weight:bold; display:flex; align-items:center; justify-content:center; gap:5px;">
+                            <i class='bx bx-edit'></i> Prescrever Dieta
+                        </button>
+                    </div>
+
+                    <div id="nutri-ia-loading" class="hidden" style="text-align:center; padding:20px; color:#000080;">
+                        <i class='bx bx-loader-alt bx-spin' style="font-size:2rem;"></i>
+                        <p>A IA está analisando fotos, dieta e treinos do Strava...</p>
+                    </div>
+
+                    <!-- Abas internas da Nutri -->
+                    <div style="display:flex; gap:10px; margin-bottom:15px; border-bottom:2px solid #eee; padding-bottom:10px;">
+                        <button id="tab-nutri-logs" class="active" style="background:none; border:none; font-size:1rem; font-weight:bold; color:#2e7d32; cursor:pointer; border-bottom:3px solid #2e7d32;">Diário Alimentar</button>
+                        <button id="tab-nutri-strava" style="background:none; border:none; font-size:1rem; font-weight:bold; color:#666; cursor:pointer;">Treinos (Strava)</button>
+                    </div>
+
+                    <div id="nutri-logs-content">
+                        <!-- Diário do paciente injetado via JS -->
+                    </div>
+
+                    <div id="nutri-strava-content" class="hidden">
+                        <!-- Treinos do paciente injetados via JS -->
+                    </div>
+
+                </div>
+
+            </div>
+
+        </main>
+    </div>
+
+    <!-- ========================================== -->
+    <!-- MODAIS                                     -->
+    <!-- ========================================== -->
+
+    <!-- Modal: Postar Refeição (Paciente) -->
+    <div id="food-modal" class="hidden" style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.6); z-index:1000; display:flex; justify-content:center; align-items:center;">
+        <div style="background:white; width:90%; max-width:500px; padding:20px; border-radius:10px; position:relative; max-height:90vh; overflow-y:auto;">
+            <button id="close-food-modal" style="position:absolute; top:10px; right:15px; background:none; border:none; font-size:1.8rem; cursor:pointer;">&times;</button>
+            <h3 style="margin-top:0; color:#2e7d32;"><i class='bx bx-camera'></i> Registrar Refeição</h3>
+            
+            <form id="food-form">
+                <div class="form-group" style="margin-bottom:15px;">
+                    <label style="display:block; margin-bottom:5px; font-weight:bold;">Tipo de Refeição</label>
+                    <select id="food-type" required style="width:100%; padding:10px; border:1px solid #ccc; border-radius:5px;">
+                        <option value="Café da Manhã">Café da Manhã</option>
+                        <option value="Lanche da Manhã">Lanche da Manhã</option>
+                        <option value="Almoço">Almoço</option>
+                        <option value="Lanche da Tarde">Lanche da Tarde</option>
+                        <option value="Jantar">Jantar</option>
+                        <option value="Ceia">Ceia</option>
+                        <option value="Pré-Treino">Pré-Treino</option>
+                        <option value="Pós-Treino">Pós-Treino</option>
+                        <option value="Livre/Jacada">Refeição Livre (Furada)</option>
+                    </select>
+                </div>
+
+                <div class="form-group" style="margin-bottom:15px;">
+                    <label style="display:block; margin-bottom:5px; font-weight:bold;">Foto do Prato (IA Vision avalia macros)</label>
+                    <input type="file" id="food-photo" accept="image/*" required style="width:100%; padding:8px; background:#f9f9f9; border:1px solid #ccc; border-radius:5px;">
+                    <div id="food-ia-feedback" style="margin-top:10px; font-size:0.85rem; color:#e65100; font-weight:bold;"></div>
+                </div>
+
+                <div class="form-group" style="margin-bottom:15px;">
+                    <label style="display:block; margin-bottom:5px; font-weight:bold;">Descrição / Observações</label>
+                    <textarea id="food-description" rows="3" placeholder="O que você comeu? Estava com muita fome?" style="width:100%; padding:10px; border:1px solid #ccc; border-radius:5px;"></textarea>
+                </div>
+
+                <button type="submit" id="btn-save-food" style="background:#2e7d32; color:white; width:100%; padding:12px; border:none; border-radius:5px; font-weight:bold; cursor:pointer; font-size:1rem;">SALVAR REFEIÇÃO</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal: Prescrever Dieta (Nutri) -->
+    <div id="diet-modal" class="hidden" style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.6); z-index:1000; display:flex; justify-content:center; align-items:center;">
+        <div style="background:white; width:90%; max-width:600px; padding:20px; border-radius:10px; position:relative; max-height:90vh; overflow-y:auto;">
+            <button id="close-diet-modal" style="position:absolute; top:10px; right:15px; background:none; border:none; font-size:1.8rem; cursor:pointer;">&times;</button>
+            <h3 style="margin-top:0; color:#2e7d32;"><i class='bx bx-edit'></i> Prescrição Dietética</h3>
+            <p style="color:#666; font-size:0.9rem; margin-bottom:15px;">Atualize o plano alimentar do paciente selecionado.</p>
+            
+            <form id="diet-form">
+                <div class="form-group" style="margin-bottom:15px;">
+                    <label style="display:block; margin-bottom:5px; font-weight:bold;">Plano Alimentar Completo</label>
+                    <textarea id="diet-content" rows="12" placeholder="Ex: \n\nCAFÉ DA MANHÃ (07:00)\n- 2 Ovos mexidos\n- 1 Fatias de Pão Integral\n- 1 Xícara de Café sem açúcar\n\nALMOÇO (12:30)..." required style="width:100%; padding:10px; border:1px solid #ccc; border-radius:5px; font-family:monospace; white-space:pre-wrap;"></textarea>
+                </div>
+                <button type="submit" id="btn-save-diet" style="background:#2e7d32; color:white; width:100%; padding:12px; border:none; border-radius:5px; font-weight:bold; cursor:pointer; font-size:1rem;">ATUALIZAR DIETA</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal: Relatório IA Nutri -->
+    <div id="nutri-report-modal" class="hidden" style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); z-index:2000; display:flex; justify-content:center; align-items:center;">
+        <div style="background:white; width:90%; max-width:650px; max-height:85vh; overflow-y:auto; padding:25px; border-radius:10px; position:relative;">
+            <button id="close-nutri-report-modal" style="position:absolute; top:10px; right:15px; background:none; border:none; font-size:1.8rem; cursor:pointer;">&times;</button>
+            <h3 style="color:#000080; border-bottom:2px solid #eee; padding-bottom:10px; margin-top:0;"><i class='bx bx-brain'></i> Relatório de Avaliação Nutricional (IA)</h3>
+            <div id="nutri-report-content" style="white-space:pre-wrap; font-family:sans-serif; line-height:1.6; color:#333; font-size:0.95rem;"></div>
+        </div>
+    </div>
+
+    <!-- IMPORTAÇÕES GLOBAIS -->
+    <script src="js/config.js"></script>
+    <script src="js/nutri-ia.js"></script>
+
+</body>
+</html>

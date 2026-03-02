@@ -2,90 +2,398 @@
 <html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>LeRunners - Plataforma de Treinos</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>LeRunners IA - Painel Clínico Nutricional</title>
+    
     <link rel="stylesheet" href="css/styles.css">
+    <link href='https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css' rel='stylesheet'>
     <link rel="manifest" href="manifest.json">
-    <link href="https://cdn.jsdelivr.net/npm/boxicons@2.1.4/css/boxicons.min.css" rel="stylesheet">
-    <meta name="theme-color" content="#00008B">
 
-    <link rel="icon" type="image/png" sizes="192x192" href="img/logo-192.png">
-    <link rel="apple-touch-icon" href="img/logo-192.png">
-</head>
-<body class="login-page">
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
 
-    <div class="login-container">
-        <img src="img/logo-512.png" alt="Logo LeRunners" class="logo">
+    <style>
+        /* Estilos Clínicos Premium */
+        .nutri-theme { --primary-color: #1b5e20; --secondary-color: #2e7d32; background-color: #f4f7f6; font-family: 'Segoe UI', system-ui, sans-serif; }
+        .nutri-header { background: #1b5e20; color: white; padding: 15px 20px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 4px 10px rgba(0,0,0,0.1); position: sticky; top: 0; z-index: 100; }
+        .nutri-header h3 { margin: 0; color: white; display: flex; align-items: center; gap: 8px; font-weight: 600; letter-spacing: 0.5px; }
         
-        <form id="login-form">
-            <h2>Plataforma LeRunners</h2>
-            <p class="subtitle">Acesse seu painel</p>
-            <div class="form-group">
-                <label for="loginEmail">Email</label>
-                <div class="input-icon">
-                    <i class="bx bx-envelope"></i>
-                    <input type="email" id="loginEmail" required>
-                </div>
-            </div>
-            <div class="form-group">
-                <label for="loginPassword">Senha</label>
-                <div class="input-icon">
-                    <i class="bx bx-lock"></i>
-                    <input type="password" id="loginPassword" required>
-                </div>
-            </div>
-            <button type="submit" id="btn-submit-login" class="btn btn-primary">Entrar</button>
-            <p id="login-error" class="error-message"></p>
-        </form>
+        .clinical-card { background: white; border-radius: 12px; padding: 20px; margin-bottom: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); border: 1px solid #e0e0e0; }
+        .clinical-card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 1px solid #eee; padding-bottom: 10px; }
+        .clinical-card-header h4 { margin: 0; color: #1b5e20; display: flex; align-items: center; gap: 8px; font-size: 1.1rem; }
+        
+        /* Grid de Medidas */
+        .measurements-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 10px; margin-bottom: 15px; }
+        .measure-box { background: #f1f8e9; padding: 10px; border-radius: 8px; text-align: center; border: 1px solid #c5e1a5; }
+        .measure-box span { display: block; font-size: 0.8rem; color: #555; font-weight: bold; text-transform: uppercase; }
+        .measure-box strong { display: block; font-size: 1.2rem; color: #2e7d32; margin-top: 5px; }
 
-        <form id="register-form" class="hidden">
-            <h2>Criar Nova Conta</h2>
-            <p class="subtitle">Solicite acesso à plataforma</p>
-            <div class="form-group">
-                <label for="registerName">Nome Completo (para seu Coach)</label>
-                <div class="input-icon">
-                    <i class="bx bx-user"></i>
-                    <input type="text" id="registerName" required>
-                </div>
-            </div>
-            <div class="form-group">
-                <label for="registerEmail">Email</label>
-                <div class="input-icon">
-                    <i class="bx bx-envelope"></i>
-                    <input type="email" id="registerEmail" required>
-                </div>
-            </div>
-            <div class="form-group">
-                <label for="registerPassword">Senha (mínimo 6 caracteres)</label>
-                <div class="input-icon">
-                    <i class="bx bx-lock-alt"></i>
-                    <input type="password" id="registerPassword" required>
-                </div>
-            </div>
-            <button type="submit" id="btn-submit-register" class="btn">Solicitar Acesso</button>
-            <p id="register-error" class="error-message"></p>
-        </form>
+        /* Abas Profissionais */
+        .clinical-tabs { display: flex; gap: 5px; margin-bottom: 20px; border-bottom: 2px solid #e0e0e0; overflow-x: auto; white-space: nowrap; padding-bottom: 5px; }
+        .clinical-tabs button { background: none; border: none; padding: 10px 15px; font-size: 0.95rem; font-weight: 600; color: #777; cursor: pointer; border-radius: 8px 8px 0 0; transition: all 0.2s; }
+        .clinical-tabs button:hover { background: #f5f5f5; color: #333; }
+        .clinical-tabs button.active { color: #1b5e20; border-bottom: 3px solid #1b5e20; background: #e8f5e9; }
 
-        <div id="pending-view" class="hidden panel">
-            <h3><i class='bx bx-time-five'></i> Solicitação Enviada</h3>
-            <p>Sua solicitação de acesso foi enviada para o Coach. Você será notificado quando for aprovado.</p>
-            <p><strong>Email:</strong> <span id="pending-email-display"></span></p>
-            <button id="btn-logout-pending" class="btn btn-secondary">Sair</button>
-        </div>
+        /* Diário e Food */
+        .food-card { background: white; border-radius: 12px; padding: 15px; margin-bottom: 15px; box-shadow: 0 2px 6px rgba(0,0,0,0.05); border-left: 5px solid #4caf50; }
+        .food-image { width: 100%; max-height: 250px; object-fit: cover; border-radius: 8px; margin-top: 10px; }
+        .macro-badge { display: inline-block; padding: 4px 8px; border-radius: 12px; font-size: 0.8rem; font-weight: bold; margin-right: 5px; margin-top: 5px; }
+        .macro-kcal { background: #fff3e0; color: #e65100; }
+        .macro-carb { background: #e3f2fd; color: #1565c0; }
+        .macro-prot { background: #ffebee; color: #c62828; }
+        .macro-fat { background: #f1f8e9; color: #33691e; }
 
-        <p class="toggle-link">Não tem conta? <a href="#" id="toggleToRegister">Solicite seu acesso</a></p>
-        <p class="toggle-link hidden">Já tem conta? <a href="#" id="toggleToLogin">Entre</a></p>
+        /* Tabela Histórico */
+        .history-table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+        .history-table th, .history-table td { padding: 10px; text-align: left; border-bottom: 1px solid #eee; }
+        .history-table th { background: #f9f9f9; color: #555; font-weight: 600; }
+        
+        .form-control { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 6px; font-size: 0.95rem; margin-top: 5px; }
+        .btn-clin { padding: 10px 15px; border-radius: 6px; border: none; font-weight: bold; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 5px; transition: 0.2s; }
+        .btn-clin-primary { background: #2e7d32; color: white; }
+        .btn-clin-primary:hover { background: #1b5e20; }
+        .btn-clin-ai { background: #000080; color: white; }
+        .btn-clin-ai:hover { background: #00005a; }
+        .btn-clin-danger { background: #d32f2f; color: white; }
+    </style>
+</head>
+<body class="nutri-theme">
+
+    <!-- LOADER -->
+    <div id="loader" style="position:fixed; top:0; left:0; width:100%; height:100%; background:white; z-index:9999; display:flex; justify-content:center; align-items:center; flex-direction:column;">
+        <img src="img/logo-192.png" style="width:80px; margin-bottom:15px;">
+        <div class="spinner" style="border-top-color: #2e7d32;"></div>
+        <p style="color:#666; margin-top:10px; font-weight:500;">Carregando Prontuário Eletrônico...</p>
     </div>
 
-    <footer class="app-footer">
-        Desenvolvido com 🤖 por thIAguinho Soluções
-    </footer>
+    <!-- TELA DE AUTENTICAÇÃO -->
+    <div id="auth-container" class="hidden" style="padding:20px; max-width:400px; margin:0 auto; margin-top:50px;">
+        <div style="text-align:center; margin-bottom:30px; background:white; padding:30px; border-radius:15px; box-shadow:0 4px 15px rgba(0,0,0,0.05);">
+            <img src="img/logo-192.png" style="width:90px; margin-bottom:10px;">
+            <h2 style="color:#1b5e20; margin:0;">LeRunners <span style="background:#2e7d32; color:white; padding:2px 8px; border-radius:6px; font-size:0.6em; vertical-align:middle;">Nutri</span></h2>
+            <p style="color:#666; font-size:0.9rem; margin-top:5px;">Acompanhamento Clínico & Esportivo</p>
+        </div>
 
-    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+        <form id="login-form" style="background:white; padding:25px; border-radius:15px; box-shadow:0 4px 15px rgba(0,0,0,0.05);">
+            <div class="form-group" style="margin-bottom:15px;">
+                <label style="font-weight:600; color:#444; font-size:0.9rem;">Email de Acesso</label>
+                <input type="email" id="loginEmail" required class="form-control" placeholder="seu@email.com">
+            </div>
+            <div class="form-group" style="margin-bottom:20px;">
+                <label style="font-weight:600; color:#444; font-size:0.9rem;">Senha</label>
+                <input type="password" id="loginPassword" required class="form-control" placeholder="******">
+            </div>
+            <button type="submit" class="btn-clin btn-clin-primary" style="width:100%; font-size:1.05rem;">Entrar no Sistema</button>
+            <p style="text-align:center; margin-top:20px; font-size:0.9rem; color:#666;">
+                Novo por aqui? <a href="#" id="toggleToRegister" style="color:#2e7d32; font-weight:bold;">Criar Prontuário</a>
+            </p>
+        </form>
 
+        <form id="register-form" class="hidden" style="background:white; padding:25px; border-radius:15px; box-shadow:0 4px 15px rgba(0,0,0,0.05);">
+            <div class="form-group" style="margin-bottom:15px;">
+                <label style="font-weight:600; color:#444; font-size:0.9rem;">Nome Completo</label>
+                <input type="text" id="registerName" required class="form-control" placeholder="Nome Sobrenome">
+            </div>
+            <div class="form-group" style="margin-bottom:15px;">
+                <label style="font-weight:600; color:#444; font-size:0.9rem;">Email</label>
+                <input type="email" id="registerEmail" required class="form-control" placeholder="seu@email.com">
+            </div>
+            <div class="form-group" style="margin-bottom:20px;">
+                <label style="font-weight:600; color:#444; font-size:0.9rem;">Senha</label>
+                <input type="password" id="registerPassword" required class="form-control" placeholder="Mínimo 6 caracteres">
+            </div>
+            <button type="submit" class="btn-clin btn-clin-primary" style="width:100%; font-size:1.05rem;">Solicitar Acesso</button>
+            <p style="text-align:center; margin-top:20px; font-size:0.9rem; color:#666;">
+                Já possui acesso? <a href="#" id="toggleToLogin" style="color:#2e7d32; font-weight:bold;">Fazer Login</a>
+            </p>
+        </form>
+    </div>
+
+    <!-- PENDENTE -->
+    <div id="pending-view" class="hidden" style="text-align:center; padding:50px 20px; max-width:400px; margin:0 auto; margin-top:50px;">
+        <i class='bx bx-time-five' style="font-size:5rem; color:#f0ad4e;"></i>
+        <h2 style="color:#333; margin-bottom:10px;">Em Análise</h2>
+        <p style="color:#666; font-size:1.1rem;">Seu prontuário foi criado e aguarda liberação da administração clínica.</p>
+        <button id="btn-logout-pending" class="btn-clin" style="background:#555; color:white; margin-top:20px; width:100%;">Sair</button>
+    </div>
+
+    <!-- CONTAINER PRINCIPAL -->
+    <div id="app-container" class="hidden">
+        
+        <header class="nutri-header">
+            <h3><i class='bx bx-leaf'></i> <span id="header-title">Clínica LeRunners</span></h3>
+            <div style="display:flex; align-items:center; gap:15px;">
+                <div style="text-align:right;">
+                    <div id="user-name-display" style="font-size:0.95rem; font-weight:bold; line-height:1;">Usuário</div>
+                    <div id="user-role-display" style="font-size:0.75rem; color:#c8e6c9;">Perfil</div>
+                </div>
+                <button id="btn-logout" style="background:rgba(255,255,255,0.2); color:white; border:none; border-radius:8px; padding:8px 12px; cursor:pointer; transition:0.2s;"><i class='bx bx-log-out'></i></button>
+            </div>
+        </header>
+
+        <main style="padding:20px; max-width:1000px; margin:0 auto;">
+
+            <!-- ========================================== -->
+            <!-- VISÃO: PACIENTE (ALUNO)                    -->
+            <!-- ========================================== -->
+            <div id="patient-view" class="hidden">
+                
+                <!-- BOAS VINDAS E OBJETIVO -->
+                <div class="clinical-card" style="background: linear-gradient(135deg, #1b5e20 0%, #2e7d32 100%); color:white;">
+                    <h2 style="margin:0 0 5px 0; font-size:1.5rem;">Meu Acompanhamento</h2>
+                    <p style="margin:0 0 15px 0; opacity:0.9; font-size:0.95rem;">Veja seu progresso e mantenha seu diário atualizado.</p>
+                    
+                    <div style="background:rgba(255,255,255,0.1); padding:15px; border-radius:8px; border:1px solid rgba(255,255,255,0.2);">
+                        <span style="font-size:0.85rem; text-transform:uppercase; letter-spacing:1px; opacity:0.8;">Foco Principal</span>
+                        <div id="patient-goal-display" style="font-size:1.2rem; font-weight:bold; margin-top:5px;">Aguardando definição da Nutricionista...</div>
+                    </div>
+                </div>
+
+                <!-- MEDIDAS ATUAIS (VISÃO PACIENTE) -->
+                <div class="clinical-card">
+                    <div class="clinical-card-header">
+                        <h4><i class='bx bx-ruler'></i> Minhas Últimas Medidas</h4>
+                    </div>
+                    <div id="patient-measurements-display" class="measurements-grid">
+                        <div style="grid-column: 1 / -1; text-align:center; color:#888; padding:10px;">Nenhuma avaliação registrada ainda.</div>
+                    </div>
+                </div>
+
+                <!-- CARD STRAVA -->
+                <div class="clinical-card" style="border-left: 4px solid #fc4c02;">
+                    <div class="clinical-card-header">
+                        <h4 style="color:#fc4c02;"><i class='bx bxl-strava'></i> Gasto Energético (Strava)</h4>
+                    </div>
+                    <p style="font-size:0.9em; color:#666; margin-bottom:15px;">Sincronize seus treinos para a Nutricionista cruzar seu gasto com a dieta.</p>
+                    
+                    <button id="btn-connect-strava" class="btn-clin" style="background:#fc4c02; color:white; width:100%;">
+                        <i class='bx bxl-strava'></i> Conectar conta Strava
+                    </button>
+                    
+                    <button id="btn-sync-strava" class="btn-clin hidden" style="background:#e65100; color:white; width:100%;">
+                        <i class='bx bx-refresh'></i> Sincronizar Treinos Recentes
+                    </button>
+                    <div id="status-strava" style="margin-top:10px; font-size:0.85em; color:#2e7d32; font-weight:bold; text-align:center;"></div>
+                </div>
+
+                <!-- CARD DIETA ATUAL -->
+                <div class="clinical-card" style="border-left: 4px solid #1b5e20;">
+                    <div class="clinical-card-header">
+                        <h4><i class='bx bx-restaurant'></i> Plano Alimentar Prescrito</h4>
+                    </div>
+                    <div id="patient-diet-content" style="background:#f9f9f9; padding:15px; border-radius:8px; border:1px solid #eee;">
+                        <p style="color:#666; font-style:italic; margin:0;">Aguardando prescrição da Nutricionista Daiana...</p>
+                    </div>
+                </div>
+
+                <!-- DIÁRIO ALIMENTAR -->
+                <div class="clinical-card">
+                    <div class="clinical-card-header" style="border-bottom:none; margin-bottom:0;">
+                        <h4><i class='bx bx-camera'></i> Diário Alimentar Analisado (IA)</h4>
+                        <button id="btn-log-food" class="btn-clin btn-clin-primary btn-small">
+                            <i class='bx bx-plus'></i> Nova Refeição
+                        </button>
+                    </div>
+                    <p style="font-size:0.85rem; color:#888; margin-top:-5px; margin-bottom:15px;">Tire fotos dos seus pratos. Nossa IA estima os macros automaticamente.</p>
+                    
+                    <div id="patient-food-list">
+                        <!-- Lista de refeições injetada via JS -->
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- ========================================== -->
+            <!-- VISÃO: NUTRICIONISTA (DAIANA)              -->
+            <!-- ========================================== -->
+            <div id="nutri-view" class="hidden">
+                
+                <div class="clinical-card" style="background: #1b5e20; color:white;">
+                    <h3 style="margin-top:0; font-size:1.2rem; display:flex; align-items:center; gap:8px;"><i class='bx bx-group'></i> Consultório Virtual</h3>
+                    <p style="font-size:0.9rem; opacity:0.9; margin-bottom:15px;">Selecione um paciente para acessar o prontuário completo.</p>
+                    <select id="nutri-patient-select" style="width:100%; padding:12px; border:none; border-radius:8px; font-size:1rem; font-weight:bold; color:#1b5e20; box-shadow:0 2px 5px rgba(0,0,0,0.1);">
+                        <option value="">Carregando pacientes...</option>
+                    </select>
+                </div>
+
+                <!-- PAINEL DO PACIENTE SELECIONADO -->
+                <div id="nutri-patient-dashboard" class="hidden">
+                    
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
+                        <h2 id="clinical-patient-name" style="color:#1b5e20; margin:0; font-size:1.4rem;">Nome do Paciente</h2>
+                        <button id="btn-nutri-ia" class="btn-clin btn-clin-ai">
+                            <i class='bx bx-brain'></i> IA: Diagnóstico Completo
+                        </button>
+                    </div>
+
+                    <div id="nutri-ia-loading" class="hidden" style="background:#e8eaf6; border:1px solid #c8e6c9; padding:15px; border-radius:8px; text-align:center; color:#2e7d32; margin-bottom:15px; font-weight:bold;">
+                        <i class='bx bx-loader-alt bx-spin' style="font-size:1.5rem; vertical-align:middle; margin-right:5px;"></i>
+                        A IA está cruzando Objetivos, Medidas, Dieta, Fotos e Gasto Calórico (Strava)...
+                    </div>
+
+                    <!-- ABAS CLÍNICAS -->
+                    <div class="clinical-tabs">
+                        <button id="tab-clin-resumo" class="active"><i class='bx bx-clipboard'></i> Dados Clínicos & Medidas</button>
+                        <button id="tab-clin-dieta"><i class='bx bx-restaurant'></i> Plano Alimentar</button>
+                        <button id="tab-clin-diario"><i class='bx bx-camera'></i> Diário (Fotos)</button>
+                        <button id="tab-clin-strava"><i class='bx bxl-strava'></i> Treinos (Strava)</button>
+                    </div>
+
+                    <!-- CONTEÚDO: RESUMO E MEDIDAS -->
+                    <div id="content-clin-resumo" class="clinical-card">
+                        
+                        <!-- Anamnese e Objetivo -->
+                        <div style="display:grid; grid-template-columns: 1fr; gap:15px; margin-bottom:25px;">
+                            <div style="background:#f9f9f9; padding:15px; border-radius:8px; border:1px solid #eee;">
+                                <label style="font-weight:bold; color:#1b5e20; display:block; margin-bottom:5px;">Objetivo Principal do Paciente</label>
+                                <input type="text" id="clin-goal" class="form-control" placeholder="Ex: Emagrecimento, Hipertrofia, Manutenção...">
+                            </div>
+                            <div style="background:#f9f9f9; padding:15px; border-radius:8px; border:1px solid #eee;">
+                                <label style="font-weight:bold; color:#1b5e20; display:block; margin-bottom:5px;">Anamnese / Observações Clínicas</label>
+                                <textarea id="clin-anamnesis" class="form-control" rows="4" placeholder="Restrições alimentares, histórico médico, alergias, rotina de trabalho..."></textarea>
+                            </div>
+                            <div style="text-align:right;">
+                                <button id="btn-save-clinical" class="btn-clin btn-clin-primary"><i class='bx bx-save'></i> Salvar Dados Clínicos</button>
+                            </div>
+                        </div>
+
+                        <hr style="border:0; height:1px; background:#e0e0e0; margin:20px 0;">
+
+                        <!-- Avaliação Antropométrica -->
+                        <div class="clinical-card-header" style="border:none; margin-bottom:5px;">
+                            <h4><i class='bx bx-ruler'></i> Evolução Antropométrica</h4>
+                            <button id="btn-add-measurement" class="btn-clin" style="background:#f5f5f5; color:#333; border:1px solid #ccc; font-size:0.85rem;"><i class='bx bx-plus'></i> Nova Avaliação</button>
+                        </div>
+
+                        <!-- Form Nova Medida (Oculto por padrão) -->
+                        <div id="form-measurement" class="hidden" style="background:#f1f8e9; padding:15px; border-radius:8px; border:1px dashed #81c784; margin-bottom:15px;">
+                            <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap:10px;">
+                                <div><label style="font-size:0.8rem; font-weight:bold;">Data</label><input type="date" id="med-date" class="form-control" required></div>
+                                <div><label style="font-size:0.8rem; font-weight:bold;">Peso (kg)</label><input type="number" step="0.1" id="med-weight" class="form-control" placeholder="0.0"></div>
+                                <div><label style="font-size:0.8rem; font-weight:bold;">% Gordura</label><input type="number" step="0.1" id="med-bf" class="form-control" placeholder="0.0"></div>
+                                <div><label style="font-size:0.8rem; font-weight:bold;">Cintura (cm)</label><input type="number" step="0.1" id="med-waist" class="form-control" placeholder="0.0"></div>
+                                <div><label style="font-size:0.8rem; font-weight:bold;">Abdômen (cm)</label><input type="number" step="0.1" id="med-abdomen" class="form-control" placeholder="0.0"></div>
+                            </div>
+                            <div style="text-align:right; margin-top:10px;">
+                                <button id="btn-cancel-measurement" class="btn-clin" style="background:none; color:#666;">Cancelar</button>
+                                <button id="btn-save-measurement" class="btn-clin btn-clin-primary">Registrar Medida</button>
+                            </div>
+                        </div>
+
+                        <div style="overflow-x:auto;">
+                            <table class="history-table">
+                                <thead>
+                                    <tr>
+                                        <th>Data</th>
+                                        <th>Peso</th>
+                                        <th>% BF</th>
+                                        <th>Cintura</th>
+                                        <th>Abdômen</th>
+                                        <th>Ação</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="clinical-measurements-list">
+                                    <tr><td colspan="6" style="text-align:center; color:#888;">Nenhuma medida registrada.</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+
+                    </div>
+
+                    <!-- CONTEÚDO: DIETA -->
+                    <div id="content-clin-dieta" class="clinical-card hidden">
+                        <div class="clinical-card-header">
+                            <h4><i class='bx bx-edit'></i> Prescrição do Plano Alimentar</h4>
+                        </div>
+                        <p style="font-size:0.9rem; color:#666; margin-top:-5px; margin-bottom:15px;">Este texto ficará visível no aplicativo do paciente. Seja claro nas substituições.</p>
+                        <textarea id="clin-diet-text" class="form-control" rows="15" style="font-family:monospace; font-size:0.95rem; white-space:pre-wrap;" placeholder="Ex:\n\nCAFÉ DA MANHÃ (07:00)\n- 2 Ovos mexidos\n- 1 Fatia de Pão Integral\n..."></textarea>
+                        <div style="text-align:right; margin-top:15px;">
+                            <button id="btn-save-diet" class="btn-clin btn-clin-primary"><i class='bx bx-check-double'></i> Atualizar Dieta no App do Paciente</button>
+                        </div>
+                    </div>
+
+                    <!-- CONTEÚDO: DIÁRIO -->
+                    <div id="content-clin-diario" class="clinical-card hidden">
+                        <div class="clinical-card-header">
+                            <h4><i class='bx bx-camera'></i> Auditoria de Pratos (IA Vision)</h4>
+                        </div>
+                        <div id="nutri-logs-content">
+                            <!-- Diário do paciente injetado via JS -->
+                        </div>
+                    </div>
+
+                    <!-- CONTEÚDO: STRAVA -->
+                    <div id="content-clin-strava" class="clinical-card hidden">
+                        <div class="clinical-card-header">
+                            <h4 style="color:#fc4c02;"><i class='bx bxl-strava'></i> Auditoria de Gasto Energético</h4>
+                        </div>
+                        <div id="nutri-strava-content">
+                            <!-- Treinos do paciente injetados via JS -->
+                        </div>
+                    </div>
+
+                </div>
+
+            </div>
+
+        </main>
+    </div>
+
+    <!-- ========================================== -->
+    <!-- MODAIS                                     -->
+    <!-- ========================================== -->
+
+    <!-- Modal: Postar Refeição (Paciente) -->
+    <div id="food-modal" class="hidden" style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.7); z-index:1000; display:flex; justify-content:center; align-items:center;">
+        <div style="background:white; width:90%; max-width:500px; padding:25px; border-radius:12px; position:relative; max-height:90vh; overflow-y:auto;">
+            <button id="close-food-modal" style="position:absolute; top:15px; right:15px; background:none; border:none; font-size:1.8rem; color:#666; cursor:pointer;">&times;</button>
+            <h3 style="margin-top:0; color:#1b5e20; display:flex; align-items:center; gap:8px;"><i class='bx bx-camera'></i> Registrar Refeição</h3>
+            
+            <form id="food-form" style="margin-top:20px;">
+                <div class="form-group" style="margin-bottom:15px;">
+                    <label style="display:block; margin-bottom:5px; font-weight:600; color:#444;">Tipo de Refeição</label>
+                    <select id="food-type" required class="form-control">
+                        <option value="Café da Manhã">Café da Manhã</option>
+                        <option value="Lanche da Manhã">Lanche da Manhã</option>
+                        <option value="Almoço">Almoço</option>
+                        <option value="Lanche da Tarde">Lanche da Tarde</option>
+                        <option value="Jantar">Jantar</option>
+                        <option value="Ceia">Ceia</option>
+                        <option value="Pré-Treino">Pré-Treino</option>
+                        <option value="Pós-Treino">Pós-Treino</option>
+                        <option value="Livre/Jacada">Refeição Livre (Furada)</option>
+                    </select>
+                </div>
+
+                <div class="form-group" style="margin-bottom:15px;">
+                    <label style="display:block; margin-bottom:5px; font-weight:600; color:#444;">Foto do Prato (IA avalia macros)</label>
+                    <input type="file" id="food-photo" accept="image/*" required class="form-control" style="background:#f9f9f9;">
+                    <div id="food-ia-feedback" style="margin-top:10px; font-size:0.85rem; color:#e65100; font-weight:bold;"></div>
+                </div>
+
+                <div class="form-group" style="margin-bottom:20px;">
+                    <label style="display:block; margin-bottom:5px; font-weight:600; color:#444;">Descrição / Fome / Sensação</label>
+                    <textarea id="food-description" rows="3" class="form-control" placeholder="Ex: Comi tudo, estava com muita fome após o treino."></textarea>
+                </div>
+
+                <button type="submit" id="btn-save-food" class="btn-clin btn-clin-primary" style="width:100%; font-size:1.05rem;">Analisar e Salvar</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal: Relatório IA Nutri (Fisiologista Nutricional) -->
+    <div id="nutri-report-modal" class="hidden" style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); z-index:2000; display:flex; justify-content:center; align-items:center;">
+        <div style="background:white; width:90%; max-width:700px; max-height:85vh; overflow-y:auto; padding:30px; border-radius:12px; position:relative;">
+            <button id="close-nutri-report-modal" style="position:absolute; top:15px; right:20px; background:none; border:none; font-size:2rem; color:#888; cursor:pointer;">&times;</button>
+            <h3 style="color:#000080; border-bottom:2px solid #eee; padding-bottom:15px; margin-top:0; font-size:1.3rem; display:flex; align-items:center; gap:10px;"><i class='bx bx-brain'></i> Diagnóstico Clínico de IA</h3>
+            <div id="nutri-report-content" style="white-space:pre-wrap; font-family:'Segoe UI', sans-serif; line-height:1.7; color:#333; font-size:0.95rem; margin-top:15px;"></div>
+        </div>
+    </div>
+
+    <!-- IMPORTAÇÕES GLOBAIS -->
     <script src="js/config.js"></script>
-    <script src="js/app.js"></script> 
+    <script src="js/nutri-ia.js"></script>
+
 </body>
 </html>
